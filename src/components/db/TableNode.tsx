@@ -11,7 +11,7 @@ interface TableNodeData {
 export const TableNode = memo(function TableNode({
     data,
 }: NodeProps) {
-    const tableData = data as TableNodeData
+    const tableData = data as unknown as TableNodeData
 
     return (
         <div className="bg-card border-2 border-primary rounded-lg shadow-xl min-w-[220px] overflow-hidden">
