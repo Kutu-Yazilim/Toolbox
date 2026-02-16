@@ -7,6 +7,7 @@ import type {
   Bounds,
   ResizeHandle,
   ElementStyle,
+  ConnectionSide,
 } from "@/types/board"
 import {
   renderBoard,
@@ -18,6 +19,8 @@ import {
   createElement,
   getElementBounds,
   snapToGrid,
+  getConnectionPointAtMouse,
+  updateArrowConnections,
 } from "@/utils/boardEngine"
 
 interface BoardCanvasProps {
@@ -33,6 +36,7 @@ interface BoardCanvasProps {
   onCameraChange: (camera: Camera) => void
   onToolChange: (tool: Tool) => void
   onEditText: (id: string) => void
+  onCommitText: () => void
 }
 
 type InteractionState =
@@ -42,6 +46,7 @@ type InteractionState =
   | { type: "selecting"; startWorld: Point }
   | { type: "moving"; startWorld: Point; elementSnapshots: Map<string, { x: number; y: number; points: Point[] }> }
   | { type: "resizing"; handle: ResizeHandle; elementId: string; startWorld: Point; snapshot: BoardElement }
+  | { type: "connecting"; fromElementId: string; fromSide: ConnectionSide; arrow: BoardElement }
 
 export function BoardCanvas({
   elements,
@@ -56,6 +61,7 @@ export function BoardCanvas({
   onCameraChange,
   onToolChange,
   onEditText,
+  onCommitText,
 }: BoardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -63,6 +69,8 @@ export function BoardCanvas({
   const [previewElement, setPreviewElement] = useState<BoardElement | null>(null)
   const [selectionBox, setSelectionBox] = useState<Bounds | null>(null)
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
+  const [activeConnectionPoint, setActiveConnectionPoint] = useState<{ elementId: string; side: ConnectionSide } | null>(null)
   const spaceHeldRef = useRef(false)
   const interactionRef = useRef(interaction)
   interactionRef.current = interaction
@@ -105,9 +113,11 @@ export function BoardCanvas({
       gridEnabled,
       gridSize,
       selectionBox,
-      previewElement
+      previewElement,
+      hoveredElementId,
+      activeConnectionPoint
     )
-  }, [elements, camera, selectedIds, canvasSize, gridEnabled, gridSize, selectionBox, previewElement])
+  }, [elements, camera, selectedIds, canvasSize, gridEnabled, gridSize, selectionBox, previewElement, hoveredElementId, activeConnectionPoint])
 
   // ── Mouse Handlers ──────────────────────────────────────────
 
@@ -129,6 +139,9 @@ export function BoardCanvas({
       const screenX = e.clientX - rect.left
       const screenY = e.clientY - rect.top
 
+      // Commit any active text editing when clicking on canvas
+      onCommitText()
+
       // Middle mouse button or space held → pan
       if (e.button === 1 || spaceHeldRef.current || tool === "hand") {
         setInteraction({
@@ -142,6 +155,20 @@ export function BoardCanvas({
       }
 
       if (e.button !== 0) return
+
+      // ── Check if clicking a connection point (to start arrow drag) ──
+      if (tool === "select") {
+        const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera)
+        if (cp) {
+          // Start dragging an arrow from this connection point
+          const arrow = createElement("arrow", cp.point.x, cp.point.y, defaultStyle)
+          arrow.points = [{ ...cp.point }, { ...cp.point }]
+          arrow.startConnection = { elementId: cp.elementId, side: cp.side }
+          setInteraction({ type: "connecting", fromElementId: cp.elementId, fromSide: cp.side, arrow })
+          setPreviewElement(arrow)
+          return
+        }
+      }
 
       // ── Select tool ─────────────────────────────────────────
       if (tool === "select") {
@@ -164,12 +191,10 @@ export function BoardCanvas({
         }
 
         // Check if clicking on an element
-        // Iterate from top (last) to bottom (first) for z-order
         for (let i = elements.length - 1; i >= 0; i--) {
           const el = elements[i]
           if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
             if (e.shiftKey) {
-              // Toggle selection
               const newIds = selectedIds.includes(el.id)
                 ? selectedIds.filter((id) => id !== el.id)
                 : [...selectedIds, el.id]
@@ -177,7 +202,6 @@ export function BoardCanvas({
             } else if (!selectedIds.includes(el.id)) {
               onSelectionChange([el.id])
             }
-            // Start moving
             const ids = selectedIds.includes(el.id) ? selectedIds : [el.id]
             if (!selectedIds.includes(el.id)) {
               onSelectionChange([el.id])
@@ -209,7 +233,6 @@ export function BoardCanvas({
         onElementsChange([...elements, newEl])
         onSelectionChange([newEl.id])
         onToolChange("select")
-        // Trigger text editing
         setTimeout(() => onEditText(newEl.id), 50)
         return
       }
@@ -226,6 +249,21 @@ export function BoardCanvas({
         return
       }
 
+      // ── Arrow tool - check for connection point at start ────
+      if (tool === "arrow") {
+        const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera)
+        const arrow = createElement("arrow", world.x, world.y, defaultStyle)
+        if (cp) {
+          arrow.points = [{ ...cp.point }, { ...cp.point }]
+          arrow.startConnection = { elementId: cp.elementId, side: cp.side }
+        } else {
+          arrow.points = [{ x: world.x, y: world.y }, { x: world.x, y: world.y }]
+        }
+        setInteraction({ type: "drawing", element: arrow })
+        setPreviewElement(arrow)
+        return
+      }
+
       // ── Shape / Line / Draw tools ───────────────────────────
       const drawingElement = createElement(
         tool as BoardElement["type"],
@@ -233,7 +271,7 @@ export function BoardCanvas({
         world.y,
         defaultStyle
       )
-      if (tool === "line" || tool === "arrow") {
+      if (tool === "line") {
         drawingElement.points = [{ x: world.x, y: world.y }, { x: world.x, y: world.y }]
       } else if (tool === "draw") {
         drawingElement.points = [{ x: world.x, y: world.y }]
@@ -241,7 +279,7 @@ export function BoardCanvas({
       setInteraction({ type: "drawing", element: drawingElement })
       setPreviewElement(drawingElement)
     },
-    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText]
+    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText, onCommitText]
   )
 
   const handleMouseMove = useCallback(
@@ -251,6 +289,29 @@ export function BoardCanvas({
       const screenX = e.clientX - rect.left
       const screenY = e.clientY - rect.top
       const current = interactionRef.current
+
+      // Track hovered element for connection points (only during idle or select tool)
+      if (current.type === "idle" && (tool === "select" || tool === "arrow")) {
+        let foundHover: string | null = null
+        for (let i = elements.length - 1; i >= 0; i--) {
+          const el = elements[i]
+          if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text") continue
+          const bounds = getElementBounds(el)
+          const margin = 20 / camera.zoom
+          if (
+            world.x >= bounds.x - margin && world.x <= bounds.x + bounds.width + margin &&
+            world.y >= bounds.y - margin && world.y <= bounds.y + bounds.height + margin
+          ) {
+            foundHover = el.id
+            break
+          }
+        }
+        setHoveredElementId(foundHover)
+
+        // Check if hovering over a specific connection point
+        const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera)
+        setActiveConnectionPoint(cp ? { elementId: cp.elementId, side: cp.side } : null)
+      }
 
       switch (current.type) {
         case "panning": {
@@ -263,9 +324,41 @@ export function BoardCanvas({
           })
           break
         }
+        case "connecting": {
+          // Dragging arrow from connection point
+          const arrow = current.arrow
+          const points = [...arrow.points]
+          // Snap to connection points on target elements
+          const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera, [current.fromElementId])
+          if (cp) {
+            points[points.length - 1] = { ...cp.point }
+            setActiveConnectionPoint({ elementId: cp.elementId, side: cp.side })
+          } else {
+            points[points.length - 1] = { x: world.x, y: world.y }
+            setActiveConnectionPoint(null)
+          }
+          const updated = { ...arrow, points }
+          setInteraction({ ...current, arrow: updated })
+          setPreviewElement(updated)
+          break
+        }
         case "drawing": {
           const el = current.element
-          if (el.type === "line" || el.type === "arrow") {
+          if (el.type === "arrow") {
+            const points = [...el.points]
+            // Snap to connection points
+            const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera)
+            if (cp) {
+              points[points.length - 1] = { ...cp.point }
+              setActiveConnectionPoint({ elementId: cp.elementId, side: cp.side })
+            } else {
+              points[points.length - 1] = { x: world.x, y: world.y }
+              setActiveConnectionPoint(null)
+            }
+            const updated = { ...el, points }
+            setInteraction({ type: "drawing", element: updated })
+            setPreviewElement(updated)
+          } else if (el.type === "line") {
             const points = [...el.points]
             points[points.length - 1] = { x: world.x, y: world.y }
             const updated = { ...el, points }
@@ -277,12 +370,10 @@ export function BoardCanvas({
             setInteraction({ type: "drawing", element: updated })
             setPreviewElement(updated)
           } else {
-            // Shape tools - compute width/height from drag
             let w = world.x - el.x
             let h = world.y - el.y
 
             if (e.shiftKey) {
-              // Constrain to square
               const size = Math.max(Math.abs(w), Math.abs(h))
               w = size * Math.sign(w)
               h = size * Math.sign(h)
@@ -314,9 +405,11 @@ export function BoardCanvas({
             dx = snapToGrid(dx, gridSize)
             dy = snapToGrid(dy, gridSize)
           }
-          const newElements = elements.map((el) => {
+          const movedIds = new Set<string>()
+          let newElements = elements.map((el) => {
             const snap = current.elementSnapshots.get(el.id)
             if (!snap) return el
+            movedIds.add(el.id)
             if (el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")) {
               return {
                 ...el,
@@ -325,6 +418,17 @@ export function BoardCanvas({
             }
             return { ...el, x: snap.x + dx, y: snap.y + dy }
           })
+          // Update any connected arrows when shapes are moved
+          newElements = newElements.map((el) => {
+            if (el.type !== "arrow") return el
+            if (movedIds.has(el.id)) return el // arrow itself is being moved
+            const hasStartConn = el.startConnection && movedIds.has(el.startConnection.elementId)
+            const hasEndConn = el.endConnection && movedIds.has(el.endConnection.elementId)
+            if (hasStartConn || hasEndConn) {
+              return updateArrowConnections(el, newElements)
+            }
+            return el
+          })
           onElementsChange(newElements)
           break
         }
@@ -332,15 +436,23 @@ export function BoardCanvas({
           const dx = world.x - current.startWorld.x
           const dy = world.y - current.startWorld.y
           const updates = resizeElement(current.snapshot, current.handle, dx, dy)
-          const newElements = elements.map((el) =>
+          let newElements = elements.map((el) =>
             el.id === current.elementId ? { ...el, ...updates } : el
           )
+          // Update connected arrows when resizing
+          newElements = newElements.map((el) => {
+            if (el.type !== "arrow") return el
+            const hasConn = (el.startConnection?.elementId === current.elementId) ||
+                            (el.endConnection?.elementId === current.elementId)
+            if (hasConn) return updateArrowConnections(el, newElements)
+            return el
+          })
           onElementsChange(newElements)
           break
         }
       }
     },
-    [camera, elements, gridEnabled, gridSize, getWorldPoint, onCameraChange, onElementsChange]
+    [camera, elements, gridEnabled, gridSize, tool, getWorldPoint, onCameraChange, onElementsChange]
   )
 
   const handleMouseUp = useCallback(
@@ -348,19 +460,66 @@ export function BoardCanvas({
       const current = interactionRef.current
 
       switch (current.type) {
+        case "connecting": {
+          // Finalize the arrow from connection point drag
+          const arrow = current.arrow
+          const world = arrow.points[arrow.points.length - 1]
+          // Check if dropped on a connection point
+          const cp = getConnectionPointAtMouse(elements, world.x, world.y, camera, [current.fromElementId])
+          const finalArrow = { ...arrow }
+          if (cp) {
+            finalArrow.endConnection = { elementId: cp.elementId, side: cp.side }
+            const pts = [...finalArrow.points]
+            pts[pts.length - 1] = { ...cp.point }
+            finalArrow.points = pts
+          }
+          // Only add if arrow has meaningful length
+          const dx = finalArrow.points[0].x - finalArrow.points[finalArrow.points.length - 1].x
+          const dy = finalArrow.points[0].y - finalArrow.points[finalArrow.points.length - 1].y
+          if (Math.sqrt(dx * dx + dy * dy) > 5) {
+            onElementsChange([...elements, finalArrow])
+            onSelectionChange([finalArrow.id])
+          }
+          setPreviewElement(null)
+          setActiveConnectionPoint(null)
+          break
+        }
         case "drawing": {
           const el = current.element
-          // Only add if it has meaningful size
           const bounds = getElementBounds(el)
+
+          // For arrows, check for end connection
+          if (el.type === "arrow") {
+            const lastPt = el.points[el.points.length - 1]
+            const cp = getConnectionPointAtMouse(elements, lastPt.x, lastPt.y, camera)
+            const finalArrow = { ...el }
+            if (cp) {
+              finalArrow.endConnection = { elementId: cp.elementId, side: cp.side }
+              const pts = [...finalArrow.points]
+              pts[pts.length - 1] = { ...cp.point }
+              finalArrow.points = pts
+            }
+            if (el.points.length >= 2) {
+              const dx2 = el.points[0].x - el.points[el.points.length - 1].x
+              const dy2 = el.points[0].y - el.points[el.points.length - 1].y
+              if (Math.sqrt(dx2 * dx2 + dy2 * dy2) > 5) {
+                onElementsChange([...elements, finalArrow])
+                onSelectionChange([finalArrow.id])
+              }
+            }
+            setPreviewElement(null)
+            setActiveConnectionPoint(null)
+            break
+          }
+
           if (
             bounds.width > 2 ||
             bounds.height > 2 ||
             el.type === "draw" ||
-            ((el.type === "line" || el.type === "arrow") && el.points.length >= 2)
+            ((el.type === "line") && el.points.length >= 2)
           ) {
-            // Normalize negative widths/heights for shapes
             const normalized = { ...el }
-            if (el.type !== "line" && el.type !== "arrow" && el.type !== "draw") {
+            if (el.type !== "line" && el.type !== "draw") {
               if (el.width < 0) {
                 normalized.x = el.x + el.width
                 normalized.width = -el.width
@@ -372,6 +531,12 @@ export function BoardCanvas({
             }
             onElementsChange([...elements, normalized])
             onSelectionChange([normalized.id])
+
+            // Auto-trigger text editing for shapes (like Miro)
+            if (normalized.type === "rectangle" || normalized.type === "ellipse" || normalized.type === "diamond") {
+              onToolChange("select")
+              setTimeout(() => onEditText(normalized.id), 50)
+            }
           }
           setPreviewElement(null)
           break
@@ -387,7 +552,7 @@ export function BoardCanvas({
       }
       setInteraction({ type: "idle" })
     },
-    [elements, selectionBox, onElementsChange, onSelectionChange]
+    [elements, selectionBox, camera, onElementsChange, onSelectionChange, onToolChange, onEditText]
   )
 
   // ── Wheel (Zoom) ────────────────────────────────────────────
@@ -400,21 +565,15 @@ export function BoardCanvas({
       const mouseY = e.clientY - rect.top
 
       if (e.ctrlKey || e.metaKey) {
-        // Zoom
         const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9
         const newZoom = Math.max(0.1, Math.min(10, camera.zoom * zoomFactor))
-
-        // Zoom toward mouse position
         const worldBefore = screenToWorld(mouseX, mouseY, camera)
         const newCamera = { ...camera, zoom: newZoom }
         const worldAfter = screenToWorld(mouseX, mouseY, newCamera)
-
         newCamera.x += (worldAfter.x - worldBefore.x) * newZoom
         newCamera.y += (worldAfter.y - worldBefore.y) * newZoom
-
         onCameraChange(newCamera)
       } else {
-        // Pan
         onCameraChange({
           ...camera,
           x: camera.x - e.deltaX,
@@ -437,7 +596,6 @@ export function BoardCanvas({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).tagName === "INPUT" || (e.target as HTMLElement).tagName === "TEXTAREA") return
-
       if (e.key === " ") {
         e.preventDefault()
         spaceHeldRef.current = true
@@ -480,13 +638,15 @@ export function BoardCanvas({
   const getCursor = (): string => {
     if (spaceHeldRef.current || tool === "hand") return interaction.type === "panning" ? "grabbing" : "grab"
     if (interaction.type === "panning") return "grabbing"
+    if (interaction.type === "connecting") return "crosshair"
+    if (activeConnectionPoint) return "crosshair"
     if (tool === "select") return "default"
     if (tool === "text") return "text"
     return "crosshair"
   }
 
   return (
-    <div ref={containerRef} className="flex-1 relative overflow-hidden bg-white dark:bg-neutral-900">
+    <div ref={containerRef} className="flex-1 relative overflow-hidden">
       <canvas
         ref={canvasRef}
         width={canvasSize.width}

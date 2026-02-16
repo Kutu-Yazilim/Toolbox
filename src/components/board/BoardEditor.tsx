@@ -5,7 +5,7 @@ import type {
   Tool,
   ElementStyle,
 } from "@/types/board"
-import { DEFAULT_STYLE } from "@/types/board"
+import { getThemedDefaultStyle } from "@/types/board"
 import { BoardCanvas } from "./BoardCanvas"
 import { BoardToolbar } from "./BoardToolbar"
 import { BoardTopBar } from "./BoardTopBar"
@@ -27,7 +27,10 @@ export function BoardEditor() {
   const [tool, setTool] = useState<Tool>("select")
   const [gridEnabled, setGridEnabled] = useState(true)
   const [gridSize] = useState(20)
-  const [defaultStyle] = useState<ElementStyle>(DEFAULT_STYLE)
+  const [defaultStyle, setDefaultStyle] = useState<ElementStyle>(getThemedDefaultStyle())
+
+  // ── Clipboard (Copy/Paste) ──────────────────────────────────
+  const [clipboard, setClipboard] = useState<BoardElement[]>([])
 
   // ── History (Undo / Redo) ─────────────────────────────────────
   const [history, setHistory] = useState<BoardElement[][]>([[]])
@@ -54,6 +57,18 @@ export function BoardEditor() {
     })
     setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1))
   }, [elements])
+
+  // ── Update default style when theme changes ─────────────────
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDefaultStyle(getThemedDefaultStyle())
+    })
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    })
+    return () => observer.disconnect()
+  }, [])
 
   const undo = useCallback(() => {
     if (historyIndex > 0) {
@@ -100,6 +115,34 @@ export function BoardEditor() {
     setElements((prev) => [...prev, ...newElements])
     setSelectedIds(newIds)
   }, [elements, selectedIds])
+
+  const copySelected = useCallback(() => {
+    const toCopy = elements.filter((el) => selectedIds.includes(el.id))
+    if (toCopy.length > 0) setClipboard(toCopy)
+  }, [elements, selectedIds])
+
+  const pasteClipboard = useCallback(() => {
+    if (clipboard.length === 0) return
+    const newElements: BoardElement[] = []
+    const newIds: string[] = []
+    for (const el of clipboard) {
+      const newEl = {
+        ...el,
+        id: generateElementId(),
+        x: el.x + 20,
+        y: el.y + 20,
+        points: el.points.map((p) => ({ x: p.x + 20, y: p.y + 20 })),
+        startConnection: undefined,
+        endConnection: undefined,
+      }
+      newElements.push(newEl)
+      newIds.push(newEl.id)
+    }
+    setElements((prev) => [...prev, ...newElements])
+    setSelectedIds(newIds)
+    // Update clipboard positions so subsequent pastes cascade
+    setClipboard(newElements)
+  }, [clipboard])
 
   const bringToFront = useCallback(() => {
     setElements((prev) => {
@@ -208,7 +251,21 @@ export function BoardEditor() {
         return
       }
 
-      // Copy/Paste (Duplicate)
+      // Copy
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        e.preventDefault()
+        copySelected()
+        return
+      }
+
+      // Paste
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault()
+        pasteClipboard()
+        return
+      }
+
+      // Duplicate
       if ((e.ctrlKey || e.metaKey) && e.key === "d") {
         e.preventDefault()
         duplicateSelected()
@@ -238,6 +295,8 @@ export function BoardEditor() {
     editingId,
     deleteSelected,
     duplicateSelected,
+    copySelected,
+    pasteClipboard,
     undo,
     redo,
     commitText,
@@ -372,6 +431,7 @@ export function BoardEditor() {
         onCameraChange={setCamera}
         onToolChange={setTool}
         onEditText={startEditText}
+        onCommitText={commitText}
       />
 
       {/* Toolbar (left) */}

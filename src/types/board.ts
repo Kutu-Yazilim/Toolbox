@@ -50,6 +50,14 @@ export interface ElementStyle {
   borderRadius: number
 }
 
+// Connection point on a shape (for arrows)
+export type ConnectionSide = "top" | "right" | "bottom" | "left"
+
+export interface Connection {
+  elementId: string
+  side: ConnectionSide
+}
+
 export interface BoardElement {
   id: string
   type: ElementType
@@ -62,6 +70,9 @@ export interface BoardElement {
   text: string
   style: ElementStyle
   locked: boolean
+  // Arrow connections: which element+side the start/end is attached to
+  startConnection?: Connection
+  endConnection?: Connection
 }
 
 // ── Camera ──────────────────────────────────────────────────────
@@ -109,6 +120,28 @@ export type BoardAction =
   | { type: "DUPLICATE_ELEMENTS"; ids: string[] }
   | { type: "LOAD_STATE"; state: Pick<BoardState, "elements" | "camera" | "gridEnabled" | "gridSize"> }
 
+// ── Theme-Adaptive Colors ───────────────────────────────────────
+
+export function isDarkMode(): boolean {
+  return document.documentElement.classList.contains("dark")
+}
+
+export function getThemeStrokeColor(): string {
+  return isDarkMode() ? "#e0e0e0" : "#1e1e1e"
+}
+
+export function getThemeFillColor(): string {
+  return isDarkMode() ? "#374151" : "#e8eaed"
+}
+
+export function getThemeCanvasBg(): string {
+  return isDarkMode() ? "#1a1a2e" : "#ffffff"
+}
+
+export function getThemeTextColor(): string {
+  return isDarkMode() ? "#f0f0f0" : "#1e1e1e"
+}
+
 // ── Defaults ────────────────────────────────────────────────────
 
 export const DEFAULT_STYLE: ElementStyle = {
@@ -121,6 +154,24 @@ export const DEFAULT_STYLE: ElementStyle = {
   textAlign: "center",
   strokeStyle: "solid",
   borderRadius: 0,
+}
+
+/** Returns a default style with colors adapted to current theme */
+export function getThemedDefaultStyle(): ElementStyle {
+  return {
+    ...DEFAULT_STYLE,
+    strokeColor: getThemeStrokeColor(),
+  }
+}
+
+/** Returns a default style for shapes (with fill) adapted to current theme */
+export function getThemedShapeStyle(): ElementStyle {
+  return {
+    ...DEFAULT_STYLE,
+    strokeColor: getThemeStrokeColor(),
+    fillColor: getThemeFillColor(),
+    borderRadius: 4,
+  }
 }
 
 export const STICKY_COLORS = [

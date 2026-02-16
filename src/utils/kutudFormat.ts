@@ -1,4 +1,4 @@
-import type { BoardElement, Camera, ElementStyle } from "@/types/board"
+import type { BoardElement, Camera, ElementStyle, ConnectionSide } from "@/types/board"
 import { DEFAULT_STYLE } from "@/types/board"
 
 // ── .kutud File Format ──────────────────────────────────────────
@@ -70,6 +70,14 @@ export function serializeToKutud(data: KutudData): string {
       lines.push("        <points />")
     }
 
+    // Connection data for arrows
+    if (el.startConnection) {
+      lines.push(`        <startConnection elementId="${escapeXml(el.startConnection.elementId)}" side="${el.startConnection.side}" />`)
+    }
+    if (el.endConnection) {
+      lines.push(`        <endConnection elementId="${escapeXml(el.endConnection.elementId)}" side="${el.endConnection.side}" />`)
+    }
+
     lines.push("      </element>")
   }
 
@@ -133,7 +141,7 @@ export function parseKutud(xml: string): KutudData {
       y: parseFloat(p.getAttribute("y") || "0"),
     }))
 
-    elements.push({
+    const element: BoardElement = {
       id: node.getAttribute("id") || `el-${Date.now()}-${Math.random()}`,
       type: (node.getAttribute("type") || "rectangle") as BoardElement["type"],
       x: parseFloat(node.getAttribute("x") || "0"),
@@ -145,7 +153,25 @@ export function parseKutud(xml: string): KutudData {
       text: textNode?.textContent || "",
       style,
       points,
-    })
+    }
+
+    // Parse connection data
+    const startConn = node.querySelector("startConnection")
+    if (startConn) {
+      element.startConnection = {
+        elementId: startConn.getAttribute("elementId") || "",
+        side: (startConn.getAttribute("side") || "top") as ConnectionSide,
+      }
+    }
+    const endConn = node.querySelector("endConnection")
+    if (endConn) {
+      element.endConnection = {
+        elementId: endConn.getAttribute("elementId") || "",
+        side: (endConn.getAttribute("side") || "top") as ConnectionSide,
+      }
+    }
+
+    elements.push(element)
   })
 
   return { elements, camera, gridEnabled, gridSize }

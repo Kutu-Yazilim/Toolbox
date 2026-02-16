@@ -6,8 +6,16 @@ import type {
   ResizeHandle,
   ElementStyle,
   ElementType,
+  ConnectionSide,
+  Connection,
 } from "@/types/board"
-import { DEFAULT_STYLE } from "@/types/board"
+import {
+  DEFAULT_STYLE,
+  getThemeStrokeColor,
+  getThemeFillColor,
+  getThemeTextColor,
+  getThemeCanvasBg,
+} from "@/types/board"
 
 // ── ID Generation ───────────────────────────────────────────────
 
@@ -40,7 +48,10 @@ export function createElement(
   y: number,
   style?: Partial<ElementStyle>
 ): BoardElement {
-  const baseStyle = { ...DEFAULT_STYLE, ...style }
+  // Apply theme-aware defaults
+  const themedStroke = getThemeStrokeColor()
+  const themedFill = getThemeFillColor()
+  const baseStyle = { ...DEFAULT_STYLE, strokeColor: themedStroke, ...style }
 
   const base: BoardElement = {
     id: generateElementId(),
@@ -63,7 +74,7 @@ export function createElement(
         width: 200,
         height: 30,
         text: "",
-        style: { ...baseStyle, fillColor: "transparent", strokeColor: "transparent" },
+        style: { ...baseStyle, fillColor: "transparent", strokeColor: getThemeTextColor() },
       }
     case "sticky":
       return {
@@ -79,6 +90,17 @@ export function createElement(
           fontSize: 14,
           borderRadius: 8,
         },
+      }
+    case "rectangle":
+      return {
+        ...base,
+        style: { ...baseStyle, fillColor: themedFill, borderRadius: 4 },
+      }
+    case "ellipse":
+    case "diamond":
+      return {
+        ...base,
+        style: { ...baseStyle, fillColor: themedFill },
       }
     case "line":
     case "arrow":
@@ -282,6 +304,86 @@ export function snapToGrid(value: number, gridSize: number): number {
   return Math.round(value / gridSize) * gridSize
 }
 
+// ── Connection Points ───────────────────────────────────────────
+
+export function getConnectionPoint(el: BoardElement, side: ConnectionSide): Point {
+  const bounds = getElementBounds(el)
+  const cx = bounds.x + bounds.width / 2
+  const cy = bounds.y + bounds.height / 2
+  switch (side) {
+    case "top": return { x: cx, y: bounds.y }
+    case "bottom": return { x: cx, y: bounds.y + bounds.height }
+    case "left": return { x: bounds.x, y: cy }
+    case "right": return { x: bounds.x + bounds.width, y: cy }
+  }
+}
+
+export function getConnectionPoints(el: BoardElement): { side: ConnectionSide; point: Point }[] {
+  const sides: ConnectionSide[] = ["top", "right", "bottom", "left"]
+  return sides.map((side) => ({ side, point: getConnectionPoint(el, side) }))
+}
+
+export function getNearestConnectionSide(el: BoardElement, px: number, py: number): ConnectionSide {
+  const points = getConnectionPoints(el)
+  let best = points[0]
+  let bestDist = Infinity
+  for (const cp of points) {
+    const d = Math.sqrt((px - cp.point.x) ** 2 + (py - cp.point.y) ** 2)
+    if (d < bestDist) {
+      bestDist = d
+      best = cp
+    }
+  }
+  return best.side
+}
+
+/** Check if mouse is near any connection point of an element */
+export function getConnectionPointAtMouse(
+  elements: BoardElement[],
+  px: number,
+  py: number,
+  camera: Camera,
+  excludeIds: string[] = []
+): { elementId: string; side: ConnectionSide; point: Point } | null {
+  const threshold = 14 / camera.zoom
+  for (let i = elements.length - 1; i >= 0; i--) {
+    const el = elements[i]
+    if (excludeIds.includes(el.id)) continue
+    // Only connect to shapes (not lines/arrows/draw/text)
+    if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text") continue
+    const cps = getConnectionPoints(el)
+    for (const cp of cps) {
+      const d = Math.sqrt((px - cp.point.x) ** 2 + (py - cp.point.y) ** 2)
+      if (d <= threshold) {
+        return { elementId: el.id, side: cp.side, point: cp.point }
+      }
+    }
+  }
+  return null
+}
+
+/** Update arrow endpoints based on connections */
+export function updateArrowConnections(
+  arrow: BoardElement,
+  elements: BoardElement[]
+): BoardElement {
+  if (arrow.type !== "arrow" || arrow.points.length < 2) return arrow
+  const newPoints = [...arrow.points]
+  if (arrow.startConnection) {
+    const el = elements.find((e) => e.id === arrow.startConnection!.elementId)
+    if (el) {
+      newPoints[0] = getConnectionPoint(el, arrow.startConnection!.side)
+    }
+  }
+  if (arrow.endConnection) {
+    const el = elements.find((e) => e.id === arrow.endConnection!.elementId)
+    if (el) {
+      newPoints[newPoints.length - 1] = getConnectionPoint(el, arrow.endConnection!.side)
+    }
+  }
+  return { ...arrow, points: newPoints }
+}
+
 // ── Canvas Rendering ────────────────────────────────────────────
 
 export function renderBoard(
@@ -294,9 +396,14 @@ export function renderBoard(
   gridEnabled: boolean,
   gridSize: number,
   selectionBox: Bounds | null,
-  previewElement: BoardElement | null
+  previewElement: BoardElement | null,
+  hoveredElementId: string | null = null,
+  activeConnectionPoint: { elementId: string; side: ConnectionSide } | null = null
 ) {
-  ctx.clearRect(0, 0, canvasWidth, canvasHeight)
+  // Theme-aware background
+  const bgColor = getThemeCanvasBg()
+  ctx.fillStyle = bgColor
+  ctx.fillRect(0, 0, canvasWidth, canvasHeight)
   ctx.save()
 
   // Apply camera transform
@@ -324,6 +431,22 @@ export function renderBoard(
   for (const id of selectedIds) {
     const el = elements.find((e) => e.id === id)
     if (el) drawSelectionHandles(ctx, el, camera)
+  }
+
+  // Draw connection points on hovered element
+  if (hoveredElementId) {
+    const el = elements.find((e) => e.id === hoveredElementId)
+    if (el && el.type !== "line" && el.type !== "arrow" && el.type !== "draw" && el.type !== "text") {
+      drawConnectionPoints(ctx, el, camera, activeConnectionPoint)
+    }
+  }
+  // Also draw connection points on selected elements
+  for (const id of selectedIds) {
+    if (id === hoveredElementId) continue
+    const el = elements.find((e) => e.id === id)
+    if (el && el.type !== "line" && el.type !== "arrow" && el.type !== "draw" && el.type !== "text") {
+      drawConnectionPoints(ctx, el, camera, activeConnectionPoint)
+    }
   }
 
   // Draw selection box
@@ -441,6 +564,38 @@ function drawRectangle(ctx: CanvasRenderingContext2D, el: BoardElement) {
     if (el.style.fillColor !== "transparent") ctx.fillRect(x, y, w, h)
     if (el.style.strokeColor !== "transparent") ctx.strokeRect(x, y, w, h)
   }
+
+  // Render text inside shape
+  if (el.text) {
+    drawShapeText(ctx, el, x, y, w, h)
+  }
+}
+
+function drawShapeText(ctx: CanvasRenderingContext2D, el: BoardElement, x: number, y: number, w: number, h: number) {
+  ctx.save()
+  ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
+  ctx.fillStyle = getThemeTextColor()
+  ctx.textAlign = el.style.textAlign
+  ctx.textBaseline = "top"
+
+  const padding = 8
+  const maxWidth = w - padding * 2
+  if (maxWidth <= 0) { ctx.restore(); return }
+  const lines = wrapText(ctx, el.text, maxWidth)
+  const lineHeight = el.style.fontSize * 1.3
+  const totalTextHeight = lines.length * lineHeight
+  const startY = y + Math.max(padding, (h - totalTextHeight) / 2)
+
+  let textX = x + padding
+  if (el.style.textAlign === "center") textX = x + w / 2
+  else if (el.style.textAlign === "right") textX = x + w - padding
+
+  for (let i = 0; i < lines.length; i++) {
+    const ty = startY + i * lineHeight
+    if (ty + lineHeight > y + h) break
+    ctx.fillText(lines[i], textX, ty, maxWidth)
+  }
+  ctx.restore()
 }
 
 function drawEllipse(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -453,6 +608,12 @@ function drawEllipse(ctx: CanvasRenderingContext2D, el: BoardElement) {
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2)
   if (el.style.fillColor !== "transparent") ctx.fill()
   if (el.style.strokeColor !== "transparent") ctx.stroke()
+
+  if (el.text) {
+    const x = Math.min(el.x, el.x + el.width)
+    const y = Math.min(el.y, el.y + el.height)
+    drawShapeText(ctx, el, x, y, Math.abs(el.width), Math.abs(el.height))
+  }
 }
 
 function drawDiamond(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -469,6 +630,12 @@ function drawDiamond(ctx: CanvasRenderingContext2D, el: BoardElement) {
   ctx.closePath()
   if (el.style.fillColor !== "transparent") ctx.fill()
   if (el.style.strokeColor !== "transparent") ctx.stroke()
+
+  if (el.text) {
+    const x = Math.min(el.x, el.x + el.width)
+    const y = Math.min(el.y, el.y + el.height)
+    drawShapeText(ctx, el, x, y, Math.abs(el.width), Math.abs(el.height))
+  }
 }
 
 function drawLine(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -532,7 +699,8 @@ function drawFreehand(ctx: CanvasRenderingContext2D, el: BoardElement) {
 function drawText(ctx: CanvasRenderingContext2D, el: BoardElement) {
   if (!el.text) return
   ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
-  ctx.fillStyle = el.style.strokeColor
+  // Use theme text color if stroke is transparent (i.e. pure text elements)
+  ctx.fillStyle = el.style.strokeColor === "transparent" ? getThemeTextColor() : el.style.strokeColor
   ctx.textAlign = el.style.textAlign
   ctx.textBaseline = "top"
 
@@ -684,6 +852,27 @@ function drawSelectionHandles(
   for (const h of handles) {
     ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
     ctx.strokeRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
+  }
+}
+
+function drawConnectionPoints(
+  ctx: CanvasRenderingContext2D,
+  el: BoardElement,
+  camera: Camera,
+  activePoint: { elementId: string; side: ConnectionSide } | null
+) {
+  const cps = getConnectionPoints(el)
+  const dotSize = 6 / camera.zoom
+
+  for (const cp of cps) {
+    const isActive = activePoint && activePoint.elementId === el.id && activePoint.side === cp.side
+    ctx.beginPath()
+    ctx.arc(cp.point.x, cp.point.y, dotSize, 0, Math.PI * 2)
+    ctx.fillStyle = isActive ? "#2563EB" : "#3B82F6"
+    ctx.fill()
+    ctx.strokeStyle = "#FFFFFF"
+    ctx.lineWidth = 1.5 / camera.zoom
+    ctx.stroke()
   }
 }
 
