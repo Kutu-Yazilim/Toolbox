@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from "react"
 import { cn } from "@/lib/utils"
-import { getContrastTextColor, hexToRgb, rgbToHsl, getApproximateColorName, generateShades } from "@/utils/colorUtils"
+import { getContrastTextColor, hexToRgb, rgbToHsl, generateShades } from "@/utils/colorUtils"
 import type { PaletteColor } from "@/types/color"
 import { ColorEditor } from "./ColorEditor"
 import {
@@ -12,12 +12,14 @@ import {
   GripVerticalIcon,
   PlusIcon,
   SwatchBookIcon,
+  InfoIcon,
 } from "lucide-react"
 
 interface ColorColumnProps {
   color: PaletteColor
   index: number
   total: number
+  apiColorName?: string
   onLock: () => void
   onRemove: () => void
   onUpdate: (hex: string) => void
@@ -27,12 +29,14 @@ interface ColorColumnProps {
   onDragOver: (index: number) => void
   onDragEnd: () => void
   canRemove: boolean
+  onShowDetail: () => void
 }
 
 export function ColorColumn({
   color,
   index,
   total,
+  apiColorName,
   onLock,
   onRemove,
   onUpdate,
@@ -42,6 +46,7 @@ export function ColorColumn({
   onDragOver,
   onDragEnd,
   canRemove,
+  onShowDetail,
 }: ColorColumnProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
@@ -52,7 +57,6 @@ export function ColorColumn({
   const textColor = getContrastTextColor(color.hex)
   const rgb = hexToRgb(color.hex)
   const hsl = rgbToHsl(rgb)
-  const colorName = getApproximateColorName(color.hex)
 
   const shades = useMemo(() => generateShades(color.hex, 25), [color.hex])
 
@@ -174,6 +178,16 @@ export function ColorColumn({
               <SwatchBookIcon className="size-5" />
             </button>
 
+            {/* Color info */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onShowDetail() }}
+              className={btnClass}
+              style={{ color: textColor, backgroundColor: `${textColor}15` }}
+              title="Color details"
+            >
+              <InfoIcon className="size-5" />
+            </button>
+
             {/* Drag handle */}
             <button
               className={cn(btnClass, "cursor-grab active:cursor-grabbing")}
@@ -224,9 +238,16 @@ export function ColorColumn({
             style={{ color: textColor }}
           >
             {/* Color name */}
-            <span className="text-xs opacity-60 font-medium truncate max-w-full">
-              {colorName}
-            </span>
+            {apiColorName ? (
+              <span className="text-xs opacity-60 font-medium truncate max-w-full">
+                {apiColorName}
+              </span>
+            ) : (
+              <span
+                className="inline-block h-3 w-20 rounded-sm opacity-20 animate-pulse"
+                style={{ backgroundColor: textColor }}
+              />
+            )}
 
             {/* Hex value - clickable to edit */}
             <button
@@ -256,6 +277,7 @@ export function ColorColumn({
         {showEditor && !showShades && (
           <ColorEditor
             hex={color.hex}
+            colorName={apiColorName}
             onChange={onUpdate}
             onClose={() => setShowEditor(false)}
             textColor={textColor}

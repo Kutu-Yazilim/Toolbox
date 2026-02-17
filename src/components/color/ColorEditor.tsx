@@ -10,13 +10,13 @@ import {
   hsbToRgb,
   rgbToCmyk,
   isValidHex,
-  getApproximateColorName,
 } from "@/utils/colorUtils"
 import type { RGB, HSL, HSB } from "@/types/color"
 import { XIcon, CopyIcon, CheckIcon } from "lucide-react"
 
 interface ColorEditorProps {
   hex: string
+  colorName?: string
   onChange: (hex: string) => void
   onClose: () => void
   textColor: string
@@ -24,7 +24,7 @@ interface ColorEditorProps {
 
 type ColorMode = "hex" | "rgb" | "hsl" | "hsb" | "cmyk"
 
-export function ColorEditor({ hex, onChange, onClose, textColor }: ColorEditorProps) {
+export function ColorEditor({ hex, colorName, onChange, onClose, textColor }: ColorEditorProps) {
   const [mode, setMode] = useState<ColorMode>("hex")
   const [hexInput, setHexInput] = useState(hex.replace("#", ""))
   const [rgb, setRgb] = useState<RGB>(hexToRgb(hex))
@@ -119,7 +119,7 @@ export function ColorEditor({ hex, onChange, onClose, textColor }: ColorEditorPr
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium opacity-70">{getApproximateColorName(hex)}</span>
+        <span className="text-xs font-medium opacity-70">{colorName ?? hex}</span>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"

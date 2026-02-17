@@ -14,6 +14,8 @@ import { AdjustDialog } from "./AdjustDialog"
 import { HarmonySelector } from "./HarmonySelector"
 import { ContrastChecker } from "./ContrastChecker"
 import { ColorBlindnessView } from "./ColorBlindnessView"
+import { ColorDetailPanel } from "./ColorDetailPanel"
+import { fetchColorNames } from "@/services/colorApi"
 
 const MAX_COLORS = 30
 const COLORS_PER_ROW = 10
@@ -49,13 +51,43 @@ export function ColorPicker() {
   const [showHarmony, setShowHarmony] = useState(false)
   const [showContrast, setShowContrast] = useState(false)
   const [showBlindness, setShowBlindness] = useState(false)
+  const [detailHex, setDetailHex] = useState<string | null>(null)
 
   // History (undo/redo)
   const [history, setHistory] = useState<PaletteColor[][]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const skipHistoryRef = useRef(false)
 
+  // API color names (hex -> name)
+  const [colorNames, setColorNames] = useState<Record<string, string>>({})
+
   const paletteRef = useRef<HTMLDivElement>(null)
+
+  // Fetch color names from API when palette colors change
+  useEffect(() => {
+    let cancelled = false
+
+    // Only fetch names for hexes we don't already have cached
+    const hexesToFetch = colors
+      .map(c => c.hex.toUpperCase())
+      .filter(hex => !colorNames[hex])
+
+    if (hexesToFetch.length === 0) return
+
+    // Small debounce to avoid hammering API during rapid generation
+    const timer = setTimeout(() => {
+      fetchColorNames(hexesToFetch).then(names => {
+        if (!cancelled && Object.keys(names).length > 0) {
+          setColorNames(prev => ({ ...prev, ...names }))
+        }
+      })
+    }, 150)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [colors, colorNames])
 
   // Push to history when colors change
   useEffect(() => {
@@ -148,13 +180,14 @@ export function ColorPicker() {
       }
 
       // Any dialog open? Don't handle shortcuts
-      if (showExport || showAdjust || showHarmony || showContrast || showBlindness) {
+      if (showExport || showAdjust || showHarmony || showContrast || showBlindness || detailHex) {
         if (e.key === "Escape") {
           setShowExport(false)
           setShowAdjust(false)
           setShowHarmony(false)
           setShowContrast(false)
           setShowBlindness(false)
+          setDetailHex(null)
         }
         return
       }
@@ -187,7 +220,7 @@ export function ColorPicker() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [generate, undo, redo, showExport, showAdjust, showHarmony, showContrast, showBlindness])
+  }, [generate, undo, redo, showExport, showAdjust, showHarmony, showContrast, showBlindness, detailHex])
 
   // Lock/unlock a color
   const toggleLock = (id: string) => {
@@ -306,6 +339,7 @@ export function ColorPicker() {
                   color={color}
                   index={globalIndex}
                   total={colors.length}
+                  apiColorName={colorNames[color.hex.toUpperCase()]}
                   onLock={() => toggleLock(color.id)}
                   onRemove={() => removeColor(color.id)}
                   onUpdate={(hex) => updateColor(color.id, hex)}
@@ -315,6 +349,7 @@ export function ColorPicker() {
                   onDragOver={handleDragOver}
                   onDragEnd={handleDragEnd}
                   canRemove={colors.length > MIN_COLORS}
+                  onShowDetail={() => setDetailHex(color.hex)}
                 />
               )
             })}
@@ -362,6 +397,15 @@ export function ColorPicker() {
         <ColorBlindnessView
           colors={colors}
           onClose={() => setShowBlindness(false)}
+        />
+      )}
+      {detailHex && (
+        <ColorDetailPanel
+          hex={detailHex}
+          onClose={() => setDetailHex(null)}
+          onSelectColor={(hex) => {
+            setDetailHex(hex)
+          }}
         />
       )}
     </div>

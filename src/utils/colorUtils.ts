@@ -390,50 +390,6 @@ export function simulateColorBlindness(hex: string, type: ColorBlindnessType): s
   })
 }
 
-// ── Color Name (approximate) ───────────────────────────────────
-
-const namedColors: [string, string][] = [
-  ["#FF0000", "Red"], ["#FF4500", "Orange Red"], ["#FF6347", "Tomato"],
-  ["#FF7F50", "Coral"], ["#FFA500", "Orange"], ["#FFD700", "Gold"],
-  ["#FFFF00", "Yellow"], ["#ADFF2F", "Green Yellow"], ["#7FFF00", "Chartreuse"],
-  ["#00FF00", "Green"], ["#00FA9A", "Medium Spring Green"], ["#00FFFF", "Cyan"],
-  ["#00CED1", "Dark Turquoise"], ["#1E90FF", "Dodger Blue"], ["#0000FF", "Blue"],
-  ["#4B0082", "Indigo"], ["#8A2BE2", "Blue Violet"], ["#9400D3", "Dark Violet"],
-  ["#FF00FF", "Magenta"], ["#FF1493", "Deep Pink"], ["#FF69B4", "Hot Pink"],
-  ["#FFC0CB", "Pink"], ["#FFFFFF", "White"], ["#C0C0C0", "Silver"],
-  ["#808080", "Gray"], ["#000000", "Black"], ["#800000", "Maroon"],
-  ["#808000", "Olive"], ["#008000", "Dark Green"], ["#008080", "Teal"],
-  ["#000080", "Navy"], ["#800080", "Purple"], ["#A52A2A", "Brown"],
-  ["#DEB887", "Burlywood"], ["#D2691E", "Chocolate"], ["#F5DEB3", "Wheat"],
-  ["#FAEBD7", "Antique White"], ["#FAF0E6", "Linen"], ["#FFF5EE", "Seashell"],
-  ["#F0FFF0", "Honeydew"], ["#F0FFFF", "Azure"], ["#F5F5DC", "Beige"],
-  ["#2F4F4F", "Dark Slate Gray"], ["#556B2F", "Dark Olive Green"],
-  ["#8B4513", "Saddle Brown"], ["#B22222", "Firebrick"],
-  ["#CD853F", "Peru"], ["#DAA520", "Goldenrod"],
-  ["#4682B4", "Steel Blue"], ["#6A5ACD", "Slate Blue"],
-]
-
-export function getApproximateColorName(hex: string): string {
-  const rgb = hexToRgb(hex)
-  let minDist = Infinity
-  let closestName = "Unknown"
-
-  for (const [namedHex, name] of namedColors) {
-    const namedRgb = hexToRgb(namedHex)
-    const dist = Math.sqrt(
-      Math.pow(rgb.r - namedRgb.r, 2) +
-      Math.pow(rgb.g - namedRgb.g, 2) +
-      Math.pow(rgb.b - namedRgb.b, 2)
-    )
-    if (dist < minDist) {
-      minDist = dist
-      closestName = name
-    }
-  }
-
-  return closestName
-}
-
 // ── Shade Generation ──────────────────────────────────────────
 
 export function generateShades(hex: string, count = 25): string[] {
@@ -447,6 +403,268 @@ export function generateShades(hex: string, count = 25): string[] {
   }
 
   return shades
+}
+
+// ── Extended Color Conversions (LAB, XYZ, LCH, LUV, HWB) ─────
+
+export interface XYZ { x: number; y: number; z: number }
+export interface LAB { l: number; a: number; b: number }
+export interface LCH { l: number; c: number; h: number }
+export interface LUV { l: number; u: number; v: number }
+export interface HWB { h: number; w: number; b: number }
+
+// D65 illuminant reference values
+const REF_X = 95.047
+const REF_Y = 100.0
+const REF_Z = 108.883
+
+export function rgbToXyz(rgb: RGB): XYZ {
+  let r = rgb.r / 255
+  let g = rgb.g / 255
+  let b = rgb.b / 255
+
+  r = r > 0.04045 ? Math.pow((r + 0.055) / 1.055, 2.4) : r / 12.92
+  g = g > 0.04045 ? Math.pow((g + 0.055) / 1.055, 2.4) : g / 12.92
+  b = b > 0.04045 ? Math.pow((b + 0.055) / 1.055, 2.4) : b / 12.92
+
+  r *= 100; g *= 100; b *= 100
+
+  return {
+    x: Math.round(r * 0.4124564 + g * 0.3575761 + b * 0.1804375),
+    y: Math.round(r * 0.2126729 + g * 0.7151522 + b * 0.0721750),
+    z: Math.round(r * 0.0193339 + g * 0.1191920 + b * 0.9503041),
+  }
+}
+
+export function rgbToLab(rgb: RGB): LAB {
+  const xyz = rgbToXyz(rgb)
+  let x = xyz.x / REF_X
+  let y = xyz.y / REF_Y
+  let z = xyz.z / REF_Z
+
+  const epsilon = 0.008856
+  const kappa = 903.3
+
+  x = x > epsilon ? Math.cbrt(x) : (kappa * x + 16) / 116
+  y = y > epsilon ? Math.cbrt(y) : (kappa * y + 16) / 116
+  z = z > epsilon ? Math.cbrt(z) : (kappa * z + 16) / 116
+
+  return {
+    l: Math.round(116 * y - 16),
+    a: Math.round(500 * (x - y)),
+    b: Math.round(200 * (y - z)),
+  }
+}
+
+export function rgbToLch(rgb: RGB): LCH {
+  const lab = rgbToLab(rgb)
+  const c = Math.sqrt(lab.a * lab.a + lab.b * lab.b)
+  let h = Math.atan2(lab.b, lab.a) * (180 / Math.PI)
+  if (h < 0) h += 360
+
+  return {
+    l: lab.l,
+    c: Math.round(c),
+    h: Math.round(h),
+  }
+}
+
+export function rgbToLuv(rgb: RGB): LUV {
+  const xyz = rgbToXyz(rgb)
+  const yr = xyz.y / REF_Y
+  const epsilon = 0.008856
+  const kappa = 903.3
+
+  const denom = xyz.x + 15 * xyz.y + 3 * xyz.z
+  const denomR = REF_X + 15 * REF_Y + 3 * REF_Z
+
+  if (denom === 0) return { l: 0, u: 0, v: 0 }
+
+  const uPrime = (4 * xyz.x) / denom
+  const vPrime = (9 * xyz.y) / denom
+  const uPrimeR = (4 * REF_X) / denomR
+  const vPrimeR = (9 * REF_Y) / denomR
+
+  const L = yr > epsilon ? 116 * Math.cbrt(yr) - 16 : kappa * yr
+
+  return {
+    l: Math.round(L),
+    u: Math.round(13 * L * (uPrime - uPrimeR)),
+    v: Math.round(13 * L * (vPrime - vPrimeR)),
+  }
+}
+
+export function rgbToHwb(rgb: RGB): HWB {
+  const hsl = rgbToHsl(rgb)
+  const r = rgb.r / 255
+  const g = rgb.g / 255
+  const b = rgb.b / 255
+  const w = Math.min(r, g, b)
+  const bk = 1 - Math.max(r, g, b)
+
+  return {
+    h: hsl.h,
+    w: Math.round(w * 100),
+    b: Math.round(bk * 100),
+  }
+}
+
+// ── Color Psychology Data ──────────────────────────────────────
+
+export interface ColorPsychologyData {
+  description: string
+  psychology: string[]
+  meaning: string[]
+  applications: string[]
+}
+
+export function getColorPsychology(hex: string): ColorPsychologyData {
+  const rgb = hexToRgb(hex)
+  const hsl = rgbToHsl(rgb)
+  const { h, s, l } = hsl
+
+  // Determine intensity modifiers
+  const isVibrant = s > 60
+  const isDark = l < 35
+  const isLight = l > 70
+  const isPastel = s < 50 && l > 60
+  const isNeutral = s < 10
+
+  // Base psychology by hue range
+  let psych: ColorPsychologyData
+
+  if (isNeutral) {
+    if (l > 90) {
+      psych = {
+        description: "Pure and pristine shade embodying clarity, simplicity, and infinite possibility.",
+        psychology: ["Creates Space", "Purifies", "Simplifies", "Refreshes"],
+        meaning: ["Purity", "Clarity", "Simplicity", "Innocence", "Peace"],
+        applications: ["Minimalist Design", "Healthcare", "Branding", "Typography", "Web Design"],
+      }
+    } else if (l > 60) {
+      psych = {
+        description: "Soft neutral tone conveying elegance, balance, and timeless sophistication.",
+        psychology: ["Balances", "Soothes", "Neutralizes", "Grounds"],
+        meaning: ["Balance", "Neutrality", "Sophistication", "Maturity", "Calm"],
+        applications: ["UI Design", "Corporate", "Fashion", "Architecture", "Print"],
+      }
+    } else if (l > 30) {
+      psych = {
+        description: "Medium neutral shade suggesting stability, formality, and grounded composure.",
+        psychology: ["Stabilizes", "Formalizes", "Grounds", "Balances"],
+        meaning: ["Stability", "Formality", "Strength", "Wisdom", "Resilience"],
+        applications: ["Corporate Design", "UI Elements", "Typography", "Architecture", "Print"],
+      }
+    } else {
+      psych = {
+        description: "Deep, commanding shade projecting power, elegance, and profound mystery.",
+        psychology: ["Empowers", "Protects", "Commands", "Intensifies"],
+        meaning: ["Power", "Elegance", "Mystery", "Authority", "Sophistication"],
+        applications: ["Luxury Branding", "Fashion", "Typography", "Film", "Product Design"],
+      }
+    }
+  } else if (h < 15 || h >= 345) {
+    // Red
+    psych = {
+      description: isVibrant
+        ? "Bold, energetic shade radiating passion, urgency, and unstoppable vitality."
+        : "Warm, grounded red tone evoking comfort, heritage, and subtle strength.",
+      psychology: ["Energizes", "Stimulates", "Excites", "Increases Heart Rate", "Draws Attention"],
+      meaning: ["Passion", "Energy", "Love", "Power", "Urgency"],
+      applications: ["Food & Beverage", "Sports Branding", "Sale Promotions", "Entertainment", "Automotive"],
+    }
+  } else if (h < 45) {
+    // Orange
+    psych = {
+      description: isVibrant
+        ? "Vibrant, enthusiastic shade bursting with warmth, creativity, and joyful confidence."
+        : "Earthy, approachable tone carrying warmth, comfort, and natural friendliness.",
+      psychology: ["Inspires Creativity", "Encourages", "Warms", "Uplifts", "Motivates"],
+      meaning: ["Creativity", "Warmth", "Enthusiasm", "Adventure", "Friendliness"],
+      applications: ["Food Industry", "Youth Brands", "Entertainment", "Creative Agencies", "E-commerce"],
+    }
+  } else if (h < 70) {
+    // Yellow
+    psych = {
+      description: isVibrant
+        ? "Bright, optimistic shade sparking joy, intellect, and radiant positivity."
+        : "Gentle, warm tone whispering hope, softness, and delicate cheerfulness.",
+      psychology: ["Uplifts Mood", "Stimulates Intellect", "Grabs Attention", "Inspires Optimism"],
+      meaning: ["Happiness", "Optimism", "Intellect", "Energy", "Warmth"],
+      applications: ["Retail", "Food Packaging", "Children's Products", "Signage", "Creative Design"],
+    }
+  } else if (h < 150) {
+    // Green
+    psych = {
+      description: isDark
+        ? "Deep, lush shade embodying growth, wealth, and natural sophistication."
+        : isLight
+          ? "Fresh, rejuvenating tone reflecting renewal, health, and organic harmony."
+          : "Balanced, natural shade promoting growth, harmony, and restorative peace.",
+      psychology: ["Restores Balance", "Soothes", "Promotes Growth", "Encourages Harmony", "Refreshes"],
+      meaning: ["Growth", "Nature", "Health", "Balance", "Renewal"],
+      applications: ["Health & Wellness", "Organic Products", "Finance", "Environmental", "Logos"],
+    }
+  } else if (h < 195) {
+    // Teal / Cyan
+    psych = {
+      description: isVibrant
+        ? "Vivid aquatic shade mirroring the open sea, evokes wanderlust, exploration, and boundless inspiration."
+        : "Calm, sophisticated tone blending serenity with clarity and refined communication.",
+      psychology: ["Awakens Curiosity", "Soothes", "Stimulates Innovation", "Imparts Calm", "Encourages Flow"],
+      meaning: ["Freedom", "Movement", "Discovery", "Depth", "Openness"],
+      applications: ["Travel Design", "Product Packaging", "Creative Direction", "Logos", "Environmental Graphics"],
+    }
+  } else if (h < 260) {
+    // Blue
+    psych = {
+      description: isDark
+        ? "Deep, authoritative shade commanding trust, loyalty, and unwavering confidence."
+        : isLight
+          ? "Airy, serene tone reflecting tranquility, clarity, and gentle reassurance."
+          : "Steadfast, reliable shade inspiring trust, stability, and calm intelligence.",
+      psychology: ["Builds Trust", "Calms", "Enhances Focus", "Inspires Confidence", "Promotes Loyalty"],
+      meaning: ["Trust", "Stability", "Intelligence", "Loyalty", "Depth"],
+      applications: ["Corporate Branding", "Technology", "Finance", "Healthcare", "Social Media"],
+    }
+  } else if (h < 290) {
+    // Purple / Indigo
+    psych = {
+      description: isVibrant
+        ? "Majestic, creative shade radiating luxury, imagination, and artistic brilliance."
+        : "Subtle, mysterious tone weaving wisdom, introspection, and quiet dignity.",
+      psychology: ["Inspires Imagination", "Elevates", "Mystifies", "Encourages Contemplation"],
+      meaning: ["Royalty", "Luxury", "Creativity", "Wisdom", "Mystery"],
+      applications: ["Luxury Brands", "Beauty Products", "Art & Culture", "Spiritual", "Fashion"],
+    }
+  } else if (h < 345) {
+    // Pink / Magenta
+    psych = {
+      description: isVibrant
+        ? "Bold, expressive shade pulsing with energy, romance, and daring individuality."
+        : isPastel
+          ? "Soft, tender tone radiating gentleness, warmth, and nurturing compassion."
+          : "Warm, playful shade celebrating romance, creativity, and joyful expression.",
+      psychology: ["Nurtures", "Inspires Romance", "Softens", "Energizes", "Comforts"],
+      meaning: ["Love", "Compassion", "Playfulness", "Femininity", "Tenderness"],
+      applications: ["Beauty & Cosmetics", "Fashion", "Wedding Design", "Children's Products", "Branding"],
+    }
+  } else {
+    psych = {
+      description: "Distinctive shade with a unique character, blending multiple color influences.",
+      psychology: ["Intrigues", "Balances", "Inspires"],
+      meaning: ["Uniqueness", "Complexity", "Balance"],
+      applications: ["Creative Design", "Branding", "Art"],
+    }
+  }
+
+  // Modify description based on lightness/saturation
+  if (isPastel && !isNeutral) {
+    psych.description = psych.description.replace(/Bold|Vibrant|Vivid|Deep|Majestic/, "Soft, delicate")
+    psych.psychology = [...psych.psychology.slice(0, 3), "Softens", "Comforts"]
+  }
+
+  return psych
 }
 
 // ── Hex Validation ─────────────────────────────────────────────
