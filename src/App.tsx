@@ -4,6 +4,11 @@ import { TreeCreator } from "@/components/tree/TreeCreator"
 import { DbModelling } from "@/components/db/DbModelling"
 import { BoardEditor } from "@/components/board/BoardEditor"
 import { ColorPicker } from "./components/color/ColorPicker"
+import { ColorPicker } from "@/components/color/ColorPicker"
+import { JsonFormatter } from "@/components/json/JsonFormatter"
+import { RegexPlayground } from "@/components/regex/RegexPlayground"
+import { EncoderDecoder } from "@/components/encoder/EncoderDecoder"
+import { TimestampConverter } from "@/components/timestamp/TimestampConverter"
 
 function App() {
   return (
@@ -11,25 +16,37 @@ function App() {
       <Header />
       <main className="flex-1 flex flex-col min-h-0">
         <Tabs defaultValue="tree" className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 pt-2 pb-1 flex-shrink-0">
+          <div className="px-4 pt-2 pb-1 flex-shrink-0 border-b border-border">
             <TabsList className="w-fit">
-              <TabsTrigger value="color">Color Picker</TabsTrigger>
-              <TabsTrigger value="board">Whiteboard</TabsTrigger>
+              <TabsTrigger value="tree">Tree</TabsTrigger>
               <TabsTrigger value="db">DB Modelling</TabsTrigger>
-              <TabsTrigger value="tree">Tree Structure</TabsTrigger>
+              <TabsTrigger value="color">Colors</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+              <TabsTrigger value="regex">Regex</TabsTrigger>
+              <TabsTrigger value="encoder">Encoder</TabsTrigger>
+              <TabsTrigger value="timestamp">Timestamp</TabsTrigger>
             </TabsList>
           </div>
-          <TabsContent value="color" className="flex-1 min-h-0 px-4 pb-2">
-            <ColorPicker />
-          </TabsContent>
-          <TabsContent value="board" className="flex-1 min-h-0 px-4 pb-2">
-            <BoardEditor />
+          <TabsContent value="tree" className="flex-1 min-h-0 px-4 py-2">
+            <TreeCreator />
           </TabsContent>
           <TabsContent value="db" className="flex-1 min-h-0">
             <DbModelling />
           </TabsContent>
-          <TabsContent value="tree" className="flex-1 min-h-0 px-4 pb-2">
-            <TreeCreator />
+          <TabsContent value="color" className="flex-1 min-h-0">
+            <ColorPicker />
+          </TabsContent>
+          <TabsContent value="json" className="flex-1 min-h-0">
+            <JsonFormatter />
+          </TabsContent>
+          <TabsContent value="regex" className="flex-1 min-h-0">
+            <RegexPlayground />
+          </TabsContent>
+          <TabsContent value="encoder" className="flex-1 min-h-0">
+            <EncoderDecoder />
+          </TabsContent>
+          <TabsContent value="timestamp" className="flex-1 min-h-0">
+            <TimestampConverter />
           </TabsContent>
         </Tabs>
       </main>
