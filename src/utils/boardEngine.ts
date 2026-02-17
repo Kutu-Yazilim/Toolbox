@@ -7,7 +7,6 @@ import type {
   ElementStyle,
   ElementType,
   ConnectionSide,
-  Connection,
 } from "@/types/board"
 import {
   DEFAULT_STYLE,
