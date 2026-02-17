@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { PaletteColor, ColorHarmony } from "@/types/color"
 import {
   generateRandomPalette,
@@ -15,7 +15,8 @@ import { HarmonySelector } from "./HarmonySelector"
 import { ContrastChecker } from "./ContrastChecker"
 import { ColorBlindnessView } from "./ColorBlindnessView"
 
-const MAX_COLORS = 10
+const MAX_COLORS = 30
+const COLORS_PER_ROW = 10
 const MIN_COLORS = 2
 const DEFAULT_COLOR_COUNT = 5
 const MAX_HISTORY = 50
@@ -268,8 +269,17 @@ export function ColorPicker() {
     setColors(adjusted)
   }
 
+  // Chunk colors into rows of COLORS_PER_ROW
+  const colorRows = useMemo(() => {
+    const rows: PaletteColor[][] = []
+    for (let i = 0; i < colors.length; i += COLORS_PER_ROW) {
+      rows.push(colors.slice(i, i + COLORS_PER_ROW))
+    }
+    return rows
+  }, [colors])
+
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)]">
+    <div className="h-full flex flex-col min-h-0">
       <PaletteToolbar
         harmony={harmony}
         onGenerate={generate}
@@ -284,34 +294,40 @@ export function ColorPicker() {
         canRedo={historyIndex < history.length - 1}
       />
 
-      {/* Palette columns */}
-      <div ref={paletteRef} className="flex-1 flex overflow-hidden rounded-b-lg">
-        {colors.map((color, index) => (
-          <ColorColumn
-            key={color.id}
-            color={color}
-            index={index}
-            total={colors.length}
-            onLock={() => toggleLock(color.id)}
-            onRemove={() => removeColor(color.id)}
-            onUpdate={(hex) => updateColor(color.id, hex)}
-            onAddBefore={() => addColorAt(index)}
-            onAddAfter={() => addColorAt(index + 1)}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-            canRemove={colors.length > MIN_COLORS}
-          />
+      {/* Palette rows */}
+      <div ref={paletteRef} className="flex-1 flex flex-col overflow-hidden">
+        {colorRows.map((row, rowIndex) => (
+          <div key={rowIndex} className="flex-1 flex overflow-hidden min-h-0">
+            {row.map((color, colIndex) => {
+              const globalIndex = rowIndex * COLORS_PER_ROW + colIndex
+              return (
+                <ColorColumn
+                  key={color.id}
+                  color={color}
+                  index={globalIndex}
+                  total={colors.length}
+                  onLock={() => toggleLock(color.id)}
+                  onRemove={() => removeColor(color.id)}
+                  onUpdate={(hex) => updateColor(color.id, hex)}
+                  onAddBefore={() => addColorAt(globalIndex)}
+                  onAddAfter={() => addColorAt(globalIndex + 1)}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragEnd={handleDragEnd}
+                  canRemove={colors.length > MIN_COLORS}
+                />
+              )
+            })}
+          </div>
         ))}
       </div>
 
       {/* Hint bar */}
-      <div className="flex items-center justify-center gap-4 py-2 text-xs text-muted-foreground bg-card border-t border-border">
-        <span>Press <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">Space</kbd> to generate</span>
+      <div className="flex items-center justify-center gap-4 h-7 text-[10px] text-muted-foreground border-t border-border flex-shrink-0">
+        <span>Press <kbd className="px-1 py-px rounded border border-border bg-muted font-mono text-[9px]">Space</kbd> to generate</span>
         <span className="hidden sm:inline">Click hex to edit</span>
         <span className="hidden md:inline">Drag to reorder</span>
-        <span className="hidden md:inline">Hover for +/- buttons</span>
-        <span className="hidden lg:inline"><kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">Ctrl+Z</kbd> / <kbd className="px-1.5 py-0.5 rounded border border-border bg-muted font-mono text-[10px]">Ctrl+Y</kbd> undo/redo</span>
+        <span className="hidden lg:inline"><kbd className="px-1 py-px rounded border border-border bg-muted font-mono text-[9px]">Ctrl+Z</kbd> / <kbd className="px-1 py-px rounded border border-border bg-muted font-mono text-[9px]">Ctrl+Y</kbd> undo/redo</span>
       </div>
 
       {/* Dialogs */}

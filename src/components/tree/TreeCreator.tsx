@@ -1,8 +1,11 @@
 import { useState, useMemo } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { CopyIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
+import {
+    CopyIcon,
+    DownloadIcon,
+    RefreshCwIcon,
+    CheckIcon,
+} from "lucide-react"
 import { TreeOptions, type TreeOptionsType, defaultTreeOptions } from "./TreeOptions"
 import { generateTree } from "@/utils/treeGenerator"
 
@@ -80,54 +83,54 @@ export function TreeCreator() {
     }
 
     return (
-        <div className="grid gap-4 lg:grid-cols-2 h-[calc(100vh-140px)] min-h-[600px]">
-            <div className="flex flex-col gap-4">
-                <Card className="flex-1 flex flex-col">
-                    <CardHeader className="pb-3 flex-shrink-0">
-                        <CardTitle className="text-lg flex items-center justify-between">
-                            Input
-                            <Button variant="ghost" size="sm" onClick={handleReset}>
-                                <RefreshCwIcon className="h-4 w-4 mr-1" />
-                                Reset
-                            </Button>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 min-h-0">
-                        <Textarea
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            placeholder="Enter your tree structure using indentation..."
-                            className="font-mono text-sm h-full resize-none"
-                            spellCheck={false}
-                        />
-                    </CardContent>
-                </Card>
-
-                <TreeOptions options={options} onChange={setOptions} />
+        <div className="h-full flex flex-col min-h-0">
+            {/* Toolbar */}
+            <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
+                <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider mr-1">Tree</span>
+                    <div className="w-px h-4 bg-border mx-0.5" />
+                    <TreeOptions options={options} onChange={setOptions} />
+                </div>
+                <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="xs" onClick={handleReset} title="Reset to example">
+                        <RefreshCwIcon className="h-3 w-3" />
+                    </Button>
+                    <div className="w-px h-4 bg-border mx-0.5" />
+                    <Button variant="ghost" size="xs" onClick={handleCopy} title="Copy output">
+                        {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+                    </Button>
+                    <Button variant="ghost" size="xs" onClick={handleDownload} title="Download .txt">
+                        <DownloadIcon className="h-3 w-3" />
+                    </Button>
+                </div>
             </div>
 
-            <Card className="flex flex-col">
-                <CardHeader className="pb-3 flex-shrink-0">
-                    <CardTitle className="text-lg flex items-center justify-between">
-                        Output
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={handleCopy}>
-                                <CopyIcon className="h-4 w-4 mr-1" />
-                                {copied ? "Copied!" : "Copy"}
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={handleDownload}>
-                                <DownloadIcon className="h-4 w-4 mr-1" />
-                                Download
-                            </Button>
-                        </div>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 min-h-0">
-                    <pre className="font-mono text-sm bg-muted p-4 rounded-lg overflow-auto h-full whitespace-pre">
+            {/* Two-panel layout */}
+            <div className="flex-1 flex min-h-0 gap-px bg-border">
+                {/* Input panel */}
+                <div className="flex flex-col bg-background" style={{ width: "50%" }}>
+                    <div className="flex items-center px-3 h-7 border-b border-border flex-shrink-0">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Input</span>
+                    </div>
+                    <textarea
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        placeholder="Enter your tree structure using indentation..."
+                        className="flex-1 w-full px-3 py-2 text-sm font-mono bg-transparent text-foreground resize-none outline-none"
+                        spellCheck={false}
+                    />
+                </div>
+
+                {/* Output panel */}
+                <div className="flex-1 flex flex-col bg-background min-w-0">
+                    <div className="flex items-center px-3 h-7 border-b border-border flex-shrink-0">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
+                    </div>
+                    <pre className="flex-1 px-3 py-2 text-sm font-mono text-foreground overflow-auto whitespace-pre min-h-0">
                         {output || "Your tree structure will appear here..."}
                     </pre>
-                </CardContent>
-            </Card>
+                </div>
+            </div>
         </div>
     )
 }

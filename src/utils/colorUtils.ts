@@ -434,6 +434,21 @@ export function getApproximateColorName(hex: string): string {
   return closestName
 }
 
+// ── Shade Generation ──────────────────────────────────────────
+
+export function generateShades(hex: string, count = 25): string[] {
+  const hsl = rgbToHsl(hexToRgb(hex))
+  const shades: string[] = []
+
+  for (let i = 0; i < count; i++) {
+    // Spread evenly from lightness ~97 down to ~3
+    const l = Math.round(97 - (94 / (count - 1)) * i)
+    shades.push(rgbToHex(hslToRgb({ h: hsl.h, s: hsl.s, l })))
+  }
+
+  return shades
+}
+
 // ── Hex Validation ─────────────────────────────────────────────
 
 export function isValidHex(hex: string): boolean {

@@ -14,11 +14,10 @@ import { MarkdownPreview } from "@/components/markdown/MarkdownPreview"
 function App() {
   return (
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
-      <Header />
-      <main className="flex-1 flex flex-col min-h-0">
-        <Tabs defaultValue="tree" className="flex-1 flex flex-col min-h-0">
-          <div className="px-4 pt-2 pb-1 flex-shrink-0 border-b border-border">
-            <TabsList className="w-fit">
+      <Tabs defaultValue="color" className="flex-1 flex flex-col min-h-0">
+        <Header
+          centerContent={(
+            <TabsList className="w-fit max-w-full overflow-x-auto">
               <TabsTrigger value="tree">Tree</TabsTrigger>
               <TabsTrigger value="db">DB Modelling</TabsTrigger>
               <TabsTrigger value="color">Colors</TabsTrigger>
@@ -30,8 +29,10 @@ function App() {
               <TabsTrigger value="api">API</TabsTrigger>
               <TabsTrigger value="markdown">Markdown</TabsTrigger>
             </TabsList>
-          </div>
-          <TabsContent value="tree" className="flex-1 min-h-0 px-4 py-2">
+          )}
+        />
+        <main className="flex-1 flex flex-col min-h-0">
+          <TabsContent value="tree" className="flex-1 min-h-0">
             <TreeCreator />
           </TabsContent>
           <TabsContent value="db" className="flex-1 min-h-0">
@@ -61,8 +62,8 @@ function App() {
           <TabsContent value="markdown" className="flex-1 min-h-0">
             <MarkdownPreview />
           </TabsContent>
-        </Tabs>
-      </main>
+        </main>
+      </Tabs>
     </div>
   )
 }

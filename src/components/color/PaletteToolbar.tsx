@@ -48,69 +48,66 @@ export function PaletteToolbar({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 px-4 py-2 bg-card border-b border-border flex-wrap">
+    <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
       {/* Left: Generate & Harmony */}
-      <div className="flex items-center gap-2">
-        <Button onClick={onGenerate} size="sm" className="gap-1.5">
-          Generate
-          <kbd className="ml-1 hidden sm:inline-flex h-5 items-center rounded border border-primary-foreground/30 px-1.5 text-[10px] font-mono">
-            Space
-          </kbd>
+      <div className="flex items-center gap-1.5">
+        <Button onClick={onGenerate} size="xs">
+          <span className="text-[11px]">Generate</span>
         </Button>
+
+        <div className="w-px h-4 bg-border mx-0.5" />
 
         <Button
           onClick={onShowHarmony}
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
+          variant="ghost"
+          size="xs"
+          title="Color harmony"
         >
-          <PaletteIcon className="size-4" />
-          <span className="hidden sm:inline">{harmonyLabels[harmony]}</span>
+          <PaletteIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">{harmonyLabels[harmony]}</span>
         </Button>
 
+        <div className="w-px h-4 bg-border mx-0.5" />
+
         {/* Undo / Redo */}
-        <div className="flex items-center border border-border rounded-md">
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={onUndo}
-            disabled={!canUndo}
-            title="Undo (Ctrl+Z)"
-            className="rounded-r-none"
-          >
-            <UndoIcon className="size-3.5" />
-          </Button>
-          <div className="w-px h-4 bg-border" />
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            onClick={onRedo}
-            disabled={!canRedo}
-            title="Redo (Ctrl+Y)"
-            className="rounded-l-none"
-          >
-            <RedoIcon className="size-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={onUndo}
+          disabled={!canUndo}
+          title="Undo (Ctrl+Z)"
+        >
+          <UndoIcon className="h-3 w-3" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="xs"
+          onClick={onRedo}
+          disabled={!canRedo}
+          title="Redo (Ctrl+Y)"
+        >
+          <RedoIcon className="h-3 w-3" />
+        </Button>
       </div>
 
       {/* Right: Tools */}
-      <div className="flex items-center gap-1.5">
-        <Button variant="outline" size="sm" onClick={onShowAdjust} className="gap-1.5">
-          <SlidersHorizontalIcon className="size-4" />
-          <span className="hidden sm:inline">Adjust</span>
+      <div className="flex items-center gap-1">
+        <Button variant="ghost" size="xs" onClick={onShowAdjust} title="Adjust colors">
+          <SlidersHorizontalIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Adjust</span>
         </Button>
-        <Button variant="outline" size="sm" onClick={onShowContrast} className="gap-1.5">
-          <ContrastIcon className="size-4" />
-          <span className="hidden sm:inline">Contrast</span>
+        <Button variant="ghost" size="xs" onClick={onShowContrast} title="Contrast checker">
+          <ContrastIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Contrast</span>
         </Button>
-        <Button variant="outline" size="sm" onClick={onShowBlindness} className="gap-1.5">
-          <EyeIcon className="size-4" />
-          <span className="hidden sm:inline">Vision</span>
+        <Button variant="ghost" size="xs" onClick={onShowBlindness} title="Color blindness view">
+          <EyeIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Vision</span>
         </Button>
-        <Button variant="outline" size="sm" onClick={onShowExport} className="gap-1.5">
-          <DownloadIcon className="size-4" />
-          <span className="hidden sm:inline">Export</span>
+        <div className="w-px h-4 bg-border mx-0.5" />
+        <Button variant="ghost" size="xs" onClick={onShowExport} title="Export palette">
+          <DownloadIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Export</span>
         </Button>
       </div>
     </div>

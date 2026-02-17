@@ -1,6 +1,6 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useMemo } from "react"
 import { cn } from "@/lib/utils"
-import { getContrastTextColor, hexToRgb, rgbToHsl, getApproximateColorName } from "@/utils/colorUtils"
+import { getContrastTextColor, hexToRgb, rgbToHsl, getApproximateColorName, generateShades } from "@/utils/colorUtils"
 import type { PaletteColor } from "@/types/color"
 import { ColorEditor } from "./ColorEditor"
 import {
@@ -11,6 +11,7 @@ import {
   CheckIcon,
   GripVerticalIcon,
   PlusIcon,
+  SwatchBookIcon,
 } from "lucide-react"
 
 interface ColorColumnProps {
@@ -44,6 +45,7 @@ export function ColorColumn({
 }: ColorColumnProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
+  const [showShades, setShowShades] = useState(false)
   const [copied, setCopied] = useState(false)
   const columnRef = useRef<HTMLDivElement>(null)
 
@@ -52,11 +54,18 @@ export function ColorColumn({
   const hsl = rgbToHsl(rgb)
   const colorName = getApproximateColorName(color.hex)
 
+  const shades = useMemo(() => generateShades(color.hex, 25), [color.hex])
+
   const copyHex = (e: React.MouseEvent) => {
     e.stopPropagation()
     navigator.clipboard.writeText(color.hex)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
+  }
+
+  const handleSelectShade = (hex: string) => {
+    onUpdate(hex)
+    setShowShades(false)
   }
 
   const btnClass = cn(
@@ -101,92 +110,150 @@ export function ColorColumn({
         }}
         onDragEnd={onDragEnd}
       >
+        {/* Shades overlay */}
+        {showShades && (
+          <div className="absolute inset-0 z-40 flex flex-col overflow-y-auto">
+            {shades.map((shade, i) => {
+              const shadeTextColor = getContrastTextColor(shade)
+              const isCurrentColor = shade.toUpperCase() === color.hex.toUpperCase()
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleSelectShade(shade)}
+                  className="flex-1 min-h-[20px] w-full flex items-center justify-center transition-all hover:flex-[3] relative group/shade"
+                  style={{ backgroundColor: shade }}
+                >
+                  {/* Hex label on hover */}
+                  <span
+                    className="text-[11px] font-mono font-medium opacity-0 group-hover/shade:opacity-100 transition-opacity"
+                    style={{ color: shadeTextColor }}
+                  >
+                    {shade}
+                  </span>
+                  {/* Current color indicator */}
+                  {isCurrentColor && (
+                    <div
+                      className="absolute w-1.5 h-1.5 rounded-full"
+                      style={{ backgroundColor: shadeTextColor }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         {/* Action buttons - shown on hover */}
-        <div
-          className={cn(
-            "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-opacity duration-200",
-            isHovered || showEditor ? "opacity-100" : "opacity-0"
-          )}
-          style={{ color: textColor }}
-        >
-          {/* Drag handle */}
-          <button
-            className={cn(btnClass, "cursor-grab active:cursor-grabbing")}
-            style={{ color: textColor, backgroundColor: `${textColor}15` }}
-            title="Drag to reorder"
-            onMouseDown={(e) => e.stopPropagation()}
+        {!showShades && (
+          <div
+            className={cn(
+              "absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-2 transition-opacity duration-200",
+              isHovered || showEditor ? "opacity-100" : "opacity-0"
+            )}
+            style={{ color: textColor }}
           >
-            <GripVerticalIcon className="size-5" />
-          </button>
+            {/* Remove */}
+            {canRemove && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove() }}
+                className={btnClass}
+                style={{ color: textColor, backgroundColor: `${textColor}15` }}
+                title="Remove color"
+              >
+                <XIcon className="size-5" />
+              </button>
+            )}
 
-          {/* Lock/Unlock */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onLock() }}
-            className={btnClass}
-            style={{ color: textColor, backgroundColor: color.locked ? `${textColor}25` : `${textColor}15` }}
-            title={color.locked ? "Unlock color" : "Lock color"}
-          >
-            {color.locked ? <LockIcon className="size-5" /> : <LockOpenIcon className="size-5" />}
-          </button>
-
-          {/* Copy */}
-          <button
-            onClick={copyHex}
-            className={btnClass}
-            style={{ color: textColor, backgroundColor: `${textColor}15` }}
-            title="Copy hex"
-          >
-            {copied ? <CheckIcon className="size-5" /> : <CopyIcon className="size-5" />}
-          </button>
-
-          {/* Remove */}
-          {canRemove && (
+            {/* View shades */}
             <button
-              onClick={(e) => { e.stopPropagation(); onRemove() }}
+              onClick={(e) => { e.stopPropagation(); setShowShades(true) }}
               className={btnClass}
               style={{ color: textColor, backgroundColor: `${textColor}15` }}
-              title="Remove color"
+              title="View shades"
             >
-              <XIcon className="size-5" />
+              <SwatchBookIcon className="size-5" />
             </button>
-          )}
-        </div>
+
+            {/* Drag handle */}
+            <button
+              className={cn(btnClass, "cursor-grab active:cursor-grabbing")}
+              style={{ color: textColor, backgroundColor: `${textColor}15` }}
+              title="Drag to reorder"
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <GripVerticalIcon className="size-5" />
+            </button>
+
+            {/* Lock/Unlock */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onLock() }}
+              className={btnClass}
+              style={{ color: textColor, backgroundColor: color.locked ? `${textColor}25` : `${textColor}15` }}
+              title={color.locked ? "Unlock color" : "Lock color"}
+            >
+              {color.locked ? <LockIcon className="size-5" /> : <LockOpenIcon className="size-5" />}
+            </button>
+
+            {/* Copy */}
+            <button
+              onClick={copyHex}
+              className={btnClass}
+              style={{ color: textColor, backgroundColor: `${textColor}15` }}
+              title="Copy hex"
+            >
+              {copied ? <CheckIcon className="size-5" /> : <CopyIcon className="size-5" />}
+            </button>
+          </div>
+        )}
+
+        {/* Close shades button */}
+        {showShades && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowShades(false) }}
+            className="absolute top-2 left-1/2 -translate-x-1/2 z-50 p-1.5 rounded-full bg-card/90 backdrop-blur-sm border border-border shadow-md text-foreground hover:scale-110 transition-all"
+            title="Close shades"
+          >
+            <XIcon className="size-3.5" />
+          </button>
+        )}
 
         {/* Color info at bottom */}
-        <div
-          className="w-full px-3 pb-4 flex flex-col items-center gap-1.5 relative z-10"
-          style={{ color: textColor }}
-        >
-          {/* Color name */}
-          <span className="text-xs opacity-60 font-medium truncate max-w-full">
-            {colorName}
-          </span>
-
-          {/* Hex value - clickable to edit */}
-          <button
-            onClick={() => setShowEditor(!showEditor)}
-            className="text-lg font-bold tracking-wider hover:scale-105 transition-transform"
-            title="Click to edit color"
+        {!showShades && (
+          <div
+            className="w-full px-3 pb-4 flex flex-col items-center gap-1.5 relative z-10"
+            style={{ color: textColor }}
           >
-            {color.hex}
-          </button>
+            {/* Color name */}
+            <span className="text-xs opacity-60 font-medium truncate max-w-full">
+              {colorName}
+            </span>
 
-          {/* RGB & HSL */}
-          <div className="flex flex-col items-center gap-0.5 text-[11px] opacity-50 font-mono">
-            <span>rgb({rgb.r}, {rgb.g}, {rgb.b})</span>
-            <span>hsl({hsl.h}°, {hsl.s}%, {hsl.l}%)</span>
-          </div>
+            {/* Hex value - clickable to edit */}
+            <button
+              onClick={() => setShowEditor(!showEditor)}
+              className="text-lg font-bold tracking-wider hover:scale-105 transition-transform"
+              title="Click to edit color"
+            >
+              {color.hex}
+            </button>
 
-          {/* Lock indicator */}
-          {color.locked && (
-            <div className="mt-1 opacity-60">
-              <LockIcon className="size-3.5" />
+            {/* RGB & HSL */}
+            <div className="flex flex-col items-center gap-0.5 text-[11px] opacity-50 font-mono">
+              <span>rgb({rgb.r}, {rgb.g}, {rgb.b})</span>
+              <span>hsl({hsl.h}°, {hsl.s}%, {hsl.l}%)</span>
             </div>
-          )}
-        </div>
+
+            {/* Lock indicator */}
+            {color.locked && (
+              <div className="mt-1 opacity-60">
+                <LockIcon className="size-3.5" />
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Color editor popup */}
-        {showEditor && (
+        {showEditor && !showShades && (
           <ColorEditor
             hex={color.hex}
             onChange={onUpdate}

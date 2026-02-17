@@ -416,7 +416,7 @@ export function BoardEditor() {
   const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
 
   return (
-    <div ref={containerRef} className="relative w-full h-[calc(100vh-140px)] overflow-hidden rounded-lg border border-border">
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden">
       {/* Canvas */}
       <BoardCanvas
         elements={elements}

@@ -1,6 +1,3 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-
 export interface TreeOptionsType {
     rootSymbol: string
     branchStyle: "ascii" | "unicode" | "minimal"
@@ -20,6 +17,12 @@ interface TreeOptionsProps {
     onChange: (options: TreeOptionsType) => void
 }
 
+const BRANCH_STYLES: { value: TreeOptionsType["branchStyle"]; label: string }[] = [
+    { value: "unicode", label: "Unicode" },
+    { value: "ascii", label: "ASCII" },
+    { value: "minimal", label: "Minimal" },
+]
+
 export function TreeOptions({ options, onChange }: TreeOptionsProps) {
     const updateOption = <K extends keyof TreeOptionsType>(
         key: K,
@@ -29,79 +32,61 @@ export function TreeOptions({ options, onChange }: TreeOptionsProps) {
     }
 
     return (
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Options</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Root Symbol</label>
-                    <input
-                        type="text"
-                        value={options.rootSymbol}
-                        onChange={(e) => updateOption("rootSymbol", e.target.value || ".")}
-                        className="flex h-9 w-full max-w-[200px] rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        placeholder="."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                        The symbol shown at the top of the tree (default: ".")
-                    </p>
-                </div>
+        <>
+            {/* Branch style pills */}
+            {BRANCH_STYLES.map(s => (
+                <button
+                    key={s.value}
+                    onClick={() => updateOption("branchStyle", s.value)}
+                    className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                        options.branchStyle === s.value
+                            ? "bg-primary text-primary-foreground"
+                            : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                >
+                    {s.label}
+                </button>
+            ))}
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium">Branch Style</label>
-                    <div className="flex gap-2">
-                        {(["unicode", "ascii", "minimal"] as const).map((style) => (
-                            <Button
-                                key={style}
-                                variant={options.branchStyle === style ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => updateOption("branchStyle", style)}
-                                className="capitalize"
-                            >
-                                {style}
-                            </Button>
-                        ))}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                        {options.branchStyle === "unicode" && "├──, └──, │ (default)"}
-                        {options.branchStyle === "ascii" && "+-- and |"}
-                        {options.branchStyle === "minimal" && "Simple dashes"}
-                    </p>
-                </div>
+            <div className="w-px h-4 bg-border mx-0.5" />
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <label className="text-sm font-medium">Trailing Slashes</label>
-                        <p className="text-xs text-muted-foreground">
-                            Add "/" after directories
-                        </p>
-                    </div>
-                    <Button
-                        variant={options.trailingSlash ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => updateOption("trailingSlash", !options.trailingSlash)}
-                    >
-                        {options.trailingSlash ? "On" : "Off"}
-                    </Button>
-                </div>
+            {/* Root symbol */}
+            <span className="text-[10px] text-muted-foreground">Root</span>
+            <input
+                type="text"
+                value={options.rootSymbol}
+                onChange={(e) => updateOption("rootSymbol", e.target.value || ".")}
+                className="w-8 h-5 px-1 text-[11px] font-mono text-center bg-muted/30 border border-border rounded outline-none focus:border-ring text-foreground"
+                spellCheck={false}
+            />
 
-                <div className="flex items-center justify-between">
-                    <div>
-                        <label className="text-sm font-medium">Full Path Mode</label>
-                        <p className="text-xs text-muted-foreground">
-                            Show complete paths for each item
-                        </p>
-                    </div>
-                    <Button
-                        variant={options.fullPath ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => updateOption("fullPath", !options.fullPath)}
-                    >
-                        {options.fullPath ? "On" : "Off"}
-                    </Button>
-                </div>
-            </CardContent>
-        </Card>
+            <div className="w-px h-4 bg-border mx-0.5" />
+
+            {/* Trailing slash toggle */}
+            <button
+                onClick={() => updateOption("trailingSlash", !options.trailingSlash)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    options.trailingSlash
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                title="Add trailing slashes to directories"
+            >
+                dir/
+            </button>
+
+            {/* Full path toggle */}
+            <button
+                onClick={() => updateOption("fullPath", !options.fullPath)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    options.fullPath
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                title="Show full paths"
+            >
+                Full Path
+            </button>
+        </>
     )
 }
