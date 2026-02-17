@@ -3,26 +3,48 @@ import { Header } from "@/components/layout/Header"
 import { TreeCreator } from "@/components/tree/TreeCreator"
 import { DbModelling } from "@/components/db/DbModelling"
 import { ColorPicker } from "@/components/color/ColorPicker"
+import { JsonFormatter } from "@/components/json/JsonFormatter"
+import { RegexPlayground } from "@/components/regex/RegexPlayground"
+import { EncoderDecoder } from "@/components/encoder/EncoderDecoder"
+import { TimestampConverter } from "@/components/timestamp/TimestampConverter"
 
 function App() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <Header />
-      <main className="flex-1 px-4 py-4">
-        <Tabs defaultValue="tree" className="h-full flex flex-col">
-          <TabsList className="grid w-full max-w-lg mx-auto grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="tree">Tree Structure</TabsTrigger>
-            <TabsTrigger value="db">DB Modelling</TabsTrigger>
-            <TabsTrigger value="color">Color Picker</TabsTrigger>
-          </TabsList>
-          <TabsContent value="tree" className="mt-4 flex-1">
+      <main className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="tree" className="flex-1 flex flex-col min-h-0">
+          <div className="px-4 pt-2 pb-1 flex-shrink-0 border-b border-border">
+            <TabsList className="w-fit">
+              <TabsTrigger value="tree">Tree</TabsTrigger>
+              <TabsTrigger value="db">DB Modelling</TabsTrigger>
+              <TabsTrigger value="color">Colors</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+              <TabsTrigger value="regex">Regex</TabsTrigger>
+              <TabsTrigger value="encoder">Encoder</TabsTrigger>
+              <TabsTrigger value="timestamp">Timestamp</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="tree" className="flex-1 min-h-0 px-4 py-2">
             <TreeCreator />
           </TabsContent>
-          <TabsContent value="db" className="mt-4 flex-1">
+          <TabsContent value="db" className="flex-1 min-h-0">
             <DbModelling />
           </TabsContent>
-          <TabsContent value="color" className="mt-4 flex-1">
+          <TabsContent value="color" className="flex-1 min-h-0">
             <ColorPicker />
+          </TabsContent>
+          <TabsContent value="json" className="flex-1 min-h-0">
+            <JsonFormatter />
+          </TabsContent>
+          <TabsContent value="regex" className="flex-1 min-h-0">
+            <RegexPlayground />
+          </TabsContent>
+          <TabsContent value="encoder" className="flex-1 min-h-0">
+            <EncoderDecoder />
+          </TabsContent>
+          <TabsContent value="timestamp" className="flex-1 min-h-0">
+            <TimestampConverter />
           </TabsContent>
         </Tabs>
       </main>
