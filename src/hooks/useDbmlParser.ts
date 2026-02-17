@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react"
+import { useState, useCallback } from "react"
 import { Parser } from "@dbml/core"
 import type { Database } from "@/types/dbml"
 
@@ -9,9 +9,6 @@ export function useDbmlParser() {
   const [database, setDatabase] = useState<Database | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Create a persistent parser instance
-  const parser = useMemo(() => new Parser(), [])
-
   const parse = useCallback((dbml: string) => {
     if (!dbml.trim()) {
       setDatabase(null)
@@ -20,7 +17,8 @@ export function useDbmlParser() {
     }
 
     try {
-      // Use the parser instance to parse DBML
+      // Create a fresh parser each time to avoid stale internal state after errors
+      const parser = new Parser()
       const parsed: any = parser.parse(dbml, "dbmlv2")
       
       // The parsed result has schemas array
@@ -77,7 +75,7 @@ export function useDbmlParser() {
       setError(message)
       setDatabase(null)
     }
-  }, [parser])
+  }, [])
 
   return { database, error, parse }
 }

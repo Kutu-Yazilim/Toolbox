@@ -6,22 +6,24 @@ import { BoardEditor } from "@/components/board/BoardEditor"
 
 function App() {
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <Header />
-      <main className="flex-1 px-4 py-4">
-        <Tabs defaultValue="tree" className="h-full flex flex-col">
-          <TabsList className="grid w-full max-w-lg mx-auto grid-cols-3 flex-shrink-0">
-            <TabsTrigger value="tree">Tree Structure</TabsTrigger>
-            <TabsTrigger value="db">DB Modelling</TabsTrigger>
-            <TabsTrigger value="board">Whiteboard</TabsTrigger>
-          </TabsList>
-          <TabsContent value="tree" className="mt-4 flex-1">
+      <main className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="tree" className="flex-1 flex flex-col min-h-0">
+          <div className="px-4 pt-2 pb-1 flex-shrink-0">
+            <TabsList className="w-fit">
+              <TabsTrigger value="tree">Tree Structure</TabsTrigger>
+              <TabsTrigger value="db">DB Modelling</TabsTrigger>
+              <TabsTrigger value="board">Whiteboard</TabsTrigger>
+            </TabsList>
+          </div>
+          <TabsContent value="tree" className="flex-1 min-h-0 px-4 pb-2">
             <TreeCreator />
           </TabsContent>
-          <TabsContent value="db" className="mt-4 flex-1">
+          <TabsContent value="db" className="flex-1 min-h-0">
             <DbModelling />
           </TabsContent>
-          <TabsContent value="board" className="mt-4 flex-1">
+          <TabsContent value="board" className="flex-1 min-h-0 px-4 pb-2">
             <BoardEditor />
           </TabsContent>
         </Tabs>

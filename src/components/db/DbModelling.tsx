@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CopyIcon, DownloadIcon, PlayIcon, AlertCircleIcon, ImageIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
+import { CopyIcon, DownloadIcon, PlayIcon, AlertCircleIcon, ImageIcon, ChevronDownIcon, ChevronUpIcon, CheckIcon } from "lucide-react"
 import Editor from "@monaco-editor/react"
 import { useDbmlParser } from "@/hooks/useDbmlParser"
 import { ErDiagram } from "./ErDiagram"
@@ -54,14 +53,12 @@ const CHEATSHEET_ITEMS = [
             { code: "email varchar [unique]", desc: "Unique constraint" },
             { code: "name varchar [not null]", desc: "Not null" },
             { code: "status varchar [default: 'active']", desc: "Default value" },
-            { code: "bio text [note: 'User bio']", desc: "With note" },
         ]
     },
     {
-        title: "References (Relationships)",
+        title: "References",
         examples: [
             { code: "Ref: posts.user_id > users.id", desc: "Many-to-one" },
-            { code: "Ref: users.id < posts.user_id", desc: "One-to-many" },
             { code: "Ref: users.id - profiles.id", desc: "One-to-one" },
             { code: "Ref: posts.tags <> tags.posts", desc: "Many-to-many" },
         ]
@@ -76,8 +73,8 @@ const CHEATSHEET_ITEMS = [
     {
         title: "Enums",
         examples: [
-            { code: "Enum status { draft, published, archived }", desc: "Define enum" },
-            { code: "status status_enum", desc: "Use enum as column type" },
+            { code: "Enum status { draft, published }", desc: "Define enum" },
+            { code: "status status_enum", desc: "Use as column type" },
         ]
     },
 ]
@@ -127,135 +124,138 @@ export function DbModelling() {
     }, [parse])
 
     return (
-        <div className="space-y-4">
-            {/* Main content grid - fixed height */}
-            <div className="grid gap-4 h-[calc(100vh-200px)] min-h-[500px]" style={{ gridTemplateColumns: '35% 65%' }}>
-                <Card className="flex flex-col">
-                    <CardHeader className="pb-3 flex-shrink-0">
-                        <CardTitle className="text-lg flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                DBML Editor
-                                {error && (
-                                    <span className="text-destructive text-sm font-normal flex items-center gap-1">
-                                        <AlertCircleIcon className="h-4 w-4" />
-                                        Parse Error
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={handleCopy}>
-                                    <CopyIcon className="h-4 w-4 mr-1" />
-                                    {copied ? "Copied!" : "Copy"}
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={handleDownload}>
-                                    <DownloadIcon className="h-4 w-4 mr-1" />
-                                    Download
-                                </Button>
-                            </div>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 min-h-0">
-                        <div className="h-full rounded-md overflow-hidden border">
-                            <Editor
-                                height="100%"
-                                defaultLanguage="sql"
-                                value={dbml}
-                                onChange={handleEditorChange}
-                                theme="vs-dark"
-                                options={{
-                                    minimap: { enabled: false },
-                                    fontSize: 14,
-                                    lineNumbers: "on",
-                                    scrollBeyondLastLine: false,
-                                    wordWrap: "on",
-                                    tabSize: 2,
-                                    automaticLayout: true,
-                                }}
-                            />
+        <div className="h-full flex flex-col min-h-0">
+            {/* Two-panel layout */}
+            <div className="flex-1 flex min-h-0 gap-px bg-border">
+                {/* Editor panel */}
+                <div className="flex flex-col bg-background" style={{ width: '38%' }}>
+                    {/* Editor toolbar */}
+                    <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Editor</span>
+                            {error && (
+                                <span className="text-destructive text-xs flex items-center gap-1">
+                                    <AlertCircleIcon className="h-3 w-3" />
+                                    Error
+                                </span>
+                            )}
                         </div>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="xs" onClick={handleCopy} title="Copy DBML">
+                                {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="xs" onClick={handleDownload} title="Download .dbml">
+                                <DownloadIcon className="h-3 w-3" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => setCheatsheetOpen(!cheatsheetOpen)}
+                                title="DBML Cheatsheet"
+                                className={cheatsheetOpen ? "bg-muted" : ""}
+                            >
+                                {cheatsheetOpen ? <ChevronUpIcon className="h-3 w-3" /> : <ChevronDownIcon className="h-3 w-3" />}
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* Cheatsheet (collapsible, compact) */}
+                    {cheatsheetOpen && (
+                        <div className="border-b border-border bg-muted/30 px-3 py-2 flex-shrink-0 overflow-y-auto max-h-48">
+                            <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                {CHEATSHEET_ITEMS.map((section) => (
+                                    <div key={section.title}>
+                                        <h4 className="font-semibold text-[10px] text-muted-foreground uppercase tracking-wider mb-1">
+                                            {section.title}
+                                        </h4>
+                                        <div className="space-y-0.5">
+                                            {section.examples.map((example, idx) => (
+                                                <div key={idx}>
+                                                    <code className="text-[10px] font-mono text-foreground/80">
+                                                        {example.code}
+                                                    </code>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="mt-2 pt-1.5 border-t border-border/50 text-[10px] text-muted-foreground">
+                                Docs: <a href="https://dbml.dbdiagram.io/docs" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">dbml.dbdiagram.io/docs</a>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Editor + error area */}
+                    <div className="flex-1 min-h-0 relative">
+                        <Editor
+                            height="100%"
+                            defaultLanguage="sql"
+                            value={dbml}
+                            onChange={handleEditorChange}
+                            theme="vs-dark"
+                            options={{
+                                minimap: { enabled: false },
+                                fontSize: 13,
+                                lineNumbers: "on",
+                                scrollBeyondLastLine: false,
+                                wordWrap: "on",
+                                tabSize: 2,
+                                automaticLayout: true,
+                                padding: { top: 8 },
+                                renderLineHighlight: "none",
+                                overviewRulerLanes: 0,
+                                hideCursorInOverviewRuler: true,
+                                overviewRulerBorder: false,
+                                scrollbar: {
+                                    verticalScrollbarSize: 8,
+                                    horizontalScrollbarSize: 8,
+                                },
+                            }}
+                        />
+                        {/* Error overlay — absolutely positioned so it never affects layout */}
                         {error && (
-                            <div className="mt-2 p-2 bg-destructive/10 border border-destructive/20 rounded text-sm text-destructive">
-                                {error}
+                            <div className="absolute bottom-0 left-0 right-0 max-h-24 overflow-y-auto bg-destructive/15 backdrop-blur-sm border-t border-destructive/30 px-3 py-2">
+                                <p className="text-xs text-destructive font-mono leading-relaxed break-words">
+                                    {error}
+                                </p>
                             </div>
                         )}
-                    </CardContent>
-                </Card>
+                    </div>
+                </div>
 
-                <Card className="flex flex-col">
-                    <CardHeader className="pb-3 flex-shrink-0">
-                        <CardTitle className="text-lg flex items-center justify-between">
-                            ER Diagram
-                            <div className="flex gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={handleExportPng}
-                                    disabled={!database || database.tables.length === 0}
-                                >
-                                    <ImageIcon className="h-4 w-4 mr-1" />
-                                    Export PNG
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => parse(dbml)}
-                                >
-                                    <PlayIcon className="h-4 w-4 mr-1" />
-                                    Refresh
-                                </Button>
-                            </div>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 min-h-0">
-                        <div className="h-full rounded-md overflow-hidden border bg-muted/30">
-                            <ErDiagram database={database} onExportReady={handleExportReady} />
+                {/* Diagram panel */}
+                <div className="flex-1 flex flex-col bg-background min-w-0">
+                    {/* Diagram toolbar */}
+                    <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">ER Diagram</span>
+                        <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={handleExportPng}
+                                disabled={!database || database.tables.length === 0}
+                                title="Export PNG"
+                            >
+                                <ImageIcon className="h-3 w-3" />
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => parse(dbml)}
+                                title="Re-parse DBML"
+                            >
+                                <PlayIcon className="h-3 w-3" />
+                            </Button>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {/* Diagram */}
+                    <div className="flex-1 min-h-0">
+                        <ErDiagram database={database} onExportReady={handleExportReady} />
+                    </div>
+                </div>
             </div>
-
-            {/* DBML Cheatsheet - Collapsible */}
-            <Card className="flex-shrink-0">
-                <button
-                    onClick={() => setCheatsheetOpen(!cheatsheetOpen)}
-                    className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-muted/50 transition-colors rounded-lg"
-                >
-                    <span className="font-semibold text-sm">📖 DBML Cheatsheet</span>
-                    {cheatsheetOpen ? (
-                        <ChevronUpIcon className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                        <ChevronDownIcon className="h-4 w-4 text-muted-foreground" />
-                    )}
-                </button>
-                {cheatsheetOpen && (
-                    <CardContent className="pt-0 pb-4">
-                        <div className="grid grid-cols-5 gap-4">
-                            {CHEATSHEET_ITEMS.map((section) => (
-                                <div key={section.title} className="space-y-2">
-                                    <h4 className="font-semibold text-xs text-primary uppercase tracking-wide">
-                                        {section.title}
-                                    </h4>
-                                    <div className="space-y-1.5">
-                                        {section.examples.map((example, idx) => (
-                                            <div key={idx} className="text-xs">
-                                                <code className="bg-muted px-1.5 py-0.5 rounded text-[11px] font-mono block mb-0.5">
-                                                    {example.code}
-                                                </code>
-                                                <span className="text-muted-foreground text-[10px]">
-                                                    {example.desc}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                            📚 Full docs: <a href="https://dbml.dbdiagram.io/docs" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">dbml.dbdiagram.io/docs</a>
-                        </div>
-                    </CardContent>
-                )}
-            </Card>
         </div>
     )
 }
