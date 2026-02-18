@@ -17,18 +17,20 @@ function App() {
       <Tabs defaultValue="color" className="flex-1 flex flex-col min-h-0">
         <Header
           centerContent={(
-            <TabsList className="w-fit max-w-full overflow-x-auto">
-              <TabsTrigger value="tree">Tree</TabsTrigger>
-              <TabsTrigger value="db">DB Modelling</TabsTrigger>
-              <TabsTrigger value="color">Colors</TabsTrigger>
-              <TabsTrigger value="board">Board</TabsTrigger>
-              <TabsTrigger value="json">JSON</TabsTrigger>
-              <TabsTrigger value="regex">Regex</TabsTrigger>
-              <TabsTrigger value="encoder">Encoder</TabsTrigger>
-              <TabsTrigger value="timestamp">Timestamp</TabsTrigger>
-              <TabsTrigger value="api">API</TabsTrigger>
-              <TabsTrigger value="markdown">Markdown</TabsTrigger>
-            </TabsList>
+            <div className="w-full max-w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <TabsList className="min-w-full">
+                <TabsTrigger value="tree">Tree</TabsTrigger>
+                <TabsTrigger value="db">DB Modelling</TabsTrigger>
+                <TabsTrigger value="color">Colors</TabsTrigger>
+                <TabsTrigger value="board">Board</TabsTrigger>
+                <TabsTrigger value="json">JSON</TabsTrigger>
+                <TabsTrigger value="regex">Regex</TabsTrigger>
+                <TabsTrigger value="encoder">Encoder</TabsTrigger>
+                <TabsTrigger value="timestamp">Timestamp</TabsTrigger>
+                <TabsTrigger value="api">API</TabsTrigger>
+                <TabsTrigger value="markdown">Markdown</TabsTrigger>
+              </TabsList>
+            </div>
           )}
         />
         <main className="flex-1 flex flex-col min-h-0">

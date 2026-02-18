@@ -23,7 +23,7 @@ export function Header({ centerContent }: HeaderProps) {
                         Tool BOX
                     </span>
                 </div>
-                <div className="flex-1 min-w-0 flex items-center justify-center">
+                <div className="flex-1 min-w-0 flex items-center justify-center overflow-hidden">
                     {centerContent}
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
