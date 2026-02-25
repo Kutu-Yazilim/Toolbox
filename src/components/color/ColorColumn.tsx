@@ -28,6 +28,27 @@ interface ColorColumnProps {
   canRemove: boolean
 }
 
+interface AddButtonProps {
+  onClick: () => void
+  title: string
+  side: "left" | "right"
+}
+
+function AddButton({ onClick, title, side }: AddButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "absolute top-1/2 -translate-y-1/2 z-30 w-7 h-7 rounded-full bg-card border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-110 transition-all text-foreground",
+        side === "left" ? "left-0 -translate-x-1/2" : "right-0 translate-x-1/2"
+      )}
+      title={title}
+    >
+      <PlusIcon className="size-3.5" />
+    </button>
+  )
+}
+
 export function ColorColumn({
   color,
   index,
@@ -69,13 +90,11 @@ export function ColorColumn({
     <div className="relative flex-1 flex items-center group" style={{ minWidth: 0 }}>
       {/* Add button before - only show for first column */}
       {index === 0 && (
-        <button
+        <AddButton
+          side="left"
           onClick={onAddBefore}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 z-30 w-7 h-7 rounded-full bg-card border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-110 transition-all text-foreground"
           title="Add color before"
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
+        />
       )}
 
       {/* Main color column */}
@@ -197,25 +216,11 @@ export function ColorColumn({
       </div>
 
       {/* Add button after */}
-      {index < total - 1 && (
-        <button
-          onClick={onAddAfter}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-30 w-7 h-7 rounded-full bg-card border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-110 transition-all text-foreground"
-          title="Add color between"
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
-      )}
-      {/* Add button after last */}
-      {index === total - 1 && (
-        <button
-          onClick={onAddAfter}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-30 w-7 h-7 rounded-full bg-card border border-border shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 hover:!opacity-100 hover:scale-110 transition-all text-foreground"
-          title="Add color after"
-        >
-          <PlusIcon className="size-3.5" />
-        </button>
-      )}
+      <AddButton
+        side="right"
+        onClick={onAddAfter}
+        title={index === total - 1 ? "Add color after" : "Add color between"}
+      />
     </div>
   )
 }
