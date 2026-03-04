@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 import {
     CopyIcon,
@@ -82,6 +82,21 @@ export function TreeCreator() {
         setOptions(defaultTreeOptions)
     }
 
+    const handleInputKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.key !== "Tab" || event.shiftKey) {
+            return
+        }
+
+        event.preventDefault()
+        const textarea = event.currentTarget
+        const indent = "  "
+        const selectionStart = textarea.selectionStart
+        const selectionEnd = textarea.selectionEnd
+
+        textarea.setRangeText(indent, selectionStart, selectionEnd, "end")
+        setInput(textarea.value)
+    }
+
     return (
         <div className="h-full flex flex-col min-h-0">
             {/* Toolbar */}
@@ -115,6 +130,7 @@ export function TreeCreator() {
                     <textarea
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={handleInputKeyDown}
                         placeholder="Enter your tree structure using indentation..."
                         className="flex-1 w-full px-3 py-2 text-sm font-mono bg-transparent text-foreground resize-none outline-none"
                         spellCheck={false}
