@@ -10,6 +10,7 @@ import { EncoderDecoder } from "@/components/encoder/EncoderDecoder"
 import { TimestampConverter } from "@/components/timestamp/TimestampConverter"
 import { ApiRequestBuilder } from "@/components/api/ApiRequestBuilder"
 import { MarkdownPreview } from "@/components/markdown/MarkdownPreview"
+import { WheelOfFate } from "@/components/wheel/WheelOfFate"
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
                 <TabsTrigger value="timestamp">Timestamp</TabsTrigger>
                 <TabsTrigger value="api">API</TabsTrigger>
                 <TabsTrigger value="markdown">Markdown</TabsTrigger>
+                <TabsTrigger value="wheel">Wheel of Fate</TabsTrigger>
               </TabsList>
             </div>
           )}
@@ -63,6 +65,9 @@ function App() {
           </TabsContent>
           <TabsContent value="markdown" className="flex-1 min-h-0">
             <MarkdownPreview />
+          </TabsContent>
+          <TabsContent value="wheel" className="flex-1 min-h-0">
+            <WheelOfFate />
           </TabsContent>
         </main>
       </Tabs>
