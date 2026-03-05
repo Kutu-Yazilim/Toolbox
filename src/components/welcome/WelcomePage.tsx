@@ -12,6 +12,8 @@ import {
   CircleDotIcon,
   KeyRoundIcon,
   QrCodeIcon,
+  CoinsIcon,
+  PenToolIcon,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -99,6 +101,18 @@ const TOOLS: {
     label: "QR Code",
     description: "Generate styled QR codes with custom colors, dot types, and download as PNG",
     icon: QrCodeIcon,
+  },
+  {
+    value: "coinflip",
+    label: "Coin Flip",
+    description: "Flip a coin with a satisfying 3D animation and track your results history",
+    icon: CoinsIcon,
+  },
+  {
+    value: "shapemaker",
+    label: "Shape Maker",
+    description: "Draw custom shapes with a Figma-like editor and export as Flutter/Dart CustomPainter code",
+    icon: PenToolIcon,
   },
 ]
 

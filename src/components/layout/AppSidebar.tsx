@@ -18,6 +18,8 @@ import {
   HomeIcon,
   KeyRoundIcon,
   QrCodeIcon,
+  CoinsIcon,
+  PenToolIcon,
 } from "lucide-react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -38,6 +40,8 @@ export const NAV_ITEMS = [
   { value: "wheel", label: "Wheel", icon: CircleDotIcon },
   { value: "jwt", label: "JWT", icon: KeyRoundIcon },
   { value: "qr", label: "QR Code", icon: QrCodeIcon },
+  { value: "coinflip", label: "Coin Flip", icon: CoinsIcon },
+  { value: "shapemaker", label: "Shape Maker", icon: PenToolIcon },
 ] as const
 
 function SidebarTooltip({
