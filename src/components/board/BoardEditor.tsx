@@ -484,7 +484,7 @@ export function BoardEditor() {
       )}
 
       {/* Bottom-right hints */}
-      <div className="absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
+      <div className="hidden md:block absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
         Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text
       </div>
     </div>

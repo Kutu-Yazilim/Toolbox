@@ -146,7 +146,7 @@ export function RegexPlayground() {
     return (
         <div className="h-full flex flex-col min-h-0">
             {/* Pattern bar */}
-            <div className="flex items-center gap-2 px-3 h-10 border-b border-border flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 md:py-0 md:h-10 border-b border-border flex-shrink-0">
                 <span className="text-muted-foreground font-mono text-sm select-none">/</span>
                 <input
                     type="text"
@@ -217,9 +217,9 @@ export function RegexPlayground() {
             </div>
 
             {/* Main content */}
-            <div className="flex-1 flex min-h-0">
+            <div className="flex-1 flex flex-col md:flex-row min-h-0">
                 {/* Test string panel */}
-                <div className="flex-1 flex flex-col min-h-0 border-r border-border">
+                <div className="flex-1 flex flex-col min-h-0 md:border-r border-border">
                     <div className="px-3 h-7 flex items-center border-b border-border flex-shrink-0">
                         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Test String</span>
                         <span className="text-[10px] text-muted-foreground ml-auto">
@@ -258,7 +258,7 @@ export function RegexPlayground() {
                 </div>
 
                 {/* Matches panel */}
-                <div className="w-80 flex flex-col min-h-0 flex-shrink-0">
+                <div className="w-full md:w-80 md:flex-shrink-0 max-h-60 md:max-h-none border-t md:border-t-0 border-border flex flex-col min-h-0">
                     <div className="px-3 h-7 flex items-center border-b border-border flex-shrink-0">
                         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Matches</span>
                     </div>

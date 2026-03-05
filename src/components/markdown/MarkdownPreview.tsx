@@ -231,9 +231,9 @@ export function MarkdownPreview() {
     return (
         <div className="h-full flex flex-col min-h-0">
             {/* Two-panel layout */}
-            <div className="flex-1 flex min-h-0 gap-px bg-border">
+            <div className="flex-1 flex flex-col md:flex-row min-h-0 gap-px bg-border">
                 {/* Editor panel (left) */}
-                <div className="flex flex-col bg-background" style={{ width: "50%" }}>
+                <div className="flex flex-col bg-background w-full md:w-1/2 h-1/2 md:h-auto min-h-0">
                     {/* Editor toolbar */}
                     <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -260,7 +260,7 @@ export function MarkdownPreview() {
                 </div>
 
                 {/* Preview panel (right) */}
-                <div className="flex-1 flex flex-col bg-background min-w-0">
+                <div className="flex-1 flex flex-col bg-background min-w-0 h-1/2 md:h-auto min-h-0">
                     {/* Preview toolbar */}
                     <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
                         <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">

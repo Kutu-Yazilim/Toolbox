@@ -152,7 +152,7 @@ export function EncoderDecoder() {
             {mode === "jwt" ? (
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                     {/* JWT Input */}
-                    <div className="flex flex-col flex-shrink-0" style={{ height: "30%" }}>
+                    <div className="flex flex-col flex-shrink-0 h-[30%]">
                         <div className="flex items-center justify-between px-3 h-7 border-b border-border">
                             <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Token</span>
                             <div className="flex items-center gap-1">

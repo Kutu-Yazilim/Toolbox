@@ -11,6 +11,7 @@ import {
     ArrowLeftIcon,
 } from "lucide-react"
 import Editor, { DiffEditor } from "@monaco-editor/react"
+import { useIsMobile } from "@/hooks/useIsMobile"
 
 const EXAMPLE_JSON = `{
   "users": [
@@ -46,6 +47,7 @@ function tryParseJson(value: string): { valid: boolean; error: string | null; pa
 }
 
 export function JsonFormatter() {
+    const isMobile = useIsMobile()
     const [json, setJson] = useState(EXAMPLE_JSON)
     const [error, setError] = useState<string | null>(null)
     const [copied, setCopied] = useState(false)
@@ -162,7 +164,7 @@ export function JsonFormatter() {
                             fontSize: 13,
                             scrollBeyondLastLine: false,
                             wordWrap: "on",
-                            renderSideBySide: true,
+                            renderSideBySide: !isMobile,
                             automaticLayout: true,
                             padding: { top: 8 },
                             scrollbar: {

@@ -19,6 +19,7 @@ import {
 } from "lucide-react"
 import Editor from "@monaco-editor/react"
 import { parseOpenApiSpec, type ParsedOpenApiSpec, type OpenApiEndpoint } from "@/utils/openApiParser"
+import { cn } from "@/lib/utils"
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
 
@@ -235,6 +236,7 @@ function EndpointSidebar({
     onSelect,
     onClose,
     onClear,
+    className,
 }: {
     spec: ParsedOpenApiSpec
     search: string
@@ -242,6 +244,7 @@ function EndpointSidebar({
     onSelect: (endpoint: OpenApiEndpoint) => void
     onClose: () => void
     onClear: () => void
+    className?: string
 }) {
     const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set())
 
@@ -274,7 +277,7 @@ function EndpointSidebar({
     }
 
     return (
-        <div className="flex flex-col bg-background h-full" style={{ width: 240 }}>
+        <div className={cn("flex flex-col bg-background h-full w-full md:w-[240px]", className)}>
             {/* Sidebar header */}
             <div className="flex items-center justify-between px-2 h-9 border-b border-border flex-shrink-0">
                 <div className="flex items-center gap-1 min-w-0">
@@ -540,7 +543,7 @@ export function ApiRequestBuilder() {
     return (
         <div className="h-full flex flex-col min-h-0 relative">
             {/* Top toolbar: OpenAPI + method + URL + send */}
-            <div className="flex items-center gap-1.5 px-3 h-9 border-b border-border flex-shrink-0">
+            <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-border flex-shrink-0">
                 {/* OpenAPI button */}
                 <Button variant="ghost" size="xs" onClick={() => setImportModalOpen(true)} title="Import OpenAPI spec">
                     <BookOpenIcon className="h-3 w-3" />
@@ -574,7 +577,7 @@ export function ApiRequestBuilder() {
                     onChange={e => setUrl(e.target.value)}
                     onKeyDown={e => { if (e.key === "Enter") handleSend() }}
                     placeholder="https://api.example.com/endpoint"
-                    className="flex-1 h-6 px-2 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
+                    className="order-last md:order-none basis-full md:basis-auto flex-1 h-6 px-2 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
                     spellCheck={false}
                 />
                 <div className="w-px h-4 bg-border mx-0.5" />
@@ -598,20 +601,22 @@ export function ApiRequestBuilder() {
             <div className="flex-1 flex min-h-0 gap-px bg-border">
                 {/* Sidebar */}
                 {spec && sidebarOpen && (
-                    <EndpointSidebar
-                        spec={spec}
-                        search={sidebarSearch}
-                        onSearchChange={setSidebarSearch}
-                        onSelect={handleSelectEndpoint}
-                        onClose={() => setSidebarOpen(false)}
-                        onClear={handleClearSpec}
-                    />
+                    <div className="hidden md:flex">
+                        <EndpointSidebar
+                            spec={spec}
+                            search={sidebarSearch}
+                            onSearchChange={setSidebarSearch}
+                            onSelect={handleSelectEndpoint}
+                            onClose={() => setSidebarOpen(false)}
+                            onClear={handleClearSpec}
+                        />
+                    </div>
                 )}
 
                 {/* Request + Response vertical split */}
                 <div className="flex-1 flex flex-col min-h-0 bg-background">
                     {/* REQUEST SECTION */}
-                    <div className="flex flex-col min-h-0" style={{ height: "50%" }}>
+                    <div className="flex flex-col min-h-0 h-1/2">
                         {/* Headers sub-section */}
                         <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
                             <button
@@ -782,6 +787,32 @@ export function ApiRequestBuilder() {
                     onImport={handleImportSpec}
                     onClose={() => setImportModalOpen(false)}
                 />
+            )}
+
+            {/* Mobile OpenAPI sidebar overlay */}
+            {spec && sidebarOpen && (
+                <div className="fixed inset-0 z-40 md:hidden">
+                    <button
+                        type="button"
+                        onClick={() => setSidebarOpen(false)}
+                        className="absolute inset-0 bg-black/50"
+                        aria-label="Close OpenAPI sidebar"
+                    />
+                    <div className="absolute inset-0 bg-background">
+                        <EndpointSidebar
+                            spec={spec}
+                            search={sidebarSearch}
+                            onSearchChange={setSidebarSearch}
+                            onSelect={(endpoint) => {
+                                handleSelectEndpoint(endpoint)
+                                setSidebarOpen(false)
+                            }}
+                            onClose={() => setSidebarOpen(false)}
+                            onClear={handleClearSpec}
+                            className="w-full"
+                        />
+                    </div>
+                </div>
             )}
         </div>
     )

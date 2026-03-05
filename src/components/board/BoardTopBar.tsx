@@ -59,7 +59,7 @@ export function BoardTopBar({
   }
 
   return (
-    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+    <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center justify-center gap-1 md:gap-2 scale-90 md:scale-100 origin-top">
       {/* Undo/Redo */}
       <div className="flex items-center bg-card border border-border rounded-lg shadow-sm">
         <Button variant="ghost" size="icon-xs" onClick={onUndo} disabled={!canUndo} title="Undo (Ctrl+Z)" className="rounded-r-none">

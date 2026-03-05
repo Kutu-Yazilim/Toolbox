@@ -216,9 +216,9 @@ export function WheelOfFate() {
     }
 
     return (
-        <div className="h-full flex min-h-0">
+        <div className="h-full flex flex-col-reverse md:flex-row min-h-0">
             {/* Left panel — options list */}
-            <div className="w-60 flex-shrink-0 flex flex-col border-r border-border">
+            <div className="w-full md:w-60 md:flex-shrink-0 max-h-48 md:max-h-none flex flex-col border-t md:border-t-0 md:border-r border-border">
                 <div className="flex items-center gap-2 px-3 h-9 border-b border-border flex-shrink-0">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         Options

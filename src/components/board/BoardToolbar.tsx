@@ -33,7 +33,7 @@ const tools: { tool: Tool; icon: React.ReactNode; label: string; shortcut: strin
 
 export function BoardToolbar({ activeTool, onToolChange }: BoardToolbarProps) {
   return (
-    <div className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 bg-card border border-border rounded-lg shadow-lg p-1.5">
+    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 md:bottom-auto md:left-3 md:top-1/2 md:-translate-y-1/2 md:translate-x-0 z-20 flex flex-row md:flex-col gap-1 bg-card border border-border rounded-lg shadow-lg p-1.5">
       {tools.map((t) => (
         <button
           key={t.tool}
@@ -49,7 +49,7 @@ export function BoardToolbar({ activeTool, onToolChange }: BoardToolbarProps) {
           {t.icon}
 
           {/* Tooltip */}
-          <div className="absolute left-full ml-2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
+          <div className="hidden md:block absolute left-full ml-2 px-2 py-1 bg-foreground text-background text-xs rounded whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50">
             {t.label}
             <span className="ml-1.5 opacity-60">{t.shortcut}</span>
           </div>

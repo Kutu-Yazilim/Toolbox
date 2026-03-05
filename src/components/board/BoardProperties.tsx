@@ -41,7 +41,7 @@ export function BoardProperties({
   }
 
   return (
-    <div className="absolute right-3 top-16 z-20 bg-card border border-border rounded-lg shadow-lg p-3 w-52 max-h-[calc(100vh-250px)] overflow-y-auto flex flex-col gap-3">
+    <div className="absolute left-0 right-0 bottom-0 md:left-auto md:right-3 md:top-16 md:bottom-auto z-20 bg-card border border-border rounded-t-lg md:rounded-lg shadow-lg p-3 w-full md:w-52 max-h-60 md:max-h-[calc(100vh-250px)] overflow-y-auto flex flex-col gap-3">
       {/* Selection info */}
       <div className="text-xs text-muted-foreground font-medium">
         {isMultiple ? `${selectedElements.length} elements selected` : firstEl.type.charAt(0).toUpperCase() + firstEl.type.slice(1)}

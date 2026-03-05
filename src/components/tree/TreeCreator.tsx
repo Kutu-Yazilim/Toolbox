@@ -121,9 +121,9 @@ export function TreeCreator() {
             </div>
 
             {/* Two-panel layout */}
-            <div className="flex-1 flex min-h-0 gap-px bg-border">
+            <div className="flex-1 flex flex-col md:flex-row min-h-0 gap-px bg-border">
                 {/* Input panel */}
-                <div className="flex flex-col bg-background" style={{ width: "50%" }}>
+                <div className="flex flex-col bg-background w-full md:w-1/2 h-1/2 md:h-auto min-h-0">
                     <div className="flex items-center px-3 h-7 border-b border-border flex-shrink-0">
                         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Input</span>
                     </div>
@@ -138,7 +138,7 @@ export function TreeCreator() {
                 </div>
 
                 {/* Output panel */}
-                <div className="flex-1 flex flex-col bg-background min-w-0">
+                <div className="flex-1 flex flex-col bg-background min-w-0 h-1/2 md:h-auto min-h-0">
                     <div className="flex items-center px-3 h-7 border-b border-border flex-shrink-0">
                         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
                     </div>
