@@ -37,6 +37,7 @@ type Props = {
   onZoomChange: (zoom: number) => void
   onFinishShape: (startPoint: Point, endPoint: Point) => void
   onSelectPath: (pathId: string | null) => void
+  onDragStart: () => void
   curveMode: "line" | "quadratic" | "cubic"
 }
 
@@ -60,6 +61,7 @@ export function ShapeMakerCanvas({
   onZoomChange,
   onFinishShape,
   onSelectPath,
+  onDragStart,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -222,19 +224,18 @@ export function ShapeMakerCanvas({
       setMousePos(point)
 
       if (tool === "select") {
-        // Try to hit-test control points first
+        const hitThreshold = 10 / zoom
+
+        // 1. Try to hit-test control points on the active path first
         if (activePathId) {
           const activeLayer = layers.find((l) => l.id === activeLayerId)
           const activePath = activeLayer?.paths.find(
             (p) => p.id === activePathId
           )
           if (activePath) {
-            const hit = hitTestSegmentPoints(
-              point,
-              activePath,
-              8 / zoom
-            )
+            const hit = hitTestSegmentPoints(point, activePath, hitThreshold)
             if (hit) {
+              onDragStart()
               onSelectPoint(hit)
               setIsDragging(true)
               return
@@ -242,24 +243,31 @@ export function ShapeMakerCanvas({
           }
         }
 
-        // Try to hit test paths
-        const canvas = canvasRef.current
-        if (canvas) {
-          const ctx = canvas.getContext("2d")
-          if (ctx) {
-            // Check all layers for path hits
-            for (const layer of layers) {
-              if (!layer.visible || layer.locked) continue
-              for (const path of [...layer.paths].reverse()) {
-                if (!path.visible || path.locked) continue
-                // Simple bounding check
-                const points = getPathPoints(path)
-                if (points.length > 0 && isPointNearPath(point, points, 10 / zoom)) {
-                  onSelectPath(path.id)
-                  onSelectPoint(null)
-                  return
-                }
-              }
+        // 2. Try to hit-test control points on any visible path
+        for (const layer of layers) {
+          if (!layer.visible || layer.locked) continue
+          for (const path of [...layer.paths].reverse()) {
+            if (!path.visible || path.locked || path.id === activePathId) continue
+            const hit = hitTestSegmentPoints(point, path, hitThreshold)
+            if (hit) {
+              onDragStart()
+              onSelectPath(path.id)
+              onSelectPoint(hit)
+              setIsDragging(true)
+              return
+            }
+          }
+        }
+
+        // 3. Try to hit test path bodies
+        for (const layer of layers) {
+          if (!layer.visible || layer.locked) continue
+          for (const path of [...layer.paths].reverse()) {
+            if (!path.visible || path.locked) continue
+            if (path.segments.length > 0 && isPointNearPath(point, path, 12 / zoom)) {
+              onSelectPath(path.id)
+              onSelectPoint(null)
+              return
             }
           }
         }
@@ -289,6 +297,7 @@ export function ShapeMakerCanvas({
       onAddSegment,
       onSelectPoint,
       onSelectPath,
+      onDragStart,
     ]
   )
 
@@ -382,40 +391,79 @@ export function ShapeMakerCanvas({
   )
 }
 
-// Helper to get all points from a path for hit testing
-function getPathPoints(path: ShapePath): Point[] {
-  const points: Point[] = []
-  for (const seg of path.segments) {
-    if (seg.type === "moveTo" || seg.type === "lineTo") {
-      points.push(seg.point)
-    } else if (seg.type === "quadraticBezierTo") {
-      points.push(seg.endPoint)
-    } else if (seg.type === "cubicTo") {
-      points.push(seg.endPoint)
-    } else if (seg.type === "arcToPoint") {
-      points.push(seg.endPoint)
-    }
+// Sample points along a quadratic bezier curve
+function sampleQuadratic(start: Point, cp: Point, end: Point, steps: number): Point[] {
+  const pts: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const u = 1 - t
+    pts.push({
+      x: u * u * start.x + 2 * u * t * cp.x + t * t * end.x,
+      y: u * u * start.y + 2 * u * t * cp.y + t * t * end.y,
+    })
   }
-  return points
+  return pts
 }
 
-function isPointNearPath(p: Point, pathPoints: Point[], threshold: number): boolean {
-  for (let i = 0; i < pathPoints.length - 1; i++) {
-    const a = pathPoints[i]
-    const b = pathPoints[i + 1]
-    const dist = distToSegment(p, a, b)
-    if (dist < threshold) return true
+// Sample points along a cubic bezier curve
+function sampleCubic(start: Point, cp1: Point, cp2: Point, end: Point, steps: number): Point[] {
+  const pts: Point[] = []
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps
+    const u = 1 - t
+    pts.push({
+      x: u * u * u * start.x + 3 * u * u * t * cp1.x + 3 * u * t * t * cp2.x + t * t * t * end.x,
+      y: u * u * u * start.y + 3 * u * u * t * cp1.y + 3 * u * t * t * cp2.y + t * t * t * end.y,
+    })
   }
-  // Also check if near any point
-  for (const pt of pathPoints) {
-    const dx = p.x - pt.x
-    const dy = p.y - pt.y
-    if (Math.sqrt(dx * dx + dy * dy) < threshold) return true
+  return pts
+}
+
+// Test if a point is near any path segment, including actual bezier curves
+function isPointNearPath(p: Point, path: ShapePath, threshold: number): boolean {
+  let currentPoint: Point | null = null
+  const CURVE_SAMPLES = 20
+
+  for (const seg of path.segments) {
+    if (seg.type === "moveTo") {
+      if (distToPoint(p, seg.point) < threshold) return true
+      currentPoint = seg.point
+    } else if (seg.type === "lineTo") {
+      if (currentPoint && distToLineSegment(p, currentPoint, seg.point) < threshold) return true
+      currentPoint = seg.point
+    } else if (seg.type === "quadraticBezierTo") {
+      if (currentPoint) {
+        const samples = sampleQuadratic(currentPoint, seg.controlPoint, seg.endPoint, CURVE_SAMPLES)
+        for (let i = 0; i < samples.length - 1; i++) {
+          if (distToLineSegment(p, samples[i], samples[i + 1]) < threshold) return true
+        }
+      }
+      currentPoint = seg.endPoint
+    } else if (seg.type === "cubicTo") {
+      if (currentPoint) {
+        const samples = sampleCubic(currentPoint, seg.controlPoint1, seg.controlPoint2, seg.endPoint, CURVE_SAMPLES)
+        for (let i = 0; i < samples.length - 1; i++) {
+          if (distToLineSegment(p, samples[i], samples[i + 1]) < threshold) return true
+        }
+      }
+      currentPoint = seg.endPoint
+    } else if (seg.type === "arcToPoint") {
+      if (currentPoint && distToLineSegment(p, currentPoint, seg.endPoint) < threshold) return true
+      currentPoint = seg.endPoint
+    } else if (seg.type === "close") {
+      // Close goes back to the first moveTo point - skip hit testing the closing line
+    }
   }
   return false
 }
 
-function distToSegment(p: Point, a: Point, b: Point): number {
+function distToPoint(p: Point, target: Point): number {
+  const dx = p.x - target.x
+  const dy = p.y - target.y
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+function distToLineSegment(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x
   const dy = b.y - a.y
   const lenSq = dx * dx + dy * dy

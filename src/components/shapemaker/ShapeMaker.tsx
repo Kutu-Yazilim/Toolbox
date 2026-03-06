@@ -204,8 +204,13 @@ export function ShapeMaker() {
               } else if (curveMode === "quadratic") {
                 // Get the last point
                 const lastPoint = getLastPoint(p.segments)
-                const midX = (lastPoint.x + point.x) / 2
-                const midY = (lastPoint.y + point.y) / 2 - 50
+                const dx = point.x - lastPoint.x
+                const dy = point.y - lastPoint.y
+                const dist = Math.sqrt(dx * dx + dy * dy)
+                const offset = dist * 0.3
+                // Perpendicular offset for natural curve shape
+                const midX = (lastPoint.x + point.x) / 2 + (-dy / (dist || 1)) * offset
+                const midY = (lastPoint.y + point.y) / 2 + (dx / (dist || 1)) * offset
                 newSeg = {
                   type: "quadraticBezierTo",
                   controlPoint: { x: midX, y: midY },
@@ -215,15 +220,20 @@ export function ShapeMaker() {
                 const lastPoint = getLastPoint(p.segments)
                 const dx = point.x - lastPoint.x
                 const dy = point.y - lastPoint.y
+                const dist = Math.sqrt(dx * dx + dy * dy)
+                const offset = dist * 0.25
+                // Perpendicular offsets in opposite directions for S-curve
+                const perpX = -dy / (dist || 1)
+                const perpY = dx / (dist || 1)
                 newSeg = {
                   type: "cubicTo",
                   controlPoint1: {
-                    x: lastPoint.x + dx * 0.33,
-                    y: lastPoint.y + dy * 0.33 - 40,
+                    x: lastPoint.x + dx * 0.33 + perpX * offset,
+                    y: lastPoint.y + dy * 0.33 + perpY * offset,
                   },
                   controlPoint2: {
-                    x: lastPoint.x + dx * 0.66,
-                    y: lastPoint.y + dy * 0.66 + 40,
+                    x: lastPoint.x + dx * 0.66 - perpX * offset,
+                    y: lastPoint.y + dy * 0.66 - perpY * offset,
                   },
                   endPoint: point,
                 }
@@ -894,6 +904,7 @@ export function ShapeMaker() {
           onZoomChange={setZoom}
           onFinishShape={handleFinishShape}
           onSelectPath={(id) => setActivePathId(id)}
+          onDragStart={pushHistory}
           curveMode={curveMode}
         />
 
