@@ -20,6 +20,7 @@ import {
   QrCodeIcon,
   CoinsIcon,
   PenToolIcon,
+  MonitorSmartphoneIcon,
 } from "lucide-react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -42,6 +43,7 @@ export const NAV_ITEMS = [
   { value: "qr", label: "QR Code", icon: QrCodeIcon },
   { value: "coinflip", label: "Coin Flip", icon: CoinsIcon },
   { value: "shapemaker", label: "Shape Maker", icon: PenToolIcon },
+  { value: "mockup", label: "Mockup", icon: MonitorSmartphoneIcon },
 ] as const
 
 function SidebarTooltip({

@@ -14,6 +14,7 @@ import {
   QrCodeIcon,
   CoinsIcon,
   PenToolIcon,
+  MonitorSmartphoneIcon,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -113,6 +114,12 @@ const TOOLS: {
     label: "Shape Maker",
     description: "Draw custom shapes with a Figma-like editor and export as Flutter/Dart CustomPainter code",
     icon: PenToolIcon,
+  },
+  {
+    value: "mockup",
+    label: "Mockup",
+    description: "Place screenshots into device frames and export polished mockups as PNG",
+    icon: MonitorSmartphoneIcon,
   },
 ]
 

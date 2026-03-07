@@ -18,6 +18,7 @@ import { JwtTool } from "@/components/jwt/JwtTool"
 import { QrGenerator } from "@/components/qr/QrGenerator"
 import { CoinFlip } from "@/components/coinflip/CoinFlip"
 import { ShapeMaker } from "@/components/shapemaker/ShapeMaker"
+import { MockupEditor } from "@/components/mockup/MockupEditor"
 
 function App() {
   const [activeTab, setActiveTab] = useState("home")
@@ -75,6 +76,9 @@ function App() {
           </TabsContent>
           <TabsContent value="shapemaker" className="flex-1 min-h-0">
             <ShapeMaker />
+          </TabsContent>
+          <TabsContent value="mockup" className="flex-1 min-h-0">
+            <MockupEditor />
           </TabsContent>
         </main>
       </Tabs>
