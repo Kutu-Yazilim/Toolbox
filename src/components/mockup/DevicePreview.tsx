@@ -7,6 +7,7 @@ interface DevicePreviewProps {
   image: string | null
   orientation: Orientation
   colorVariant: string
+  variantSlug: string
   background: MockupBackground
   transform: MockupTransform
 }
@@ -16,6 +17,7 @@ export function DevicePreview({
   image,
   orientation,
   colorVariant,
+  variantSlug,
   background,
   transform,
 }: DevicePreviewProps) {
@@ -25,7 +27,7 @@ export function DevicePreview({
   const isLandscape = orientation === "landscape"
   const frameW = isLandscape ? device.frame.height : device.frame.width
   const frameH = isLandscape ? device.frame.width : device.frame.height
-  const totalH = frameH + (device.category === "laptop" ? 30 : 0)
+  const totalH = frameH + (device.category === "laptop" && !device.frameImage ? 30 : 0)
 
   useEffect(() => {
     const el = containerRef.current
@@ -67,7 +69,7 @@ export function DevicePreview({
             transformOrigin: "center center",
           }}
         >
-          <DeviceFrame device={device} orientation={orientation} colorVariant={colorVariant}>
+          <DeviceFrame device={device} orientation={orientation} colorVariant={colorVariant} variantSlug={variantSlug}>
             {image ? (
               <img
                 src={image}

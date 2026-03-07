@@ -1,16 +1,19 @@
 import type { DeviceSpec, Orientation, MockupBackground, ExportScale } from "@/types/mockup"
+import { getFrameImagePath } from "@/types/mockup"
+import { loadFrameImage } from "./deviceFrameLoader"
 
 export interface ExportOptions {
   image: string
   device: DeviceSpec
   orientation: Orientation
   colorVariant: string
+  variantSlug: string
   background: MockupBackground
   exportScale: ExportScale
 }
 
 export async function exportMockup(options: ExportOptions): Promise<Blob> {
-  const { image, device, orientation, colorVariant, background, exportScale } = options
+  const { image, device, orientation, colorVariant, variantSlug, background, exportScale } = options
 
   const isLandscape = orientation === "landscape"
   const frameW = isLandscape ? device.frame.height : device.frame.width
@@ -18,7 +21,7 @@ export async function exportMockup(options: ExportOptions): Promise<Blob> {
 
   const padding = 60
   const totalW = frameW + padding * 2
-  const totalH = frameH + padding * 2 + (device.category === "laptop" ? 30 : 0)
+  const totalH = frameH + padding * 2 + (device.category === "laptop" && !device.frameImage ? 30 : 0)
   const canvasW = totalW * exportScale
   const canvasH = totalH * exportScale
 
@@ -53,6 +56,89 @@ export async function exportMockup(options: ExportOptions): Promise<Blob> {
   // Load user image
   const userImg = await loadImage(image)
 
+  if (device.frameImage) {
+    await exportWithFrameImage(ctx, userImg, device, isLandscape, variantSlug, padding, frameW, frameH)
+  } else {
+    exportWithCSS(ctx, userImg, device, isLandscape, colorVariant, padding, frameW, frameH)
+  }
+
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob!), "image/png")
+  })
+}
+
+async function exportWithFrameImage(
+  ctx: CanvasRenderingContext2D,
+  userImg: HTMLImageElement,
+  device: DeviceSpec,
+  isLandscape: boolean,
+  variantSlug: string,
+  padding: number,
+  frameW: number,
+  frameH: number,
+) {
+  const fi = device.frameImage!
+  const scale = device.frame.width / fi.nativeWidth
+  const frameImagePath = getFrameImagePath(device.id, variantSlug)
+  const frameImg = await loadFrameImage(frameImagePath)
+
+  if (isLandscape) {
+    // For landscape: translate to center, rotate, then draw in portrait coords
+    ctx.save()
+    const cx = padding + frameW / 2
+    const cy = padding + frameH / 2
+    ctx.translate(cx, cy)
+    ctx.rotate(Math.PI / 2)
+    // After rotation, we're in portrait coordinate space centered at origin
+    const halfW = device.frame.width / 2
+    const halfH = device.frame.height / 2
+
+    // Screen in portrait coords
+    const screenX = fi.nativeScreen.x * scale - halfW
+    const screenY = fi.nativeScreen.y * scale - halfH
+    const screenW = fi.nativeScreen.width * scale
+    const screenH = fi.nativeScreen.height * scale
+
+    // Draw user image clipped to screen
+    ctx.save()
+    roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
+    ctx.clip()
+    drawCover(ctx, userImg, screenX, screenY, screenW, screenH)
+    ctx.restore()
+
+    // Draw frame image overlay
+    ctx.drawImage(frameImg, -halfW, -halfH, device.frame.width, device.frame.height)
+    ctx.restore()
+  } else {
+    const bx = padding
+    const by = padding
+    const screenX = bx + fi.nativeScreen.x * scale
+    const screenY = by + fi.nativeScreen.y * scale
+    const screenW = fi.nativeScreen.width * scale
+    const screenH = fi.nativeScreen.height * scale
+
+    // Draw user image clipped to screen
+    ctx.save()
+    roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
+    ctx.clip()
+    drawCover(ctx, userImg, screenX, screenY, screenW, screenH)
+    ctx.restore()
+
+    // Draw frame image overlay
+    ctx.drawImage(frameImg, bx, by, frameW, frameH)
+  }
+}
+
+function exportWithCSS(
+  ctx: CanvasRenderingContext2D,
+  userImg: HTMLImageElement,
+  device: DeviceSpec,
+  isLandscape: boolean,
+  colorVariant: string,
+  padding: number,
+  frameW: number,
+  frameH: number,
+) {
   // Calculate screen region
   const screenX = padding + (isLandscape ? device.screen.y : device.screen.x)
   const screenY = padding + (isLandscape ? device.screen.x : device.screen.y)
@@ -118,12 +204,6 @@ export async function exportMockup(options: ExportOptions): Promise<Blob> {
     ctx.fill()
     ctx.restore()
   }
-
-  // Shadow (draw behind by re-compositing — simplified: shadow already visible in CSS preview)
-
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => resolve(blob!), "image/png")
-  })
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

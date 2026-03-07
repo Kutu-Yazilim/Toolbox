@@ -10,7 +10,7 @@ interface DeviceSelectorPanelProps {
   colorVariant: string
   onDeviceChange: (deviceId: string) => void
   onOrientationToggle: () => void
-  onColorVariantChange: (color: string) => void
+  onColorVariantChange: (color: string, slug: string) => void
 }
 
 const CATEGORIES = [
@@ -63,7 +63,7 @@ export function DeviceSelectorPanel({
             key={device.id}
             onClick={() => {
               onDeviceChange(device.id)
-              onColorVariantChange(device.colorVariants[0].color)
+              onColorVariantChange(device.colorVariants[0].color, device.colorVariants[0].slug)
             }}
             className={cn(
               "p-3 rounded-lg border text-center transition-colors",
@@ -109,7 +109,7 @@ export function DeviceSelectorPanel({
             {selectedDevice.colorVariants.map((v) => (
               <button
                 key={v.name}
-                onClick={() => onColorVariantChange(v.color)}
+                onClick={() => onColorVariantChange(v.color, v.slug)}
                 title={v.name}
                 className={cn(
                   "size-7 rounded-full border-2 transition-transform hover:scale-110",

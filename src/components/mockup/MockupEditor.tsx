@@ -1,18 +1,20 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { ImageUploader } from "./ImageUploader"
 import { DevicePreview } from "./DevicePreview"
 import { DeviceSelectorPanel } from "./DeviceSelectorPanel"
 import { MockupToolbar } from "./MockupToolbar"
 import { BackgroundPicker } from "./BackgroundPicker"
 import { exportMockup, downloadBlob } from "@/utils/mockupEngine"
-import { DEVICE_CATALOG } from "@/types/mockup"
+import { DEVICE_CATALOG, getFrameImagePath } from "@/types/mockup"
 import type { Orientation, ExportScale, MockupBackground, MockupTransform } from "@/types/mockup"
+import { preloadDeviceFrames } from "@/utils/deviceFrameLoader"
 
 export function MockupEditor() {
   const [image, setImage] = useState<string | null>(null)
   const [deviceId, setDeviceId] = useState("iphone-16-pro")
   const [orientation, setOrientation] = useState<Orientation>("portrait")
   const [colorVariant, setColorVariant] = useState("#1a1a1a")
+  const [variantSlug, setVariantSlug] = useState("black-titanium")
   const [background, setBackground] = useState<MockupBackground>({
     type: "solid",
     color: "#f5f5f5",
@@ -31,6 +33,13 @@ export function MockupEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const device = DEVICE_CATALOG.find((d) => d.id === deviceId) ?? DEVICE_CATALOG[0]
 
+  // Preload frame images when device changes
+  useEffect(() => {
+    if (device.frameImage) {
+      preloadDeviceFrames(device.id, device.colorVariants)
+    }
+  }, [device.id])
+
   const handleImageUpload = (dataUrl: string) => {
     setImage(dataUrl)
   }
@@ -44,6 +53,7 @@ export function MockupEditor() {
         device,
         orientation,
         colorVariant,
+        variantSlug,
         background,
         exportScale,
       })
@@ -85,6 +95,7 @@ export function MockupEditor() {
               image={image}
               orientation={orientation}
               colorVariant={colorVariant}
+              variantSlug={variantSlug}
               background={background}
               transform={transform}
             />
@@ -103,7 +114,10 @@ export function MockupEditor() {
             onOrientationToggle={() =>
               setOrientation((o) => (o === "portrait" ? "landscape" : "portrait"))
             }
-            onColorVariantChange={setColorVariant}
+            onColorVariantChange={(color, slug) => {
+              setColorVariant(color)
+              setVariantSlug(slug)
+            }}
           />
           <div className="h-px bg-border" />
           <BackgroundPicker background={background} onChange={handleBackgroundChange} />
