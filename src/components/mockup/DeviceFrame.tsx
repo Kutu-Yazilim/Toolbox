@@ -29,7 +29,6 @@ export function DeviceFrame({ device, orientation, colorVariant, variantSlug, ch
     return (
       <ImageDeviceFrame
         device={device}
-        orientation={orientation}
         frameImagePath={frameImagePath!}
         isLandscape={isLandscape}
       >
@@ -41,7 +40,6 @@ export function DeviceFrame({ device, orientation, colorVariant, variantSlug, ch
   return (
     <CSSDeviceFrame
       device={device}
-      orientation={orientation}
       colorVariant={colorVariant}
       isLandscape={isLandscape}
     >
@@ -52,13 +50,11 @@ export function DeviceFrame({ device, orientation, colorVariant, variantSlug, ch
 
 function ImageDeviceFrame({
   device,
-  orientation,
   frameImagePath,
   isLandscape,
   children,
 }: {
   device: DeviceSpec
-  orientation: Orientation
   frameImagePath: string
   isLandscape: boolean
   children: React.ReactNode
@@ -128,13 +124,11 @@ function ImageDeviceFrame({
 
 function CSSDeviceFrame({
   device,
-  orientation,
   colorVariant,
   isLandscape,
   children,
 }: {
   device: DeviceSpec
-  orientation: Orientation
   colorVariant: string
   isLandscape: boolean
   children: React.ReactNode
