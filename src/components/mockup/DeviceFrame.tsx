@@ -94,7 +94,7 @@ function ImageDeviceFrame({
           transformOrigin: "center center",
         }}
       >
-        {/* Screen content behind the frame — no border radius needed, frame image masks corners */}
+        {/* Screen content behind the frame — border radius matches frame's screen cutout */}
         <div
           className="absolute overflow-hidden bg-black"
           style={{
@@ -102,6 +102,7 @@ function ImageDeviceFrame({
             left: screenX,
             width: screenW,
             height: screenH,
+            borderRadius: fi.nativeScreen.borderRadius * scale,
           }}
         >
           {children}

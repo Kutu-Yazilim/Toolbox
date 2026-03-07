@@ -36,6 +36,7 @@ export interface DeviceFrameImage {
     y: number
     width: number
     height: number
+    borderRadius: number
   }
 }
 
@@ -109,7 +110,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1419,
       nativeHeight: 2796,
-      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556 },
+      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556, borderRadius: 20 },
     },
   },
   {
@@ -135,7 +136,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1419,
       nativeHeight: 2796,
-      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556 },
+      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556, borderRadius: 20 },
     },
   },
   {
@@ -162,7 +163,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1419,
       nativeHeight: 2796,
-      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556 },
+      nativeScreen: { x: 120, y: 120, width: 1179, height: 2556, borderRadius: 20 },
     },
   },
   {
@@ -185,7 +186,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1245,
       nativeHeight: 2359,
-      nativeScreen: { x: 149, y: 167, width: 942, height: 2024 },
+      nativeScreen: { x: 149, y: 167, width: 942, height: 2024, borderRadius: 5 },
     },
   },
   {
@@ -208,7 +209,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1320,
       nativeHeight: 1706,
-      nativeScreen: { x: 69, y: 65, width: 1181, height: 1575 },
+      nativeScreen: { x: 69, y: 65, width: 1181, height: 1575, borderRadius: 14 },
     },
   },
   {
@@ -231,7 +232,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1140,
       nativeHeight: 1568,
-      nativeScreen: { x: 83, y: 83, width: 974, height: 1402 },
+      nativeScreen: { x: 83, y: 83, width: 974, height: 1402, borderRadius: 14 },
     },
   },
   {
@@ -254,7 +255,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1920,
       nativeHeight: 1265,
-      nativeScreen: { x: 195, y: 138, width: 1529, height: 988 },
+      nativeScreen: { x: 195, y: 138, width: 1529, height: 988, borderRadius: 10 },
     },
   },
   {
@@ -277,7 +278,7 @@ export const DEVICE_CATALOG: DeviceSpec[] = [
     frameImage: {
       nativeWidth: 1800,
       nativeHeight: 1174,
-      nativeScreen: { x: 184, y: 121, width: 1431, height: 930 },
+      nativeScreen: { x: 184, y: 121, width: 1431, height: 930, borderRadius: 10 },
     },
   },
 ]

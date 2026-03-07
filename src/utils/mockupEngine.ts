@@ -86,6 +86,7 @@ async function exportWithFrameImage(
 
   // Counter-rotate image when frame is rotated for landscape
   const counterRotation = isLandscape ? -90 : 0
+  const screenRadius = fi.nativeScreen.borderRadius * scale
 
   if (isLandscape) {
     ctx.save()
@@ -102,7 +103,7 @@ async function exportWithFrameImage(
     const screenH = fi.nativeScreen.height * scale
 
     ctx.save()
-    ctx.rect(screenX, screenY, screenW, screenH)
+    roundedRect(ctx, screenX, screenY, screenW, screenH, screenRadius)
     ctx.clip()
     drawTransformedImage(ctx, userImg, screenX, screenY, screenW, screenH, imageTransform, counterRotation)
     ctx.restore()
@@ -118,7 +119,7 @@ async function exportWithFrameImage(
     const screenH = fi.nativeScreen.height * scale
 
     ctx.save()
-    ctx.rect(screenX, screenY, screenW, screenH)
+    roundedRect(ctx, screenX, screenY, screenW, screenH, screenRadius)
     ctx.clip()
     drawTransformedImage(ctx, userImg, screenX, screenY, screenW, screenH, imageTransform, counterRotation)
     ctx.restore()
