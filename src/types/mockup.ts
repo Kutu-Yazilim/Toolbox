@@ -70,6 +70,17 @@ export interface MockupTransform {
 export type Orientation = "portrait" | "landscape"
 export type ExportScale = 1 | 2 | 3
 
+export interface ImageTransform {
+  /** Zoom level: 1 = fill screen, up to 3x */
+  scale: number
+  /** Pan offset X as percentage of screen width (-100 to 100) */
+  offsetX: number
+  /** Pan offset Y as percentage of screen height (-100 to 100) */
+  offsetY: number
+  /** Image rotation in degrees (0, 90, 180, 270) */
+  rotation: number
+}
+
 export function getFrameImagePath(deviceId: string, variantSlug: string): string {
   return `/device-frames/${deviceId}/${variantSlug}.png`
 }

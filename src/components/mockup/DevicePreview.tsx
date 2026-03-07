@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from "react"
 import { DeviceFrame } from "./DeviceFrame"
-import type { DeviceSpec, Orientation, MockupBackground, MockupTransform } from "@/types/mockup"
+import { ScreenImage } from "./ScreenImage"
+import type { DeviceSpec, Orientation, MockupBackground, MockupTransform, ImageTransform } from "@/types/mockup"
 
 interface DevicePreviewProps {
   device: DeviceSpec
@@ -10,6 +11,8 @@ interface DevicePreviewProps {
   variantSlug: string
   background: MockupBackground
   transform: MockupTransform
+  imageTransform: ImageTransform
+  onImagePan: (deltaX: number, deltaY: number) => void
 }
 
 export function DevicePreview({
@@ -20,6 +23,8 @@ export function DevicePreview({
   variantSlug,
   background,
   transform,
+  imageTransform,
+  onImagePan,
 }: DevicePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scaleFactor, setScaleFactor] = useState(1)
@@ -71,11 +76,12 @@ export function DevicePreview({
         >
           <DeviceFrame device={device} orientation={orientation} colorVariant={colorVariant} variantSlug={variantSlug}>
             {image ? (
-              <img
+              <ScreenImage
                 src={image}
-                className="w-full h-full object-cover"
-                draggable={false}
-                alt="Mockup screenshot"
+                imageTransform={imageTransform}
+                orientation={orientation}
+                frameRotatesForLandscape={!!device.frameImage}
+                onPan={onImagePan}
               />
             ) : (
               <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center text-white/30 text-sm">

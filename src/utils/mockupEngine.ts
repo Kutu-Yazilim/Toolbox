@@ -1,4 +1,4 @@
-import type { DeviceSpec, Orientation, MockupBackground, ExportScale } from "@/types/mockup"
+import type { DeviceSpec, Orientation, MockupBackground, ExportScale, ImageTransform } from "@/types/mockup"
 import { getFrameImagePath } from "@/types/mockup"
 import { loadFrameImage } from "./deviceFrameLoader"
 
@@ -10,10 +10,11 @@ export interface ExportOptions {
   variantSlug: string
   background: MockupBackground
   exportScale: ExportScale
+  imageTransform: ImageTransform
 }
 
 export async function exportMockup(options: ExportOptions): Promise<Blob> {
-  const { image, device, orientation, colorVariant, variantSlug, background, exportScale } = options
+  const { image, device, orientation, colorVariant, variantSlug, background, exportScale, imageTransform } = options
 
   const isLandscape = orientation === "landscape"
   const frameW = isLandscape ? device.frame.height : device.frame.width
@@ -57,9 +58,9 @@ export async function exportMockup(options: ExportOptions): Promise<Blob> {
   const userImg = await loadImage(image)
 
   if (device.frameImage) {
-    await exportWithFrameImage(ctx, userImg, device, isLandscape, variantSlug, padding, frameW, frameH)
+    await exportWithFrameImage(ctx, userImg, device, isLandscape, variantSlug, padding, frameW, frameH, imageTransform)
   } else {
-    exportWithCSS(ctx, userImg, device, isLandscape, colorVariant, padding, frameW, frameH)
+    exportWithCSS(ctx, userImg, device, isLandscape, colorVariant, padding, frameW, frameH, imageTransform)
   }
 
   return new Promise((resolve) => {
@@ -76,37 +77,36 @@ async function exportWithFrameImage(
   padding: number,
   frameW: number,
   frameH: number,
+  imageTransform: ImageTransform,
 ) {
   const fi = device.frameImage!
   const scale = device.frame.width / fi.nativeWidth
   const frameImagePath = getFrameImagePath(device.id, variantSlug)
   const frameImg = await loadFrameImage(frameImagePath)
 
+  // Counter-rotate image when frame is rotated for landscape
+  const counterRotation = isLandscape ? -90 : 0
+
   if (isLandscape) {
-    // For landscape: translate to center, rotate, then draw in portrait coords
     ctx.save()
     const cx = padding + frameW / 2
     const cy = padding + frameH / 2
     ctx.translate(cx, cy)
     ctx.rotate(Math.PI / 2)
-    // After rotation, we're in portrait coordinate space centered at origin
     const halfW = device.frame.width / 2
     const halfH = device.frame.height / 2
 
-    // Screen in portrait coords
     const screenX = fi.nativeScreen.x * scale - halfW
     const screenY = fi.nativeScreen.y * scale - halfH
     const screenW = fi.nativeScreen.width * scale
     const screenH = fi.nativeScreen.height * scale
 
-    // Draw user image clipped to screen
     ctx.save()
-    roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
+    ctx.rect(screenX, screenY, screenW, screenH)
     ctx.clip()
-    drawCover(ctx, userImg, screenX, screenY, screenW, screenH)
+    drawTransformedImage(ctx, userImg, screenX, screenY, screenW, screenH, imageTransform, counterRotation)
     ctx.restore()
 
-    // Draw frame image overlay
     ctx.drawImage(frameImg, -halfW, -halfH, device.frame.width, device.frame.height)
     ctx.restore()
   } else {
@@ -117,14 +117,12 @@ async function exportWithFrameImage(
     const screenW = fi.nativeScreen.width * scale
     const screenH = fi.nativeScreen.height * scale
 
-    // Draw user image clipped to screen
     ctx.save()
-    roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
+    ctx.rect(screenX, screenY, screenW, screenH)
     ctx.clip()
-    drawCover(ctx, userImg, screenX, screenY, screenW, screenH)
+    drawTransformedImage(ctx, userImg, screenX, screenY, screenW, screenH, imageTransform, counterRotation)
     ctx.restore()
 
-    // Draw frame image overlay
     ctx.drawImage(frameImg, bx, by, frameW, frameH)
   }
 }
@@ -138,35 +136,31 @@ function exportWithCSS(
   padding: number,
   frameW: number,
   frameH: number,
+  imageTransform: ImageTransform,
 ) {
-  // Calculate screen region
   const screenX = padding + (isLandscape ? device.screen.y : device.screen.x)
   const screenY = padding + (isLandscape ? device.screen.x : device.screen.y)
   const screenW = isLandscape ? device.screen.height : device.screen.width
   const screenH = isLandscape ? device.screen.width : device.screen.height
 
-  // Draw user image into screen area (cover fit)
   ctx.save()
   roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
   ctx.clip()
-  drawCover(ctx, userImg, screenX, screenY, screenW, screenH)
+  drawTransformedImage(ctx, userImg, screenX, screenY, screenW, screenH, imageTransform, 0)
   ctx.restore()
 
   // Draw device bezel
   const bx = padding
   const by = padding
 
-  // Bezel fill
   ctx.save()
   roundedRect(ctx, bx, by, frameW, frameH, device.style.borderRadius)
-  // Cut out screen area
   roundedRect(ctx, screenX, screenY, screenW, screenH, device.screen.borderRadius)
   ctx.clip("evenodd")
   ctx.fillStyle = colorVariant
   ctx.fillRect(bx, by, frameW, frameH)
   ctx.restore()
 
-  // Bezel border
   ctx.save()
   ctx.strokeStyle = "rgba(0,0,0,0.15)"
   ctx.lineWidth = 1
@@ -174,7 +168,6 @@ function exportWithCSS(
   ctx.stroke()
   ctx.restore()
 
-  // Dynamic Island
   if (device.style.hasDynamicIsland) {
     ctx.save()
     const diW = isLandscape ? 36 : 120
@@ -191,19 +184,66 @@ function exportWithCSS(
     ctx.restore()
   }
 
-  // Laptop base
   if (device.category === "laptop") {
     ctx.save()
-    // Hinge
     ctx.fillStyle = colorVariant
     roundedRect(ctx, bx - 10, by + frameH, frameW + 20, 14, 0)
     ctx.fill()
-    // Base
     ctx.fillStyle = adjustBrightness(colorVariant, 15)
     roundedRect(ctx, bx - 30, by + frameH + 14, frameW + 60, 8, 4)
     ctx.fill()
     ctx.restore()
   }
+}
+
+/**
+ * Draw user image with transforms (rotation, zoom, pan) applied.
+ * counterRotation compensates for frame rotation in landscape mode.
+ */
+function drawTransformedImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number, y: number, w: number, h: number,
+  transform: ImageTransform,
+  counterRotation: number,
+) {
+  const totalRotation = transform.rotation + counterRotation
+  const rad = (totalRotation * Math.PI) / 180
+
+  // Center of the screen area
+  const cx = x + w / 2
+  const cy = y + h / 2
+
+  ctx.save()
+  ctx.translate(cx, cy)
+
+  // Apply pan offset (as percentage of screen dimensions)
+  ctx.translate((transform.offsetX / 100) * w, (transform.offsetY / 100) * h)
+
+  // Apply rotation and zoom
+  ctx.rotate(rad)
+  ctx.scale(transform.scale, transform.scale)
+
+  // Calculate cover dimensions accounting for rotation
+  // When rotated 90° or 270°, the effective aspect ratio flips
+  const isRotated90 = Math.abs(totalRotation % 180) === 90
+  const effectiveW = isRotated90 ? h : w
+  const effectiveH = isRotated90 ? w : h
+
+  const imgRatio = img.naturalWidth / img.naturalHeight
+  const areaRatio = effectiveW / effectiveH
+
+  let drawW: number, drawH: number
+  if (imgRatio > areaRatio) {
+    drawH = effectiveH
+    drawW = effectiveH * imgRatio
+  } else {
+    drawW = effectiveW
+    drawH = effectiveW / imgRatio
+  }
+
+  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH)
+  ctx.restore()
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -213,27 +253,6 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = reject
     img.src = src
   })
-}
-
-function drawCover(
-  ctx: CanvasRenderingContext2D,
-  img: HTMLImageElement,
-  x: number, y: number, w: number, h: number
-) {
-  const imgRatio = img.naturalWidth / img.naturalHeight
-  const areaRatio = w / h
-
-  let sx = 0, sy = 0, sw = img.naturalWidth, sh = img.naturalHeight
-
-  if (imgRatio > areaRatio) {
-    sw = img.naturalHeight * areaRatio
-    sx = (img.naturalWidth - sw) / 2
-  } else {
-    sh = img.naturalWidth / areaRatio
-    sy = (img.naturalHeight - sh) / 2
-  }
-
-  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
 }
 
 function roundedRect(
