@@ -15,6 +15,7 @@ import {
   CoinsIcon,
   PenToolIcon,
   MonitorSmartphoneIcon,
+  FileOutputIcon,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -120,6 +121,12 @@ const TOOLS: {
     label: "Mockup",
     description: "Place screenshots into device frames and export polished mockups as PNG",
     icon: MonitorSmartphoneIcon,
+  },
+  {
+    value: "base64file",
+    label: "Base64 to File",
+    description: "Convert base64 strings to files with preview and download support",
+    icon: FileOutputIcon,
   },
 ]
 

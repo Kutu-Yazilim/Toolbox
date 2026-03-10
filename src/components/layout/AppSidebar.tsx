@@ -21,6 +21,7 @@ import {
   CoinsIcon,
   PenToolIcon,
   MonitorSmartphoneIcon,
+  FileOutputIcon,
 } from "lucide-react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -44,6 +45,7 @@ export const NAV_ITEMS = [
   { value: "coinflip", label: "Coin Flip", icon: CoinsIcon },
   { value: "shapemaker", label: "Shape Maker", icon: PenToolIcon },
   { value: "mockup", label: "Mockup", icon: MonitorSmartphoneIcon },
+  { value: "base64file", label: "Base64 to File", icon: FileOutputIcon },
 ] as const
 
 function SidebarTooltip({

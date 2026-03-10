@@ -19,6 +19,7 @@ import { QrGenerator } from "@/components/qr/QrGenerator"
 import { CoinFlip } from "@/components/coinflip/CoinFlip"
 import { ShapeMaker } from "@/components/shapemaker/ShapeMaker"
 import { MockupEditor } from "@/components/mockup/MockupEditor"
+import { Base64ToFile } from "@/components/base64file/Base64ToFile"
 
 function App() {
   const [activeTab, setActiveTab] = useState("home")
@@ -79,6 +80,9 @@ function App() {
           </TabsContent>
           <TabsContent value="mockup" className="flex-1 min-h-0">
             <MockupEditor />
+          </TabsContent>
+          <TabsContent value="base64file" className="flex-1 min-h-0">
+            <Base64ToFile />
           </TabsContent>
         </main>
       </Tabs>
