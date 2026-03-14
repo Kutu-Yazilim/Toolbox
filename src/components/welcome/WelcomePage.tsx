@@ -16,6 +16,7 @@ import {
   PenToolIcon,
   MonitorSmartphoneIcon,
   FileOutputIcon,
+  NetworkIcon,
   type LucideIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -127,6 +128,12 @@ const TOOLS: {
     label: "Base64 to File",
     description: "Convert base64 strings to files with preview and download support",
     icon: FileOutputIcon,
+  },
+  {
+    value: "dnsip",
+    label: "DNS/IP",
+    description: "DNS lookup across multiple providers and IP geolocation info",
+    icon: NetworkIcon,
   },
 ]
 

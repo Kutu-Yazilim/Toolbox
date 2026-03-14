@@ -22,6 +22,8 @@ import {
   PenToolIcon,
   MonitorSmartphoneIcon,
   FileOutputIcon,
+  NetworkIcon,
+  FileIcon,
 } from "lucide-react"
 import { TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -46,6 +48,8 @@ export const NAV_ITEMS = [
   { value: "shapemaker", label: "Shape Maker", icon: PenToolIcon },
   { value: "mockup", label: "Mockup", icon: MonitorSmartphoneIcon },
   { value: "base64file", label: "Base64 to File", icon: FileOutputIcon },
+  { value: "dnsip", label: "DNS/IP", icon: NetworkIcon },
+  { value: "pdf", label: "PDF Tools", icon: FileIcon },
 ] as const
 
 function SidebarTooltip({

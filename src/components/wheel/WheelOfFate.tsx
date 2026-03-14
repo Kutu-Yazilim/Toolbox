@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { PlusIcon, Trash2Icon, RotateCwIcon, TrophyIcon } from "lucide-react"
+import { PlusIcon, Trash2Icon, RotateCwIcon, TrophyIcon, MaximizeIcon, MinimizeIcon } from "lucide-react"
 
 const PALETTE = [
     "#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6",
@@ -8,29 +8,55 @@ const PALETTE = [
     "#607d8b", "#795548", "#4caf50", "#ff9800", "#2196f3",
 ]
 
+const STORAGE_KEY = "wheel-of-fate-options"
+const FAB_STORAGE_KEY = "wheel-of-fate-fab"
 const DEFAULT_OPTIONS = ["Alice", "Bob", "Charlie", "Diana"]
+
+const LOGO_FAB = "/FabLogo.png"
+const LOGO_DEFAULT = "/LogoOnlyCircularSVG.svg"
+
+function loadOptions(): string[] {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+            const parsed = JSON.parse(stored)
+            if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        }
+    } catch { /* use defaults */ }
+    return DEFAULT_OPTIONS
+}
 
 function getColor(index: number) {
     return PALETTE[index % PALETTE.length]
 }
 
 export function WheelOfFate() {
-    const [options, setOptions] = useState<string[]>(DEFAULT_OPTIONS)
+    const [options, setOptions] = useState<string[]>(loadOptions)
     const [newOption, setNewOption] = useState("")
     const [isSpinning, setIsSpinning] = useState(false)
     const [winner, setWinner] = useState<string | null>(null)
     const [winnerIdx, setWinnerIdx] = useState<number | null>(null)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+    const [isFab, setIsFab] = useState(() => localStorage.getItem(FAB_STORAGE_KEY) === "true")
 
+    const rootRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
     const containerRef = useRef<HTMLDivElement>(null)
     const rotationRef = useRef(0)
     const animationRef = useRef<number | null>(null)
     const optionsRef = useRef(options)
     const winnerIdxRef = useRef<number | null>(null)
+    const logoRef = useRef<HTMLImageElement | null>(null)
+    const isFabRef = useRef(isFab)
 
     useEffect(() => {
         optionsRef.current = options
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(options))
     }, [options])
+
+    useEffect(() => {
+        isFabRef.current = isFab
+    }, [isFab])
 
     const drawWheel = useCallback((rotation: number, highlight: number | null) => {
         const canvas = canvasRef.current
@@ -99,14 +125,33 @@ export function WheelOfFate() {
         ctx.lineWidth = 4
         ctx.stroke()
 
-        // Center pin
+        // Center logo
+        const logoSize = Math.max(48, radius * 0.32)
+        ctx.save()
         ctx.beginPath()
-        ctx.arc(cx, cy, 12, 0, Math.PI * 2)
+        ctx.arc(cx, cy, logoSize / 2 + 6, 0, Math.PI * 2)
         ctx.fillStyle = "#fff"
         ctx.fill()
-        ctx.strokeStyle = "rgba(0,0,0,0.2)"
+        ctx.strokeStyle = "rgba(0,0,0,0.15)"
         ctx.lineWidth = 2
         ctx.stroke()
+        ctx.restore()
+
+        if (logoRef.current) {
+            if (isFabRef.current) {
+                const offscreen = document.createElement("canvas")
+                offscreen.width = logoSize
+                offscreen.height = logoSize
+                const offCtx = offscreen.getContext("2d")!
+                offCtx.drawImage(logoRef.current, 0, 0, logoSize, logoSize)
+                offCtx.globalCompositeOperation = "source-in"
+                offCtx.fillStyle = "#000"
+                offCtx.fillRect(0, 0, logoSize, logoSize)
+                ctx.drawImage(offscreen, cx - logoSize / 2, cy - logoSize / 2)
+            } else {
+                ctx.drawImage(logoRef.current, cx - logoSize / 2, cy - logoSize / 2, logoSize, logoSize)
+            }
+        }
 
         // Indicator triangle (top, pointing down into wheel)
         const tipY = cy - radius + 1
@@ -124,6 +169,16 @@ export function WheelOfFate() {
         ctx.fill()
         ctx.stroke()
     }, [])
+
+    // Load center logo
+    useEffect(() => {
+        const img = new Image()
+        img.src = isFab ? LOGO_FAB : LOGO_DEFAULT
+        img.onload = () => {
+            logoRef.current = img
+            drawWheel(rotationRef.current, winnerIdxRef.current)
+        }
+    }, [drawWheel, isFab])
 
     // Setup canvas resize observer (stable — depends only on drawWheel which never changes)
     useEffect(() => {
@@ -215,77 +270,120 @@ export function WheelOfFate() {
         winnerIdxRef.current = null
     }
 
+    const toggleFab = () => {
+        setIsFab(prev => {
+            const next = !prev
+            localStorage.setItem(FAB_STORAGE_KEY, String(next))
+            return next
+        })
+    }
+
+    const toggleFullscreen = useCallback(() => {
+        if (!document.fullscreenElement) {
+            rootRef.current?.requestFullscreen()
+        } else {
+            document.exitFullscreen()
+        }
+    }, [])
+
+    useEffect(() => {
+        const handler = () => setIsFullscreen(!!document.fullscreenElement)
+        document.addEventListener("fullscreenchange", handler)
+        return () => document.removeEventListener("fullscreenchange", handler)
+    }, [])
+
     return (
-        <div className="h-full flex flex-col-reverse md:flex-row min-h-0">
-            {/* Left panel — options list */}
-            <div className="w-full md:w-60 md:flex-shrink-0 max-h-48 md:max-h-none flex flex-col border-t md:border-t-0 md:border-r border-border">
-                <div className="flex items-center gap-2 px-3 h-9 border-b border-border flex-shrink-0">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        Options
-                    </span>
-                    <span className="ml-auto text-xs text-muted-foreground">{options.length}</span>
-                </div>
-
-                <div className="flex-1 overflow-y-auto min-h-0 p-2">
-                    <div className="space-y-0.5">
-                        {options.map((opt, i) => (
-                            <div
-                                key={i}
-                                className={`flex items-center gap-2 px-2 py-1.5 rounded-md text-sm group transition-colors ${
-                                    winnerIdx === i
-                                        ? "bg-yellow-500/20 ring-1 ring-yellow-500/40"
-                                        : "hover:bg-muted/50"
-                                }`}
-                            >
-                                <div
-                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                    style={{ backgroundColor: getColor(i) }}
-                                />
-                                <span className="flex-1 truncate">{opt}</span>
-                                {winnerIdx === i && (
-                                    <TrophyIcon className="h-3 w-3 text-yellow-500 flex-shrink-0" />
-                                )}
+        <div ref={rootRef} className="h-full flex flex-col-reverse md:flex-row min-h-0 bg-background">
+            {/* Left panel — options list (hidden in fullscreen) */}
+            {!isFullscreen && (
+                <div className="w-full md:w-60 md:flex-shrink-0 max-h-48 md:max-h-none flex flex-col border-t md:border-t-0 md:border-r border-border">
+                    <div className="flex items-center gap-2 px-3 h-9 border-b border-border flex-shrink-0">
+                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                            Options
+                        </span>
+                        <div className="ml-auto flex items-center gap-2">
+                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                <span className="text-xs font-medium text-muted-foreground">FAB</span>
                                 <button
-                                    onClick={() => removeOption(i)}
-                                    disabled={isSpinning}
-                                    className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity disabled:pointer-events-none"
+                                    role="switch"
+                                    aria-checked={isFab}
+                                    onClick={toggleFab}
+                                    className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors ${
+                                        isFab ? "bg-primary" : "bg-muted-foreground/30"
+                                    }`}
                                 >
-                                    <Trash2Icon className="h-3 w-3" />
+                                    <span
+                                        className={`inline-block h-3 w-3 rounded-full bg-white transition-transform ${
+                                            isFab ? "translate-x-3.5" : "translate-x-0.5"
+                                        }`}
+                                    />
                                 </button>
-                            </div>
-                        ))}
+                            </label>
+                            <span className="text-xs text-muted-foreground">{options.length}</span>
+                        </div>
+                    </div>
 
-                        {options.length === 0 && (
-                            <p className="text-xs text-muted-foreground text-center py-8">
-                                Add at least 2 options to spin
-                            </p>
-                        )}
+                    <div className="flex-1 overflow-y-auto min-h-0 p-2">
+                        <div className="space-y-1">
+                            {options.map((opt, i) => (
+                                <div
+                                    key={i}
+                                    className={`flex items-center gap-2 px-2.5 py-2.5 rounded-md text-sm transition-colors ${
+                                        winnerIdx === i
+                                            ? "bg-yellow-500/20 ring-1 ring-yellow-500/40"
+                                            : "hover:bg-muted/50"
+                                    }`}
+                                >
+                                    <div
+                                        className="w-3 h-3 rounded-full flex-shrink-0"
+                                        style={{ backgroundColor: getColor(i) }}
+                                    />
+                                    <span className="flex-1 truncate">{opt}</span>
+                                    {winnerIdx === i && (
+                                        <TrophyIcon className="h-3.5 w-3.5 text-yellow-500 flex-shrink-0" />
+                                    )}
+                                    <button
+                                        onClick={() => removeOption(i)}
+                                        disabled={isSpinning}
+                                        className="text-muted-foreground hover:text-destructive transition-colors disabled:pointer-events-none p-1 -mr-1"
+                                    >
+                                        <Trash2Icon className="h-3.5 w-3.5" />
+                                    </button>
+                                </div>
+                            ))}
+
+                            {options.length === 0 && (
+                                <p className="text-xs text-muted-foreground text-center py-8">
+                                    Add at least 2 options to spin
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Add option input */}
+                    <div className="p-2 border-t border-border flex-shrink-0">
+                        <div className="flex gap-1.5">
+                            <input
+                                type="text"
+                                value={newOption}
+                                onChange={e => setNewOption(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && addOption()}
+                                placeholder="Add option..."
+                                disabled={isSpinning}
+                                className="flex-1 px-2 py-1 text-sm bg-muted/30 border border-border rounded-md outline-none focus:ring-1 focus:ring-ring focus:border-ring disabled:opacity-50 min-w-0"
+                            />
+                            <Button
+                                variant="outline"
+                                size="icon-xs"
+                                onClick={addOption}
+                                disabled={!newOption.trim() || isSpinning}
+                            >
+                                <PlusIcon />
+                            </Button>
+                        </div>
                     </div>
                 </div>
-
-                {/* Add option input */}
-                <div className="p-2 border-t border-border flex-shrink-0">
-                    <div className="flex gap-1.5">
-                        <input
-                            type="text"
-                            value={newOption}
-                            onChange={e => setNewOption(e.target.value)}
-                            onKeyDown={e => e.key === "Enter" && addOption()}
-                            placeholder="Add option..."
-                            disabled={isSpinning}
-                            className="flex-1 px-2 py-1 text-sm bg-muted/30 border border-border rounded-md outline-none focus:ring-1 focus:ring-ring focus:border-ring disabled:opacity-50 min-w-0"
-                        />
-                        <Button
-                            variant="outline"
-                            size="icon-xs"
-                            onClick={addOption}
-                            disabled={!newOption.trim() || isSpinning}
-                        >
-                            <PlusIcon />
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Right panel — wheel */}
             <div className="flex-1 flex flex-col min-h-0">
@@ -312,6 +410,14 @@ export function WheelOfFate() {
 
                 {/* Spin button */}
                 <div className="flex items-center justify-center gap-3 p-4 border-t border-border flex-shrink-0">
+                    <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={toggleFullscreen}
+                        title={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+                    >
+                        {isFullscreen ? <MinimizeIcon className="h-4 w-4" /> : <MaximizeIcon className="h-4 w-4" />}
+                    </Button>
                     <Button
                         onClick={spin}
                         disabled={isSpinning || options.length < 2}

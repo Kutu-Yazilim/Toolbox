@@ -20,6 +20,8 @@ import { CoinFlip } from "@/components/coinflip/CoinFlip"
 import { ShapeMaker } from "@/components/shapemaker/ShapeMaker"
 import { MockupEditor } from "@/components/mockup/MockupEditor"
 import { Base64ToFile } from "@/components/base64file/Base64ToFile"
+import { DnsIpTool } from "@/components/dnsip/DnsIpTool"
+import { PdfTools } from "@/components/pdf/PdfTools"
 
 function App() {
   const [activeTab, setActiveTab] = useState("home")
@@ -83,6 +85,12 @@ function App() {
           </TabsContent>
           <TabsContent value="base64file" className="flex-1 min-h-0">
             <Base64ToFile />
+          </TabsContent>
+          <TabsContent value="dnsip" className="flex-1 min-h-0">
+            <DnsIpTool />
+          </TabsContent>
+          <TabsContent value="pdf" className="flex-1 min-h-0">
+            <PdfTools />
           </TabsContent>
         </main>
       </Tabs>

@@ -1,0 +1,89 @@
+<h2>PDF Tools Hub Layout</h2>
+<p class="subtitle">How should the PDF tools hub page be organized?</p>
+
+<div class="cards">
+  <div class="card" data-choice="grid" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; background: #1a1a2e; border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">📄→📄</div>
+            <div style="font-size: 11px; color: #aaa;">Merge PDF</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">✂️</div>
+            <div style="font-size: 11px; color: #aaa;">Split PDF</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">🗜️</div>
+            <div style="font-size: 11px; color: #aaa;">Compress</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">💧</div>
+            <div style="font-size: 11px; color: #aaa;">Watermark</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">🔀</div>
+            <div style="font-size: 11px; color: #aaa;">Reorder</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">📸→📄</div>
+            <div style="font-size: 11px; color: #aaa;">JPG to PDF</div>
+          </div>
+        </div>
+        <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">📊→📄</div>
+            <div style="font-size: 11px; color: #aaa;">XLSX to PDF</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">📝→📄</div>
+            <div style="font-size: 11px; color: #aaa;">DOCX to PDF</div>
+          </div>
+          <div style="background: rgba(255,255,255,0.08); border-radius: 8px; padding: 16px; text-align: center;">
+            <div style="font-size: 24px; margin-bottom: 6px;">...</div>
+            <div style="font-size: 11px; color: #aaa;">More</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A. Flat Icon Grid</h3>
+      <p>All tools as icon cards in a grid, like ilovepdf.com's homepage. Simple, scannable, no categories.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="categorized" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div style="padding: 16px; background: #1a1a2e; border-radius: 8px;">
+        <div style="margin-bottom: 14px;">
+          <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Convert to PDF</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">CSV</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">XLSX</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">DOCX</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">PPTX</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">HTML</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">JPG</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">PNG</div>
+            <div style="background: rgba(99,102,241,0.15); border: 1px solid rgba(99,102,241,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #a5b4fc;">MD</div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">Manage PDF</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #fda4af;">Merge</div>
+            <div style="background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #fda4af;">Split</div>
+            <div style="background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #fda4af;">Reorder</div>
+            <div style="background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #fda4af;">Compress</div>
+            <div style="background: rgba(244,63,94,0.15); border: 1px solid rgba(244,63,94,0.3); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: #fda4af;">Watermark</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B. Categorized Sections</h3>
+      <p>Tools grouped by category ("Convert to PDF" / "Manage PDF") with color-coded chips. More organized, easier to find.</p>
+    </div>
+  </div>
+</div>

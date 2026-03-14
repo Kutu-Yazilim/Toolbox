@@ -1,0 +1,102 @@
+<h2>Upgraded Architecture: Pixel-Perfect Quality</h2>
+<p class="subtitle">WASM-powered tools for professional-grade output</p>
+
+<div class="section">
+  <h3>Convert to PDF — powered by office2pdf (Rust→WASM)</h3>
+  <p style="font-size: 13px; color: #aaa; margin-bottom: 16px;">
+    <a href="https://github.com/developer0hye/office2pdf" style="color: #a5b4fc;">office2pdf</a> is a pure-Rust library compiled to WASM.
+    Handles DOCX, PPTX, XLSX natively in the browser with high fidelity. 529 commits, active development, latest release March 2026.
+  </p>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px;">
+    <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">DOCX → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">office2pdf WASM</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Bold/italic, tables, images, headers/footers, lists</div>
+    </div>
+    <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">PPTX → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">office2pdf WASM</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Slides, text boxes, shapes, tables, images, gradients</div>
+    </div>
+    <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">XLSX → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">office2pdf WASM</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Cell formatting, merged cells, conditional formatting</div>
+    </div>
+    <div style="background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">CSV → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">office2pdf WASM (convert CSV→XLSX first, then to PDF)</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Perfect table rendering via XLSX pipeline</div>
+    </div>
+    <div style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">HTML → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">html-to-image + jsPDF</div>
+      <div style="font-size: 10px; color: #fbbf24; margin-top: 4px;">Browser rendering engine = pixel-perfect HTML</div>
+    </div>
+    <div style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">JPG/PNG → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">jsPDF addImage</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Lossless embedding, no quality loss</div>
+    </div>
+    <div style="background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">MD → PDF</div>
+      <div style="font-size: 11px; color: #aaa;">react-markdown → html-to-image → jsPDF</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ GFM tables, code blocks, full styling</div>
+    </div>
+  </div>
+
+  <h3>Manage PDF — powered by pdf-lib + Ghostscript WASM</h3>
+  <p style="font-size: 13px; color: #aaa; margin-bottom: 16px;">
+    pdf-lib for manipulation, Ghostscript WASM (~16MB, lazy-loaded) for true professional compression
+  </p>
+
+  <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Merge PDF</div>
+      <div style="font-size: 11px; color: #aaa;">pdf-lib copyPages</div>
+    </div>
+    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Split PDF</div>
+      <div style="font-size: 11px; color: #aaa;">pdf-lib page extraction</div>
+    </div>
+    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Reorder PDF</div>
+      <div style="font-size: 11px; color: #aaa;">pdf-lib + drag-drop thumbnails</div>
+    </div>
+    <div style="background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Compress PDF ⚡</div>
+      <div style="font-size: 11px; color: #aaa;">Ghostscript WASM (professional-grade)</div>
+      <div style="font-size: 10px; color: #86efac; margin-top: 4px;">✓ Screen / eBook / Printer / Prepress quality levels</div>
+    </div>
+    <div style="background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); border-radius: 8px; padding: 14px;">
+      <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px;">Watermark PDF</div>
+      <div style="font-size: 11px; color: #aaa;">pdf-lib drawText/drawImage</div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Lazy Loading Strategy</h3>
+  <p style="font-size: 12px; color: #aaa;">WASM modules are only downloaded when the user opens the specific tool — zero impact on initial load</p>
+  <div style="display: flex; gap: 16px; margin-top: 12px;">
+    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; flex: 1; text-align: center;">
+      <div style="font-size: 20px; margin-bottom: 4px;">📦</div>
+      <div style="font-size: 11px; color: #fbbf24;">office2pdf WASM</div>
+      <div style="font-size: 10px; color: #666;">~5-10MB (estimated)</div>
+      <div style="font-size: 10px; color: #666;">Loaded for DOCX/PPTX/XLSX/CSV</div>
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; flex: 1; text-align: center;">
+      <div style="font-size: 20px; margin-bottom: 4px;">📦</div>
+      <div style="font-size: 11px; color: #fbbf24;">Ghostscript WASM</div>
+      <div style="font-size: 10px; color: #666;">~16MB</div>
+      <div style="font-size: 10px; color: #666;">Loaded only for Compress</div>
+    </div>
+    <div style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; flex: 1; text-align: center;">
+      <div style="font-size: 20px; margin-bottom: 4px;">📦</div>
+      <div style="font-size: 11px; color: #fbbf24;">pdfjs-dist</div>
+      <div style="font-size: 10px; color: #666;">~2MB</div>
+      <div style="font-size: 10px; color: #666;">Loaded for Split/Reorder previews</div>
+    </div>
+  </div>
+</div>

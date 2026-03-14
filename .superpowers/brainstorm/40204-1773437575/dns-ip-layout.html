@@ -1,0 +1,81 @@
+<h2>DNS/IP Tool — Layout Options</h2>
+<p class="subtitle">How should the two tabs and their content be structured?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Top Tabs, Full Width Content</h3>
+      <p>Two tabs at the top (DNS Lookup | What's My IP). Each tab fills the entire area below. DNS tab has input bar at top + results grid below. IP tab shows info cards stacked vertically.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">DNS Lookup Tab</div>
+        <div class="mockup-body" style="padding:12px">
+          <div style="display:flex;gap:8px;margin-bottom:12px;align-items:center">
+            <div class="mock-input" style="flex:1">example.com</div>
+            <div style="border:1px solid #555;border-radius:6px;padding:4px 12px;font-size:13px">A ▾</div>
+            <button class="mock-button">Lookup</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+            <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+              <div style="font-size:11px;opacity:0.6">Google DNS</div>
+              <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              <div style="font-size:10px;color:#4ade80;margin-top:2px">&#10003; Resolved</div>
+            </div>
+            <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+              <div style="font-size:11px;opacity:0.6">Cloudflare</div>
+              <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              <div style="font-size:10px;color:#4ade80;margin-top:2px">&#10003; Resolved</div>
+            </div>
+            <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+              <div style="font-size:11px;opacity:0.6">Quad9</div>
+              <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              <div style="font-size:10px;color:#4ade80;margin-top:2px">&#10003; Resolved</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Top Tabs, Two-Panel for DNS</h3>
+      <p>Same top tabs, but the DNS tab splits into left (input + config) and right (results). IP tab stays full-width with info cards. Matches the two-panel pattern used in JWT, Base64ToFile, etc.</p>
+      <div class="mockup" style="margin-top:12px">
+        <div class="mockup-header">DNS Lookup Tab</div>
+        <div class="mockup-body" style="padding:0;display:flex;min-height:160px">
+          <div style="flex:0 0 35%;padding:12px;border-right:1px solid rgba(128,128,128,0.3)">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:0.5;margin-bottom:8px">Query</div>
+            <div class="mock-input" style="margin-bottom:8px">example.com</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:0.5;margin-bottom:8px">Record Type</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">
+              <span style="background:#3b82f6;color:white;border-radius:4px;padding:2px 8px;font-size:11px">A</span>
+              <span style="background:rgba(128,128,128,0.2);border-radius:4px;padding:2px 8px;font-size:11px">AAAA</span>
+              <span style="background:rgba(128,128,128,0.2);border-radius:4px;padding:2px 8px;font-size:11px">MX</span>
+              <span style="background:rgba(128,128,128,0.2);border-radius:4px;padding:2px 8px;font-size:11px">NS</span>
+            </div>
+            <button class="mock-button" style="width:100%">Lookup</button>
+          </div>
+          <div style="flex:1;padding:12px">
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;opacity:0.5;margin-bottom:8px">Results</div>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+                <div style="font-size:11px;opacity:0.6">Google DNS</div>
+                <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              </div>
+              <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+                <div style="font-size:11px;opacity:0.6">Cloudflare</div>
+                <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              </div>
+              <div style="background:rgba(128,128,128,0.1);border-radius:6px;padding:10px">
+                <div style="font-size:11px;opacity:0.6">Quad9</div>
+                <div style="font-size:13px;margin-top:4px">93.184.216.34</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
