@@ -48,6 +48,105 @@ export type PathSegment =
   | ArcToSegment
   | CloseSegment
 
+// ─── Transform ─────────────────────────────────────────────────
+
+export type ShapeTransform = {
+  rotation: number   // radians, around bounding box center
+  scaleX: number     // 1.0 = no scale
+  scaleY: number
+}
+
+export const DEFAULT_TRANSFORM: ShapeTransform = {
+  rotation: 0,
+  scaleX: 1,
+  scaleY: 1,
+}
+
+// ─── Bounding box (computed, not stored) ───────────────────────
+
+export type BoundingBox = {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+// ─── Handle positions for resize ───────────────────────────────
+
+export type HandlePosition = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w"
+
+// ─── Editing mode ──────────────────────────────────────────────
+
+export type EditingMode = "shape" | "node"
+
+// ─── Interaction state machine ─────────────────────────────────
+
+export type InteractionState =
+  | { type: "idle" }
+  | { type: "shape-selected"; pathId: string; mode: EditingMode }
+  | { type: "dragging-shape"; pathId: string; startPoint: Point; originalSegments: PathSegment[] }
+  | { type: "rotating"; pathId: string; center: Point; startAngle: number; originalRotation: number }
+  | {
+      type: "resizing"
+      pathId: string
+      handle: HandlePosition
+      anchor: Point
+      originalBBox: BoundingBox
+      originalSegments: PathSegment[]
+      originalTransform: ShapeTransform
+    }
+  | { type: "dragging-node"; selectedPoint: SelectedPoint }
+  | { type: "drawing-pen" }
+  | { type: "drawing-shape"; shapeType: "rectangle" | "ellipse" | "line"; start: Point }
+
+// ─── Canvas events (for state machine input) ───────────────────
+
+export type CanvasEvent =
+  | { type: "mousedown"; point: Point; screenPoint: Point; button: number; altKey: boolean; shiftKey: boolean }
+  | { type: "mousemove"; point: Point; screenPoint: Point; shiftKey: boolean }
+  | { type: "mouseup"; point: Point }
+  | { type: "dblclick"; point: Point; screenPoint: Point }
+  | { type: "keydown"; key: string; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }
+
+// ─── Hit test results ──────────────────────────────────────────
+
+export type HitTestResult =
+  | { type: "none" }
+  | { type: "shape-body"; pathId: string; layerId: string }
+  | { type: "resize-handle"; handle: HandlePosition }
+  | { type: "rotation-zone" }
+  | { type: "node"; selectedPoint: SelectedPoint }
+
+// ─── Actions emitted by state machine ──────────────────────────
+
+export type InteractionAction =
+  | { type: "select-shape"; pathId: string | null }
+  | { type: "move-shape"; pathId: string; segments: PathSegment[] }
+  | { type: "set-rotation"; pathId: string; rotation: number }
+  | { type: "resize-shape"; pathId: string; newSegments: PathSegment[]; newTransform: ShapeTransform }
+  | { type: "bake-resize"; pathId: string; anchor: Point; scaleX: number; scaleY: number; originalSegments: PathSegment[] }
+  | { type: "move-node"; selectedPoint: SelectedPoint; newPos: Point }
+  | { type: "delete-shape"; pathId: string }
+  | { type: "delete-node"; selectedPoint: SelectedPoint }
+  | { type: "copy" }
+  | { type: "paste" }
+  | { type: "duplicate" }
+  | { type: "duplicate-and-drag"; pathId: string }
+  | { type: "nudge"; delta: Point }
+  | { type: "add-segment"; point: Point }
+  | { type: "close-path" }
+  | { type: "new-path" }
+  | { type: "finish-drawing-shape"; start: Point; end: Point; shapeType: "rectangle" | "ellipse" | "line" }
+  | { type: "push-history" }
+  | { type: "set-cursor"; cursor: string }
+
+// ─── Clipboard ─────────────────────────────────────────────────
+
+export type ClipboardEntry = {
+  paths: ShapePath[]
+  pasteCount: number
+}
+
 // ─── Paint styles ───────────────────────────────────────────────
 
 export type GradientStop = {
@@ -104,6 +203,7 @@ export type ShapePath = {
   paint: PaintStyle
   visible: boolean
   locked: boolean
+  transform: ShapeTransform
 }
 
 // ─── Layer ──────────────────────────────────────────────────────
