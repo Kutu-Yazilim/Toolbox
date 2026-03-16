@@ -5,6 +5,7 @@ import type {
   CodeGenOptions,
   GradientDef,
 } from "@/types/shapemaker"
+import { computeBoundingBox } from "./shapemakerTransform"
 
 function colorToFlutter(hex: string, opacity: number): string {
   const clean = hex.replace("#", "")
@@ -229,6 +230,23 @@ export function generateFlutterCode(
       lines.push(generatePathCode(path, pathVar, opts))
       lines.push("")
 
+      const hasRotation = path.transform.rotation !== 0
+      if (hasRotation) {
+        const bbox = computeBoundingBox(path.segments)
+        const bboxCx = bbox.x + bbox.width / 2
+        const bboxCy = bbox.y + bbox.height / 2
+        const cx = opts.responsive
+          ? pointToCode(bboxCx, bboxCy, opts).x
+          : bboxCx.toFixed(1)
+        const cy = opts.responsive
+          ? pointToCode(bboxCx, bboxCy, opts).y
+          : bboxCy.toFixed(1)
+        lines.push(`    canvas.save();`)
+        lines.push(`    canvas.translate(${cx}, ${cy});`)
+        lines.push(`    canvas.rotate(${path.transform.rotation.toFixed(6)});`)
+        lines.push(`    canvas.translate(-${cx}, -${cy});`)
+      }
+
       if (path.paint.paintingStyle === "fillAndStroke") {
         lines.push(`    canvas.drawPath(${pathVar}, ${paintVar});`)
         lines.push(`    final ${paintVar}Stroke = Paint()`)
@@ -244,6 +262,10 @@ export function generateFlutterCode(
         )
       } else {
         lines.push(`    canvas.drawPath(${pathVar}, ${paintVar});`)
+      }
+
+      if (hasRotation) {
+        lines.push(`    canvas.restore();`)
       }
 
       paintIdx++
