@@ -2,7 +2,7 @@ import React, { Suspense } from "react"
 import {
   createBrowserRouter,
   Navigate,
-} from "react-router-dom"
+} from "react-router"
 
 import { RootLayout } from "@/layouts/RootLayout"
 import { CategoryLayout } from "@/layouts/CategoryLayout"
