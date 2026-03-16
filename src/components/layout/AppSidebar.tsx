@@ -1,56 +1,32 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
-  TreesIcon,
-  DatabaseIcon,
-  PaletteIcon,
-  LayoutDashboardIcon,
-  BracesIcon,
-  RegexIcon,
-  ShuffleIcon,
-  ClockIcon,
-  GlobeIcon,
-  FileTextIcon,
-  CircleDotIcon,
+  ChevronRightIcon,
   MoonIcon,
   SunIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   HomeIcon,
-  KeyRoundIcon,
-  QrCodeIcon,
-  CoinsIcon,
-  PenToolIcon,
-  MonitorSmartphoneIcon,
-  FileOutputIcon,
-  NetworkIcon,
-  FileIcon,
 } from "lucide-react"
-import { TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { NavLink, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/hooks/useTheme"
 import { cn } from "@/lib/utils"
+import {
+  CATEGORIES,
+  getToolsByCategory,
+  type CategoryId,
+} from "@/config/toolRegistry"
 
-export const NAV_ITEMS = [
-  { value: "tree", label: "Tree", icon: TreesIcon },
-  { value: "db", label: "DB Model", icon: DatabaseIcon },
-  { value: "color", label: "Colors", icon: PaletteIcon },
-  { value: "board", label: "Board", icon: LayoutDashboardIcon },
-  { value: "json", label: "JSON", icon: BracesIcon },
-  { value: "regex", label: "Regex", icon: RegexIcon },
-  { value: "encoder", label: "Encoder", icon: ShuffleIcon },
-  { value: "timestamp", label: "Timestamp", icon: ClockIcon },
-  { value: "api", label: "API", icon: GlobeIcon },
-  { value: "markdown", label: "Markdown", icon: FileTextIcon },
-  { value: "wheel", label: "Wheel", icon: CircleDotIcon },
-  { value: "jwt", label: "JWT", icon: KeyRoundIcon },
-  { value: "qr", label: "QR Code", icon: QrCodeIcon },
-  { value: "coinflip", label: "Coin Flip", icon: CoinsIcon },
-  { value: "shapemaker", label: "Shape Maker", icon: PenToolIcon },
-  { value: "mockup", label: "Mockup", icon: MonitorSmartphoneIcon },
-  { value: "base64file", label: "Base64 to File", icon: FileOutputIcon },
-  { value: "dnsip", label: "DNS/IP", icon: NetworkIcon },
-  { value: "pdf", label: "PDF Tools", icon: FileIcon },
-] as const
+const SIDEBAR_CATEGORIES_KEY = "sidebar-categories"
+
+function loadCategoryState(): Record<string, boolean> {
+  try {
+    const stored = localStorage.getItem(SIDEBAR_CATEGORIES_KEY)
+    return stored ? (JSON.parse(stored) as Record<string, boolean>) : {}
+  } catch {
+    return {}
+  }
+}
 
 function SidebarTooltip({
   label,
@@ -80,16 +56,55 @@ function SidebarTooltip({
   )
 }
 
+const navLinkClasses = (isActive: boolean, collapsed: boolean) =>
+  cn(
+    "relative w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
+    "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+    "hover:bg-sidebar-accent/50",
+    "transition-colors duration-150",
+    isActive &&
+      "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold",
+    "before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary",
+    "before:opacity-0 before:transition-opacity",
+    isActive && "before:opacity-100",
+    collapsed ? "justify-center px-0" : "justify-start"
+  )
+
 export function AppSidebar() {
   const { isDark, toggleTheme } = useTheme()
+  const location = useLocation()
   const [collapsed, setCollapsed] = useState(() => {
     const stored = localStorage.getItem("sidebar-collapsed")
     return stored !== null ? stored === "true" : true
   })
+  const [categoryOpen, setCategoryOpen] = useState<Record<string, boolean>>(
+    () => loadCategoryState()
+  )
 
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(collapsed))
   }, [collapsed])
+
+  useEffect(() => {
+    localStorage.setItem(SIDEBAR_CATEGORIES_KEY, JSON.stringify(categoryOpen))
+  }, [categoryOpen])
+
+  // Auto-expand category that contains the active route
+  useEffect(() => {
+    for (const cat of CATEGORIES) {
+      if (location.pathname.startsWith(cat.path)) {
+        setCategoryOpen((prev) => {
+          if (prev[cat.id]) return prev
+          return { ...prev, [cat.id]: true }
+        })
+        break
+      }
+    }
+  }, [location.pathname])
+
+  const toggleCategory = useCallback((id: string) => {
+    setCategoryOpen((prev) => ({ ...prev, [id]: !prev[id] }))
+  }, [])
 
   return (
     <aside
@@ -123,60 +138,108 @@ export function AppSidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-1.5">
-        <TabsList
-          className="flex flex-col gap-0.5 w-full bg-transparent h-auto p-0 rounded-none"
-        >
+        <div className="flex flex-col gap-0.5 w-full">
           {/* Home */}
           <SidebarTooltip label="Home" show={collapsed}>
-            <TabsTrigger
-              value="home"
-              className={cn(
-                "w-full gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
-                "border-none shadow-none after:hidden",
-                "text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                "hover:bg-sidebar-accent/50",
-                "data-[state=active]:bg-sidebar-accent dark:data-[state=active]:bg-sidebar-accent data-[state=active]:text-sidebar-accent-foreground",
-                "data-[state=active]:font-semibold",
-                "before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary",
-                "before:opacity-0 before:transition-opacity data-[state=active]:before:opacity-100",
-                "transition-colors duration-150",
-                collapsed ? "justify-center px-0" : "justify-start"
-              )}
+            <NavLink
+              to="/"
+              end
+              className={({ isActive }) => navLinkClasses(isActive, collapsed)}
             >
               <HomeIcon className="size-[18px] flex-shrink-0" />
               {!collapsed && <span className="truncate">Home</span>}
-            </TabsTrigger>
+            </NavLink>
           </SidebarTooltip>
 
           {/* Divider */}
           <div className="h-px bg-sidebar-border my-1.5 mx-1" />
 
-          {/* Tools */}
-          {NAV_ITEMS.map(({ value, label, icon: Icon }) => (
-            <SidebarTooltip key={value} label={label} show={collapsed}>
-              <TabsTrigger
-                value={value}
-                className={cn(
-                  "w-full gap-3 rounded-lg px-3 py-2.5 text-sm font-medium",
-                  "border-none shadow-none after:hidden",
-                  "text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                  "hover:bg-sidebar-accent/50",
-                  "data-[state=active]:bg-sidebar-accent dark:data-[state=active]:bg-sidebar-accent data-[state=active]:text-sidebar-accent-foreground",
-                  "data-[state=active]:font-semibold",
-                  "before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-full before:bg-sidebar-primary",
-                  "before:opacity-0 before:transition-opacity data-[state=active]:before:opacity-100",
-                  "transition-colors duration-150",
-                  collapsed ? "justify-center px-0" : "justify-start"
+          {/* Categories */}
+          {CATEGORIES.map((category) => {
+            const tools = getToolsByCategory(category.id as CategoryId)
+            const isOpen = categoryOpen[category.id] ?? false
+            const CategoryIcon = category.icon
+
+            return (
+              <div key={category.id}>
+                {/* Category header */}
+                <SidebarTooltip label={category.label} show={collapsed}>
+                  <div
+                    className={cn(
+                      "w-full flex items-center rounded-lg text-sm font-medium",
+                      "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                      "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                      collapsed ? "justify-center px-0" : "justify-start"
+                    )}
+                  >
+                    {collapsed ? (
+                      <NavLink
+                        to={category.path}
+                        end
+                        className={({ isActive }) =>
+                          cn(
+                            "flex items-center justify-center w-full py-2.5",
+                            isActive && "text-sidebar-accent-foreground"
+                          )
+                        }
+                      >
+                        <CategoryIcon className="size-[18px] flex-shrink-0" />
+                      </NavLink>
+                    ) : (
+                      <>
+                        <NavLink
+                          to={category.path}
+                          end
+                          className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
+                        >
+                          <CategoryIcon className="size-[18px] flex-shrink-0" />
+                          <span className="truncate">{category.label}</span>
+                        </NavLink>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(category.id)}
+                          className="flex items-center justify-center px-2 py-2.5 flex-shrink-0"
+                        >
+                          <ChevronRightIcon
+                            className={cn(
+                              "size-3.5 transition-transform duration-150",
+                              isOpen && "rotate-90"
+                            )}
+                          />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </SidebarTooltip>
+
+                {/* Tool links */}
+                {!collapsed && isOpen && (
+                  <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
+                    {tools.map(({ id, label, icon: ToolIcon, path }) => (
+                      <SidebarTooltip key={id} label={label} show={collapsed}>
+                        <NavLink
+                          to={path}
+                          className={({ isActive }) =>
+                            cn(
+                              "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                              "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                              "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                              isActive &&
+                                "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                            )
+                          }
+                        >
+                          <ToolIcon className="size-[16px] flex-shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </NavLink>
+                      </SidebarTooltip>
+                    ))}
+                  </div>
                 )}
-              >
-                <Icon className="size-[18px] flex-shrink-0" />
-                {!collapsed && (
-                  <span className="truncate">{label}</span>
-                )}
-              </TabsTrigger>
-            </SidebarTooltip>
-          ))}
-        </TabsList>
+              </div>
+            )
+          })}
+        </div>
       </nav>
 
       {/* Bottom controls */}
