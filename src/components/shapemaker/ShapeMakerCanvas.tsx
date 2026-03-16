@@ -1,20 +1,23 @@
 import { useRef, useEffect, useCallback, useState } from "react"
 import type {
   Point,
-  ShapePath,
   Layer,
   ToolMode,
   SelectedPoint,
   PathSegment,
+  InteractionState,
+  InteractionAction,
 } from "@/types/shapemaker"
 import {
   renderGrid,
   renderLayer,
   renderControlPoints,
+  renderBoundingBox,
   screenToCanvas,
-  hitTestSegmentPoints,
   snapToGrid,
 } from "@/utils/shapemakerCanvas"
+import { performHitTest } from "@/utils/shapemakerHitTest"
+import { processEvent } from "@/utils/shapemakerInteraction"
 
 type Props = {
   layers: Layer[]
@@ -39,6 +42,9 @@ type Props = {
   onSelectPath: (pathId: string | null) => void
   onDragStart: () => void
   curveMode: "line" | "quadratic" | "cubic"
+  interactionState: InteractionState
+  onInteractionStateChange: (state: InteractionState) => void
+  onDispatchActions: (actions: InteractionAction[]) => void
 }
 
 export function ShapeMakerCanvas({
@@ -54,14 +60,17 @@ export function ShapeMakerCanvas({
   panY,
   selectedPoint,
   backgroundColor,
-  onAddSegment,
-  onSelectPoint,
+  onAddSegment: _onAddSegment,
+  onSelectPoint: _onSelectPoint,
   onMovePoint,
   onPanChange,
   onZoomChange,
   onFinishShape,
-  onSelectPath,
-  onDragStart,
+  onSelectPath: _onSelectPath,
+  onDragStart: _onDragStart,
+  interactionState,
+  onInteractionStateChange,
+  onDispatchActions,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -73,6 +82,62 @@ export function ShapeMakerCanvas({
     current: Point
   } | null>(null)
   const [mousePos, setMousePos] = useState<Point>({ x: 0, y: 0 })
+  const [cursor, setCursor] = useState("crosshair")
+
+  // Helper to get screen point from mouse event
+  const getScreenPoint = useCallback(
+    (e: React.MouseEvent): Point => {
+      const canvas = canvasRef.current
+      if (!canvas) return { x: 0, y: 0 }
+      const rect = canvas.getBoundingClientRect()
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    },
+    []
+  )
+
+  // Helper to perform hit test using canvas context
+  const doHitTest = useCallback(
+    (canvasPoint: Point, screenPoint: Point) => {
+      const canvas = canvasRef.current
+      if (!canvas) return { type: "none" as const }
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return { type: "none" as const }
+
+      const nodeMode = interactionState.type === "shape-selected" && interactionState.mode === "node"
+
+      return performHitTest({
+        ctx,
+        layers,
+        selectedPathId: activePathId,
+        zoom,
+        panX,
+        panY,
+        canvasPoint,
+        screenPoint,
+        nodeMode,
+      })
+    },
+    [layers, activePathId, zoom, panX, panY, interactionState]
+  )
+
+  // Helper to extract cursor actions and dispatch the rest
+  const handleProcessResult = useCallback(
+    (result: { newState: InteractionState; actions: InteractionAction[] }) => {
+      onInteractionStateChange(result.newState)
+      const nonCursorActions: InteractionAction[] = []
+      for (const action of result.actions) {
+        if (action.type === "set-cursor") {
+          setCursor(action.cursor)
+        } else {
+          nonCursorActions.push(action)
+        }
+      }
+      if (nonCursorActions.length > 0) {
+        onDispatchActions(nonCursorActions)
+      }
+    },
+    [onInteractionStateChange, onDispatchActions]
+  )
 
   // Canvas rendering
   const render = useCallback(() => {
@@ -107,16 +172,38 @@ export function ShapeMakerCanvas({
 
     ctx.restore()
 
-    // Control points for active path
-    if (activePathId) {
+    // Bounding box for shape-selected mode
+    if (
+      interactionState.type === "shape-selected" &&
+      interactionState.mode === "shape" &&
+      activePathId
+    ) {
       const activeLayer = layers.find((l) => l.id === activeLayerId)
       const activePath = activeLayer?.paths.find((p) => p.id === activePathId)
-      if (activePath) {
-        renderControlPoints(ctx, activePath, selectedPoint, zoom, panX, panY)
+      if (activePath && activePath.segments.length > 0) {
+        renderBoundingBox(ctx, activePath, zoom, panX, panY)
       }
     }
 
-    // Shape preview (for rectangle/ellipse tools)
+    // Control points for active path (node mode or drawing tools)
+    if (activePathId) {
+      const showControlPoints =
+        (interactionState.type === "shape-selected" && interactionState.mode === "node") ||
+        interactionState.type === "dragging-node" ||
+        interactionState.type === "drawing-pen" ||
+        interactionState.type === "idle" ||
+        tool === "pen"
+
+      if (showControlPoints) {
+        const activeLayer = layers.find((l) => l.id === activeLayerId)
+        const activePath = activeLayer?.paths.find((p) => p.id === activePathId)
+        if (activePath) {
+          renderControlPoints(ctx, activePath, selectedPoint, zoom, panX, panY)
+        }
+      }
+    }
+
+    // Shape preview (for rectangle/ellipse/line tools during drawing)
     if (shapePreview) {
       ctx.save()
       ctx.translate(panX, panY)
@@ -165,6 +252,7 @@ export function ShapeMakerCanvas({
     backgroundColor,
     shapePreview,
     tool,
+    interactionState,
   ])
 
   // Resize observer
@@ -211,7 +299,7 @@ export function ShapeMakerCanvas({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      // Middle mouse button or space + click = panning
+      // Middle mouse button or Alt + click = panning (parallel concern)
       if (e.button === 1 || (e.button === 0 && e.altKey)) {
         setIsPanning(true)
         setDragStart({ x: e.clientX - panX, y: e.clientY - panY })
@@ -221,66 +309,96 @@ export function ShapeMakerCanvas({
       if (e.button !== 0) return
 
       const point = getCanvasPoint(e)
+      const screenPoint = getScreenPoint(e)
       setMousePos(point)
 
       if (tool === "select") {
-        const hitThreshold = 10 / zoom
+        // Route through state machine
+        const hitTest = doHitTest(point, screenPoint)
+        const result = processEvent(
+          interactionState,
+          {
+            type: "mousedown",
+            point,
+            screenPoint,
+            button: e.button,
+            altKey: e.altKey,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest,
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+        return
+      }
 
-        // 1. Try to hit-test control points on the active path first
-        if (activePathId) {
-          const activeLayer = layers.find((l) => l.id === activeLayerId)
-          const activePath = activeLayer?.paths.find(
-            (p) => p.id === activePathId
-          )
-          if (activePath) {
-            const hit = hitTestSegmentPoints(point, activePath, hitThreshold)
-            if (hit) {
-              onDragStart()
-              onSelectPoint(hit)
-              setIsDragging(true)
-              return
-            }
-          }
-        }
+      if (tool === "pen") {
+        // Route through state machine for pen tool
+        const result = processEvent(
+          interactionState,
+          {
+            type: "mousedown",
+            point,
+            screenPoint,
+            button: e.button,
+            altKey: e.altKey,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest: { type: "none" },
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+        return
+      }
 
-        // 2. Try to hit-test control points on any visible path
-        for (const layer of layers) {
-          if (!layer.visible || layer.locked) continue
-          for (const path of [...layer.paths].reverse()) {
-            if (!path.visible || path.locked || path.id === activePathId) continue
-            const hit = hitTestSegmentPoints(point, path, hitThreshold)
-            if (hit) {
-              onDragStart()
-              onSelectPath(path.id)
-              onSelectPoint(hit)
-              setIsDragging(true)
-              return
-            }
-          }
-        }
-
-        // 3. Try to hit test path bodies
-        for (const layer of layers) {
-          if (!layer.visible || layer.locked) continue
-          for (const path of [...layer.paths].reverse()) {
-            if (!path.visible || path.locked) continue
-            if (path.segments.length > 0 && isPointNearPath(point, path, 12 / zoom)) {
-              onSelectPath(path.id)
-              onSelectPoint(null)
-              return
-            }
-          }
-        }
-
-        onSelectPath(null)
-        onSelectPoint(null)
-      } else if (tool === "pen") {
-        onAddSegment(point)
-      } else if (
+      if (
         tool === "rectangle" ||
         tool === "ellipse" ||
         tool === "line"
       ) {
+        // Route through state machine for shape tools
+        const result = processEvent(
+          interactionState,
+          {
+            type: "mousedown",
+            point,
+            screenPoint,
+            button: e.button,
+            altKey: e.altKey,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest: { type: "none" },
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+        // Also set shape preview for visual feedback
         setShapePreview({ start: point, current: point })
         setIsDragging(true)
       }
@@ -288,22 +406,24 @@ export function ShapeMakerCanvas({
     [
       tool,
       activePathId,
-      activeLayerId,
       layers,
       zoom,
       panX,
       panY,
+      snapEnabled,
+      gridSize,
       getCanvasPoint,
-      onAddSegment,
-      onSelectPoint,
-      onSelectPath,
-      onDragStart,
+      getScreenPoint,
+      interactionState,
+      doHitTest,
+      handleProcessResult,
     ]
   )
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       const point = getCanvasPoint(e)
+      const screenPoint = getScreenPoint(e)
       setMousePos(point)
 
       if (isPanning && dragStart) {
@@ -311,11 +431,67 @@ export function ShapeMakerCanvas({
         return
       }
 
+      // Route through state machine for active interaction states
+      const activeStates = ["dragging-shape", "rotating", "resizing", "dragging-node"]
+      if (activeStates.includes(interactionState.type)) {
+        const result = processEvent(
+          interactionState,
+          {
+            type: "mousemove",
+            point,
+            screenPoint,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest: { type: "none" },
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+        return
+      }
+
+      // Cursor updates when shape is selected (hover)
+      if (interactionState.type === "shape-selected" && interactionState.mode === "shape" && tool === "select") {
+        const hitTest = doHitTest(point, screenPoint)
+        const result = processEvent(
+          interactionState,
+          {
+            type: "mousemove",
+            point,
+            screenPoint,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest,
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+        return
+      }
+
+      // Legacy: dragging node via old selectedPoint (backward compat)
       if (isDragging && tool === "select" && selectedPoint) {
         onMovePoint(selectedPoint, point)
         return
       }
 
+      // Shape preview during drawing
       if (isDragging && shapePreview) {
         setShapePreview((prev) =>
           prev ? { ...prev, current: point } : null
@@ -324,6 +500,7 @@ export function ShapeMakerCanvas({
     },
     [
       getCanvasPoint,
+      getScreenPoint,
       isPanning,
       isDragging,
       dragStart,
@@ -332,23 +509,124 @@ export function ShapeMakerCanvas({
       shapePreview,
       onPanChange,
       onMovePoint,
+      interactionState,
+      layers,
+      zoom,
+      panX,
+      panY,
+      snapEnabled,
+      gridSize,
+      activePathId,
+      doHitTest,
+      handleProcessResult,
     ]
   )
 
-  const handleMouseUp = useCallback(() => {
-    if (isPanning) {
-      setIsPanning(false)
-      setDragStart(null)
-      return
-    }
+  const handleMouseUp = useCallback(
+    (e: React.MouseEvent | undefined) => {
+      if (isPanning) {
+        setIsPanning(false)
+        setDragStart(null)
+        return
+      }
 
-    if (isDragging && shapePreview) {
-      onFinishShape(shapePreview.start, shapePreview.current)
-      setShapePreview(null)
-    }
+      // Route through state machine for active states
+      const activeStates = ["dragging-shape", "rotating", "resizing", "dragging-node", "drawing-shape"]
+      if (activeStates.includes(interactionState.type)) {
+        const point = e ? getCanvasPoint(e) : mousePos
+        const result = processEvent(
+          interactionState,
+          { type: "mouseup", point },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest: { type: "none" },
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
 
-    setIsDragging(false)
-  }, [isPanning, isDragging, shapePreview, onFinishShape])
+        // Clean up shape preview
+        if (shapePreview) {
+          setShapePreview(null)
+        }
+        setIsDragging(false)
+        return
+      }
+
+      if (isDragging && shapePreview) {
+        onFinishShape(shapePreview.start, shapePreview.current)
+        setShapePreview(null)
+      }
+
+      setIsDragging(false)
+    },
+    [
+      isPanning,
+      isDragging,
+      shapePreview,
+      onFinishShape,
+      interactionState,
+      layers,
+      tool,
+      zoom,
+      panX,
+      panY,
+      snapEnabled,
+      gridSize,
+      activePathId,
+      getCanvasPoint,
+      mousePos,
+      handleProcessResult,
+    ]
+  )
+
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const point = getCanvasPoint(e)
+      const screenPoint = getScreenPoint(e)
+
+      if (interactionState.type === "shape-selected") {
+        const hitTest = doHitTest(point, screenPoint)
+        const result = processEvent(
+          interactionState,
+          { type: "dblclick", point, screenPoint },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest,
+            activePathId,
+          },
+        )
+        handleProcessResult(result)
+      }
+    },
+    [
+      getCanvasPoint,
+      getScreenPoint,
+      interactionState,
+      layers,
+      tool,
+      zoom,
+      panX,
+      panY,
+      snapEnabled,
+      gridSize,
+      activePathId,
+      doHitTest,
+      handleProcessResult,
+    ]
+  )
 
   const handleWheel = useCallback(
     (e: React.WheelEvent) => {
@@ -372,14 +650,19 @@ export function ShapeMakerCanvas({
   )
 
   return (
-    <div ref={containerRef} className="flex-1 min-h-0 relative cursor-crosshair overflow-hidden">
+    <div
+      ref={containerRef}
+      className="flex-1 min-h-0 relative overflow-hidden"
+      style={{ cursor }}
+    >
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+        onMouseUp={(e) => handleMouseUp(e)}
+        onMouseLeave={() => handleMouseUp(undefined)}
+        onDoubleClick={handleDoubleClick}
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       />
@@ -389,88 +672,4 @@ export function ShapeMakerCanvas({
       </div>
     </div>
   )
-}
-
-// Sample points along a quadratic bezier curve
-function sampleQuadratic(start: Point, cp: Point, end: Point, steps: number): Point[] {
-  const pts: Point[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const u = 1 - t
-    pts.push({
-      x: u * u * start.x + 2 * u * t * cp.x + t * t * end.x,
-      y: u * u * start.y + 2 * u * t * cp.y + t * t * end.y,
-    })
-  }
-  return pts
-}
-
-// Sample points along a cubic bezier curve
-function sampleCubic(start: Point, cp1: Point, cp2: Point, end: Point, steps: number): Point[] {
-  const pts: Point[] = []
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps
-    const u = 1 - t
-    pts.push({
-      x: u * u * u * start.x + 3 * u * u * t * cp1.x + 3 * u * t * t * cp2.x + t * t * t * end.x,
-      y: u * u * u * start.y + 3 * u * u * t * cp1.y + 3 * u * t * t * cp2.y + t * t * t * end.y,
-    })
-  }
-  return pts
-}
-
-// Test if a point is near any path segment, including actual bezier curves
-function isPointNearPath(p: Point, path: ShapePath, threshold: number): boolean {
-  let currentPoint: Point | null = null
-  const CURVE_SAMPLES = 20
-
-  for (const seg of path.segments) {
-    if (seg.type === "moveTo") {
-      if (distToPoint(p, seg.point) < threshold) return true
-      currentPoint = seg.point
-    } else if (seg.type === "lineTo") {
-      if (currentPoint && distToLineSegment(p, currentPoint, seg.point) < threshold) return true
-      currentPoint = seg.point
-    } else if (seg.type === "quadraticBezierTo") {
-      if (currentPoint) {
-        const samples = sampleQuadratic(currentPoint, seg.controlPoint, seg.endPoint, CURVE_SAMPLES)
-        for (let i = 0; i < samples.length - 1; i++) {
-          if (distToLineSegment(p, samples[i], samples[i + 1]) < threshold) return true
-        }
-      }
-      currentPoint = seg.endPoint
-    } else if (seg.type === "cubicTo") {
-      if (currentPoint) {
-        const samples = sampleCubic(currentPoint, seg.controlPoint1, seg.controlPoint2, seg.endPoint, CURVE_SAMPLES)
-        for (let i = 0; i < samples.length - 1; i++) {
-          if (distToLineSegment(p, samples[i], samples[i + 1]) < threshold) return true
-        }
-      }
-      currentPoint = seg.endPoint
-    } else if (seg.type === "arcToPoint") {
-      if (currentPoint && distToLineSegment(p, currentPoint, seg.endPoint) < threshold) return true
-      currentPoint = seg.endPoint
-    } else if (seg.type === "close") {
-      // Close goes back to the first moveTo point - skip hit testing the closing line
-    }
-  }
-  return false
-}
-
-function distToPoint(p: Point, target: Point): number {
-  const dx = p.x - target.x
-  const dy = p.y - target.y
-  return Math.sqrt(dx * dx + dy * dy)
-}
-
-function distToLineSegment(p: Point, a: Point, b: Point): number {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const lenSq = dx * dx + dy * dy
-  if (lenSq === 0) return Math.sqrt((p.x - a.x) ** 2 + (p.y - a.y) ** 2)
-  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / lenSq
-  t = Math.max(0, Math.min(1, t))
-  const px = a.x + t * dx
-  const py = a.y + t * dy
-  return Math.sqrt((p.x - px) ** 2 + (p.y - py) ** 2)
 }
