@@ -96,6 +96,11 @@ const Base64ToFile = React.lazy(() =>
     default: m.Base64ToFile,
   })),
 )
+const YamlJsonConverter = React.lazy(() =>
+  import("@/components/yaml/YamlJsonConverter").then((m) => ({
+    default: m.YamlJsonConverter,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -303,6 +308,7 @@ export const router = createBrowserRouter([
           },
           { path: "timestamp", element: lazy_(TimestampConverter) },
           { path: "base64-to-file", element: lazy_(Base64ToFile) },
+          { path: "yaml-json", element: lazy_(YamlJsonConverter) },
         ],
       },
       {

@@ -157,6 +157,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "converters",
     path: "/converters/base64-to-file",
   },
+  {
+    id: "yaml-json",
+    label: "YAML ↔ JSON",
+    description: "Convert between YAML and JSON formats in real-time",
+    icon: FileTextIcon,
+    categoryId: "converters",
+    path: "/converters/yaml-json",
+  },
   // Generators
   {
     id: "qr-code",
