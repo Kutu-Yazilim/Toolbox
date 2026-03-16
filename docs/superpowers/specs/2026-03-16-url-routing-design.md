@@ -162,6 +162,16 @@ Every tool component is wrapped with `React.lazy()` so only the active tool's bu
 
 A catch-all `*` route renders a NotFound page with a link back to home and a search/suggestion for the closest matching tool.
 
+## Edge Cases
+
+### ColorPicker hash-based URL state
+
+ColorPicker currently uses `window.location.hash` (`#colors=AABBCC-DDEEFF`) for palette sharing. Since React Router's `createBrowserRouter` does not manage the hash portion of the URL, this continues to work without changes. A URL like `/design/colors#colors=AABBCC-DDEEFF` will correctly route to ColorPicker and preserve the hash for palette loading.
+
+### Error boundaries
+
+Each tool route should have its own `errorElement` so that a crash in one tool does not take down the entire app. The `RootLayout` also has a top-level error boundary as a fallback.
+
 ## Sidebar & Navigation
 
 ### Sidebar Changes
@@ -188,7 +198,6 @@ A centralized `toolRegistry.ts` replaces the current `NAV_ITEMS` array. It is th
 - Mobile navigation
 - Welcome page tool grid
 - Category landing pages
-- Breadcrumbs
 - 404 page suggestions
 
 Structure per tool entry:
@@ -242,9 +251,9 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 
 **EncoderDecoder:** Base64/URL tabs → two child route components (`Base64Encoder`, `UrlEncoder`) sharing an `EncoderLayout`. JWT tab removed (dedicated tool exists at `/dev-tools/jwt`).
 
-**DnsIpTool:** DNS/IP tabs → two separate route components (`DnsLookup`, `WhatsMyIp`) as sibling routes under `/network`.
+**DnsIpTool:** DNS/IP tabs → two separate route components (`DnsLookup`, `WhatsMyIp`) as sibling routes under `/network`. No shared layout needed — they are independent tools. `DnsIpTool.tsx` is replaced by the two new components.
 
-**PdfTools:** Mode selector → each of the 12 PDF tools becomes its own route component under `/pdf`. The hub/selector becomes the category landing page.
+**PdfTools:** Each of the 12 PDF sub-tools already exists as a separate component file. Wire each as a lazy route under `/pdf`. Convert `PdfToolsHub.tsx` into the category landing page. Remove the mode-selector dispatch logic from `PdfTools.tsx`.
 
 ## Files to Create
 
@@ -256,7 +265,17 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 | `src/layouts/CategoryLayout.tsx` | Optional category wrapper with Outlet |
 | `src/components/common/CategoryLandingPage.tsx` | Reusable category tool grid |
 | `src/components/common/NotFoundPage.tsx` | 404 page |
-| Sub-route components for JSON, JWT, Encoder, DNS/IP, PDF | Split from parent components |
+| `src/layouts/JsonLayout.tsx` | Tab nav (Editor/Diff) + Outlet |
+| `src/layouts/JwtLayout.tsx` | Tab nav (Decode/Forge) + Outlet |
+| `src/layouts/EncoderLayout.tsx` | Tab nav (Base64/URL) + Outlet |
+| `src/components/json/JsonEditor.tsx` | JSON editor mode (extracted from JsonFormatter) |
+| `src/components/json/JsonDiff.tsx` | JSON diff mode (extracted from JsonFormatter) |
+| `src/components/jwt/JwtDecode.tsx` | JWT decode (extracted from JwtTool) |
+| `src/components/jwt/JwtForge.tsx` | JWT forge (extracted from JwtTool) |
+| `src/components/encoder/Base64Encoder.tsx` | Base64 encode/decode (extracted from EncoderDecoder) |
+| `src/components/encoder/UrlEncoder.tsx` | URL encode/decode (extracted from EncoderDecoder) |
+| `src/components/dnsip/DnsLookup.tsx` | DNS lookup (extracted from DnsIpTool) |
+| `src/components/dnsip/WhatsMyIp.tsx` | What's My IP (extracted from DnsIpTool) |
 
 ## Files to Modify
 
@@ -265,16 +284,16 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 | `src/App.tsx` | Strip down to `RouterProvider` only |
 | `src/components/layout/AppSidebar.tsx` | Category groups + `NavLink` |
 | `src/components/layout/MobileNav.tsx` | Category groups + `Link` |
-| `src/components/welcome/WelcomePage.tsx` | `Link` instead of `onNavigate` prop |
+| `src/components/welcome/WelcomePage.tsx` | `Link` instead of `onNavigate` prop, remove `onNavigate` prop entirely |
 | `src/components/json/JsonFormatter.tsx` | Split into editor/diff child components |
 | `src/components/jwt/JwtTool.tsx` | Split into decode/forge child components |
 | `src/components/encoder/EncoderDecoder.tsx` | Split into base64/url child components, remove JWT tab |
 | `src/components/dnsip/DnsIpTool.tsx` | Split into dns-lookup/whats-my-ip components |
-| `src/components/pdf/PdfTools.tsx` | Split each PDF tool into its own route component |
+| `src/components/pdf/PdfTools.tsx` | Remove mode-selector dispatch, convert hub to category landing page |
 
 ## Dependencies
 
-Add: `react-router` (v7)
+Add: `react-router` (v7). Note: in React Router v7, the package is just `react-router` — the `react-router-dom` package was consolidated into it.
 
 No other new dependencies.
 
