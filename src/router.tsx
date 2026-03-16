@@ -108,6 +108,11 @@ const SqlFormatter = React.lazy(() =>
     default: m.SqlFormatter,
   })),
 )
+const TextDiff = React.lazy(() =>
+  import("@/components/textdiff/TextDiff").then((m) => ({
+    default: m.TextDiff,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -297,6 +302,7 @@ export const router = createBrowserRouter([
           { path: "db-model", element: lazy_(DbModelling) },
           { path: "tree", element: lazy_(TreeCreator) },
           { path: "sql-formatter", element: lazy_(SqlFormatter) },
+          { path: "text-diff", element: lazy_(TextDiff) },
         ],
       },
       {

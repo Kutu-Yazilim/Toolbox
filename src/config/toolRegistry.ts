@@ -136,6 +136,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "dev-tools",
     path: "/dev-tools/sql-formatter",
   },
+  {
+    id: "text-diff",
+    label: "Text Diff",
+    description: "Compare two texts side-by-side or inline with highlighted differences",
+    icon: FileTextIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/text-diff",
+  },
   // Converters
   {
     id: "encoder",
