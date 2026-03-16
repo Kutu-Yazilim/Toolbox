@@ -647,7 +647,7 @@ git commit -m "feat(routing): add CategoryLandingPage component"
 
 ## Chunk 2: Split Tools with Sub-Routes
 
-### Task 8: Split JsonFormatter into Editor/Diff
+### Task 7: Split JsonFormatter into Editor/Diff
 
 **Files:**
 - Create: `src/components/json/JsonEditor.tsx`
@@ -728,7 +728,7 @@ git commit -m "feat(routing): split JsonFormatter into Editor and Diff route com
 
 ---
 
-### Task 9: Split JwtTool into Decode/Forge
+### Task 8: Split JwtTool into Decode/Forge
 
 **Files:**
 - Create: `src/components/jwt/JwtDecode.tsx`
@@ -804,7 +804,7 @@ git commit -m "feat(routing): split JwtTool into Decode and Forge route componen
 
 ---
 
-### Task 10: Split EncoderDecoder into Base64/URL
+### Task 9: Split EncoderDecoder into Base64/URL
 
 **Files:**
 - Create: `src/components/encoder/Base64Encoder.tsx`
@@ -880,12 +880,12 @@ git commit -m "feat(routing): split EncoderDecoder into Base64 and URL route com
 
 ---
 
-### Task 11: Create Router with All Routes
+### Task 10: Create Router with All Routes
 
 **Files:**
 - Create: `src/router.tsx`
 
-This is the main route definition file. All split components from Tasks 8-10 must exist before this task. Uses `createBrowserRouter` with lazy imports for tool components. Layout components (JsonLayout, JwtLayout, EncoderLayout) are imported eagerly since they are tiny (just nav + Outlet).
+This is the main route definition file. All split components from Tasks 7-9 must exist before this task. Uses `createBrowserRouter` with lazy imports for tool components. Layout components (JsonLayout, JwtLayout, EncoderLayout) are imported eagerly since they are tiny (just nav + Outlet).
 
 - [ ] **Step 1: Create the router file**
 
@@ -1112,7 +1112,7 @@ git commit -m "feat(routing): add route definitions with lazy loading and error 
 
 ## Chunk 3: Wire Up Router & Migrate Navigation
 
-### Task 12: Update App.tsx
+### Task 11: Update App.tsx
 
 **Files:**
 - Modify: `src/App.tsx`
@@ -1147,7 +1147,7 @@ git commit -m "feat(routing): replace tabs system with RouterProvider in App.tsx
 
 ---
 
-### Task 13: Migrate AppSidebar to React Router
+### Task 12: Migrate AppSidebar to React Router
 
 **Files:**
 - Modify: `src/components/layout/AppSidebar.tsx`
@@ -1187,7 +1187,7 @@ git commit -m "feat(routing): migrate AppSidebar to React Router NavLink with ca
 
 ---
 
-### Task 14: Migrate MobileNav to React Router
+### Task 13: Migrate MobileNav to React Router
 
 **Files:**
 - Modify: `src/components/layout/MobileNav.tsx`
@@ -1221,7 +1221,7 @@ git commit -m "feat(routing): migrate MobileNav to React Router Link with catego
 
 ---
 
-### Task 15: Migrate WelcomePage to React Router
+### Task 14: Migrate WelcomePage to React Router
 
 **Files:**
 - Modify: `src/components/welcome/WelcomePage.tsx`
@@ -1255,7 +1255,7 @@ git commit -m "feat(routing): migrate WelcomePage to React Router Link"
 
 ## Chunk 4: PDF & DNS/IP Route Wiring
 
-### Task 16: Wire PDF Tools as Individual Routes
+### Task 15: Wire PDF Tools as Individual Routes
 
 **Files:**
 - Modify: `src/components/pdf/PdfTools.tsx` (convert hub to landing page, or remove if CategoryLandingPage handles it)
@@ -1297,7 +1297,7 @@ git commit -m "feat(routing): wire PDF tools as individual lazy routes"
 
 ---
 
-### Task 17: Wire DNS/IP as Individual Routes
+### Task 16: Wire DNS/IP as Individual Routes
 
 **Files:**
 - Reference: `src/components/dnsip/DnsLookup.tsx`
@@ -1329,7 +1329,7 @@ git commit -m "feat(routing): wire DNS and IP as separate routes under /network"
 
 ## Chunk 5: Cleanup & Verification
 
-### Task 18: Remove Dead Code
+### Task 17: Remove Dead Code
 
 **Files:**
 - Modify: Various files
@@ -1344,7 +1344,7 @@ If the internal `TOOLS` array is still in the file but unused, delete it.
 
 - [ ] **Step 3: Remove unused imports from App.tsx**
 
-All tool component imports should have been removed in Task 12. Verify none remain.
+All tool component imports should have been removed in Task 11. Verify none remain.
 
 - [ ] **Step 4: Remove TabsContent, Tabs imports**
 
@@ -1361,7 +1361,7 @@ git commit -m "chore: remove dead tabs navigation code"
 
 ---
 
-### Task 19: Full Smoke Test
+### Task 18: Full Smoke Test
 
 - [ ] **Step 1: Start dev server**
 
