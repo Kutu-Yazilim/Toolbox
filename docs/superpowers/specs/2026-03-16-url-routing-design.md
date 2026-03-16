@@ -251,7 +251,7 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 
 **EncoderDecoder:** Base64/URL tabs → two child route components (`Base64Encoder`, `UrlEncoder`) sharing an `EncoderLayout`. JWT tab removed (dedicated tool exists at `/dev-tools/jwt`).
 
-**DnsIpTool:** DNS/IP tabs → two separate route components (`DnsLookup`, `WhatsMyIp`) as sibling routes under `/network`. No shared layout needed — they are independent tools. `DnsIpTool.tsx` is replaced by the two new components.
+**DnsIpTool:** DNS/IP tabs → `DnsLookup.tsx` and `WhatsMyIp.tsx` already exist as separate components. Wire each as a lazy route under `/network`. No shared layout needed — they are independent tools. `DnsIpTool.tsx` (the tab-switcher wrapper) is no longer needed.
 
 **PdfTools:** Each of the 12 PDF sub-tools already exists as a separate component file. Wire each as a lazy route under `/pdf`. Convert `PdfToolsHub.tsx` into the category landing page. Remove the mode-selector dispatch logic from `PdfTools.tsx`.
 
@@ -274,8 +274,6 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 | `src/components/jwt/JwtForge.tsx` | JWT forge (extracted from JwtTool) |
 | `src/components/encoder/Base64Encoder.tsx` | Base64 encode/decode (extracted from EncoderDecoder) |
 | `src/components/encoder/UrlEncoder.tsx` | URL encode/decode (extracted from EncoderDecoder) |
-| `src/components/dnsip/DnsLookup.tsx` | DNS lookup (extracted from DnsIpTool) |
-| `src/components/dnsip/WhatsMyIp.tsx` | What's My IP (extracted from DnsIpTool) |
 
 ## Files to Modify
 
@@ -288,7 +286,7 @@ Tree, Regex, Markdown, Board, Colors, ShapeMaker, Mockup, QR, CoinFlip, WheelOfF
 | `src/components/json/JsonFormatter.tsx` | Split into editor/diff child components |
 | `src/components/jwt/JwtTool.tsx` | Split into decode/forge child components |
 | `src/components/encoder/EncoderDecoder.tsx` | Split into base64/url child components, remove JWT tab |
-| `src/components/dnsip/DnsIpTool.tsx` | Split into dns-lookup/whats-my-ip components |
+| `src/components/dnsip/DnsIpTool.tsx` | Remove (DnsLookup.tsx and WhatsMyIp.tsx already exist as standalone components) |
 | `src/components/pdf/PdfTools.tsx` | Remove mode-selector dispatch, convert hub to category landing page |
 
 ## Dependencies
