@@ -27,10 +27,23 @@ All tools follow the established codebase conventions:
 - **Mobile:** Stacked vertical on mobile, side-by-side on desktop via `useIsMobile` hook
 - **Lazy loading:** `React.lazy()` in router, `Suspense` in `RootLayout`
 
+All components use named exports (e.g., `export function YamlJsonConverter()`) to match the existing `React.lazy(() => import(...).then((m) => ({ default: m.ComponentName })))` pattern.
+
 Each tool gets:
 - A component file in `src/components/<tool>/`
 - A lazy import + route in `src/router.tsx`
 - A registry entry in `src/config/toolRegistry.ts`
+
+## Tool Registry Entries
+
+| Tool | id | label | icon | categoryId |
+|------|----|-------|------|------------|
+| YAML ↔ JSON | `yaml-json` | `YAML ↔ JSON` | `FileTextIcon` | `converters` |
+| SQL Formatter | `sql-formatter` | `SQL Formatter` | `DatabaseIcon` | `dev-tools` |
+| Text Diff | `text-diff` | `Text Diff` | `FileTextIcon` | `dev-tools` |
+| JSON → Types | `json-to-types` | `JSON to Types` | `BracesIcon` | `dev-tools` |
+| Cron Builder | `cron` | `Cron Builder` | `ClockIcon` | `dev-tools` |
+| HTTP Status Codes | `http-status` | `HTTP Status` | `GlobeIcon` | `dev-tools` |
 
 ## Tool 1: YAML ↔ JSON Converter
 
@@ -105,32 +118,33 @@ Single Monaco Editor pane with a toolbar. User pastes SQL, clicks Format or Mini
 
 ### UI
 
-Two input textareas (Original / Modified) at top, diff output below. Toggle between side-by-side and inline (unified) view.
+Monaco `DiffEditor` fills the main area. Toolbar above with a view mode toggle (side-by-side / inline). Users type/paste directly into the DiffEditor's original (left) and modified (right) panes — no separate input textareas needed.
 
 ### Features
 
-- **Side-by-side view:** Two panes with highlighted additions/deletions (using Monaco DiffEditor)
-- **Inline/unified view:** Single pane with `+`/`-` lines (like `git diff`)
-- Toggle button to switch between views
-- Character-level diff highlighting within changed lines
-- Line numbers
+- **Side-by-side view:** Default on desktop — Monaco DiffEditor with `renderSideBySide: true`
+- **Inline/unified view:** Monaco DiffEditor with `renderSideBySide: false` (built-in inline mode)
+- Toggle button in toolbar to switch views
+- Character-level diff highlighting within changed lines (Monaco built-in)
+- Line numbers (Monaco built-in)
 
 ### Implementation
 
-- **Side-by-side:** Use Monaco `DiffEditor` component (same as `JsonDiff.tsx`)
-- **Inline view:** Use `diff` npm package to compute unified diff, render with custom styled `<pre>` block
-- Default language: `plaintext` in Monaco
-
-### Dependencies
-
-- `diff` (npm) — for computing unified/inline diffs. Monaco handles side-by-side natively.
+- Use Monaco `DiffEditor` component exclusively (same as `JsonDiff.tsx`)
+- Toggle `renderSideBySide` option based on user selection
+- Default language: `plaintext`
+- No external diff library needed — Monaco handles everything
 
 ### Behavior
 
-- User types/pastes into Original and Modified panes
+- User types/pastes directly into the DiffEditor panes
 - Diff updates live as user types
-- Side-by-side is default on desktop, inline on mobile
-- Responsive: on mobile, `renderSideBySide: false` in Monaco DiffEditor (same pattern as JsonDiff)
+- Side-by-side is default on desktop, inline on mobile (via `useIsMobile`)
+- Responsive: on mobile, `renderSideBySide: false` (same pattern as JsonDiff)
+
+### Error Handling
+
+No error state — any text is valid input for diffing.
 
 ---
 
@@ -168,7 +182,12 @@ Left pane: Monaco Editor (JSON input). Right pane: Monaco Editor (generated type
 - JSON `null` → nullable/optional type
 - JSON `array` → typed array based on element types; mixed types → union/dynamic
 - JSON `object` → nested type/class
-- Duplicate object shapes → reuse same type name
+- Nested objects get their type name from the key name (PascalCase), e.g., key `"address"` → type `Address`
+- V1 does NOT deduplicate object shapes — each nested object gets its own type. Deduplication is a future enhancement.
+
+### Error Handling
+
+If JSON is invalid, show error overlay below the input pane. Output pane keeps last valid output.
 
 ### Implementation
 
@@ -210,10 +229,18 @@ Top section: 5 field inputs (minute, hour, day of month, month, day of week) wit
 - **Presets dropdown:** Common patterns (every minute, hourly, daily at midnight, weekly, monthly, etc.)
 - Standard 5-field cron only (no seconds)
 
+### UI Components
+
+- Each cron field uses a shadcn/ui `Select` dropdown for common values
+- "Every N minutes/hours" uses an `Input` (number) alongside the Select
+- Presets use a shadcn/ui `Select` dropdown in the toolbar
+- Raw expression input is a standard `Input` with monospace font
+- Next runs displayed in a `<ul>` list with `text-muted-foreground`
+
 ### Dependencies
 
-- `cronstrue` (npm) — converts cron expression to human-readable string
-- `cron-parser` (npm) — parses cron expressions and computes next run times
+- `cronstrue` (npm, v2.x) — converts cron expression to human-readable string
+- `cron-parser` (npm, v4.x by harrisiirak) — parses cron expressions and computes next run times
 
 ### Behavior
 
@@ -238,8 +265,13 @@ Search bar at top. Below: grouped sections (1xx, 2xx, 3xx, 4xx, 5xx) with collap
 - **Search/filter:** Filter by code number or description text
 - **Category grouping:** 1xx Informational, 2xx Success, 3xx Redirection, 4xx Client Error, 5xx Server Error
 - **Per-code card:** Status code, name, description, and example request/response
-- **Color coding:** Each category has a distinct color (green for 2xx, yellow for 3xx, red for 4xx/5xx, blue for 1xx)
-- Click to expand/collapse individual cards
+- **Color coding:** Category badges using Tailwind theme-aware classes:
+  - 1xx: `bg-blue-500/15 text-blue-500`
+  - 2xx: `bg-green-500/15 text-green-500`
+  - 3xx: `bg-yellow-500/15 text-yellow-500`
+  - 4xx: `bg-orange-500/15 text-orange-500`
+  - 5xx: `bg-red-500/15 text-red-500`
+- Click to expand/collapse individual cards (custom toggle with `useState`, no Collapsible dependency needed)
 
 ### Data
 
@@ -264,7 +296,7 @@ Includes all standard codes: 100-103, 200-208, 226, 300-308, 400-431, 451, 500-5
 
 - No external dependencies — pure static data + React components
 - Search is client-side filter on code + name + description
-- Collapsible sections use shadcn/ui `Collapsible` or custom accordion
+- Expand/collapse uses `useState<Set<number>>` for open card tracking
 - Examples rendered in `<pre>` blocks with monospace font
 
 ---
@@ -286,7 +318,6 @@ Includes all standard codes: 100-103, 200-208, 226, 300-308, 400-431, 451, 500-5
 |---------|---------|------|
 | `yaml` | YAML parse/stringify | ~100KB |
 | `sql-formatter` | SQL formatting + minification | ~200KB |
-| `diff` | Text diff computation | ~40KB |
 | `cronstrue` | Cron to human-readable text | ~30KB |
 | `cron-parser` | Parse cron + compute next runs | ~20KB |
 
@@ -316,4 +347,4 @@ No server-side dependencies. Everything runs client-side.
 |------|--------|
 | `src/router.tsx` | Add 6 lazy imports + routes |
 | `src/config/toolRegistry.ts` | Add 6 tool entries |
-| `package.json` | Add 5 new dependencies |
+| `package.json` | Add 4 new dependencies |
