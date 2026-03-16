@@ -144,6 +144,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "dev-tools",
     path: "/dev-tools/text-diff",
   },
+  {
+    id: "json-to-types",
+    label: "JSON to Types",
+    description: "Generate TypeScript, Dart, C#, Python, and Java types from JSON",
+    icon: BracesIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/json-to-types",
+  },
   // Converters
   {
     id: "encoder",

@@ -113,6 +113,11 @@ const TextDiff = React.lazy(() =>
     default: m.TextDiff,
   })),
 )
+const JsonToTypes = React.lazy(() =>
+  import("@/components/jsontypes/JsonToTypes").then((m) => ({
+    default: m.JsonToTypes,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -303,6 +308,7 @@ export const router = createBrowserRouter([
           { path: "tree", element: lazy_(TreeCreator) },
           { path: "sql-formatter", element: lazy_(SqlFormatter) },
           { path: "text-diff", element: lazy_(TextDiff) },
+          { path: "json-to-types", element: lazy_(JsonToTypes) },
         ],
       },
       {
