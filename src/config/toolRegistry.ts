@@ -160,6 +160,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "dev-tools",
     path: "/dev-tools/cron",
   },
+  {
+    id: "http-status",
+    label: "HTTP Status",
+    description: "Searchable HTTP status codes reference with request/response examples",
+    icon: GlobeIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/http-status",
+  },
   // Converters
   {
     id: "encoder",

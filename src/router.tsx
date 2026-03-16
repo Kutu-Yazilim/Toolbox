@@ -123,6 +123,11 @@ const JsonToTypes = React.lazy(() =>
     default: m.JsonToTypes,
   })),
 )
+const HttpStatusCodes = React.lazy(() =>
+  import("@/components/httpstatus/HttpStatusCodes").then((m) => ({
+    default: m.HttpStatusCodes,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -315,6 +320,7 @@ export const router = createBrowserRouter([
           { path: "text-diff", element: lazy_(TextDiff) },
           { path: "json-to-types", element: lazy_(JsonToTypes) },
           { path: "cron", element: lazy_(CronBuilder) },
+          { path: "http-status", element: lazy_(HttpStatusCodes) },
         ],
       },
       {
