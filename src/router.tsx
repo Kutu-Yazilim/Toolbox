@@ -102,6 +102,13 @@ const YamlJsonConverter = React.lazy(() =>
   })),
 )
 
+// Dev Tools
+const SqlFormatter = React.lazy(() =>
+  import("@/components/sql/SqlFormatter").then((m) => ({
+    default: m.SqlFormatter,
+  })),
+)
+
 // Generators
 const QrGenerator = React.lazy(() =>
   import("@/components/qr/QrGenerator").then((m) => ({
@@ -289,6 +296,7 @@ export const router = createBrowserRouter([
           { path: "markdown", element: lazy_(MarkdownPreview) },
           { path: "db-model", element: lazy_(DbModelling) },
           { path: "tree", element: lazy_(TreeCreator) },
+          { path: "sql-formatter", element: lazy_(SqlFormatter) },
         ],
       },
       {

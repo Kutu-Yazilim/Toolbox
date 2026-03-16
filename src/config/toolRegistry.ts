@@ -128,6 +128,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "dev-tools",
     path: "/dev-tools/markdown",
   },
+  {
+    id: "sql-formatter",
+    label: "SQL Formatter",
+    description: "Format, prettify, and minify SQL queries with dialect support",
+    icon: DatabaseIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/sql-formatter",
+  },
   // Converters
   {
     id: "encoder",
