@@ -1,11 +1,14 @@
 import { useState } from "react"
-import type { PaintStyle, ShapePath } from "@/types/shapemaker"
+import type { PaintStyle, ShapePath, BoundingBox, InteractionState } from "@/types/shapemaker"
+import { computeBoundingBox } from "@/utils/shapemakerTransform"
 import { ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 
 type Props = {
   path: ShapePath | null
+  interactionState: InteractionState
   onUpdatePaint: (paint: Partial<PaintStyle>) => void
   onUpdatePath: (updates: Partial<ShapePath>) => void
+  onUpdateTransform: (pathId: string, bbox: BoundingBox, changes: { x?: number; y?: number; width?: number; height?: number; rotation?: number }) => void
 }
 
 function Section({
@@ -141,7 +144,9 @@ function SelectInput({
   )
 }
 
-export function PropertiesPanel({ path, onUpdatePaint, onUpdatePath }: Props) {
+export function PropertiesPanel({ path, interactionState, onUpdatePaint, onUpdatePath, onUpdateTransform }: Props) {
+  const [lockAspectRatio, setLockAspectRatio] = useState<boolean>(false)
+
   if (!path) {
     return (
       <div className="flex items-center justify-center h-full text-xs text-muted-foreground p-4 text-center">
@@ -150,10 +155,97 @@ export function PropertiesPanel({ path, onUpdatePaint, onUpdatePath }: Props) {
     )
   }
 
+  const isShapeMode = interactionState.type === "shape-selected" && interactionState.mode === "shape"
+  const bbox = path ? computeBoundingBox(path.segments) : null
   const paint = path.paint
 
   return (
     <div className="h-full overflow-y-auto">
+      {/* Transform */}
+      {isShapeMode && bbox && (
+        <Section title="Transform">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground w-4 flex-shrink-0">X</span>
+              <input
+                type="number"
+                value={Math.round(bbox.x)}
+                onChange={(e) => onUpdateTransform(path.id, bbox, { x: Number(e.target.value) })}
+                className="flex-1 px-1.5 py-1 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:ring-1 focus:ring-ring text-center min-w-0"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground w-4 flex-shrink-0">Y</span>
+              <input
+                type="number"
+                value={Math.round(bbox.y)}
+                onChange={(e) => onUpdateTransform(path.id, bbox, { y: Number(e.target.value) })}
+                className="flex-1 px-1.5 py-1 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:ring-1 focus:ring-ring text-center min-w-0"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground w-4 flex-shrink-0">W</span>
+              <input
+                type="number"
+                value={Math.round(bbox.width)}
+                min={1}
+                onChange={(e) => {
+                  const newW = Number(e.target.value)
+                  if (lockAspectRatio && bbox.width > 0) {
+                    const ratio = bbox.height / bbox.width
+                    onUpdateTransform(path.id, bbox, { width: newW, height: Math.max(1, Math.round(newW * ratio)) })
+                  } else {
+                    onUpdateTransform(path.id, bbox, { width: newW })
+                  }
+                }}
+                className="flex-1 px-1.5 py-1 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:ring-1 focus:ring-ring text-center min-w-0"
+              />
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground w-4 flex-shrink-0">H</span>
+              <input
+                type="number"
+                value={Math.round(bbox.height)}
+                min={1}
+                onChange={(e) => {
+                  const newH = Number(e.target.value)
+                  if (lockAspectRatio && bbox.height > 0) {
+                    const ratio = bbox.width / bbox.height
+                    onUpdateTransform(path.id, bbox, { height: newH, width: Math.max(1, Math.round(newH * ratio)) })
+                  } else {
+                    onUpdateTransform(path.id, bbox, { height: newH })
+                  }
+                }}
+                className="flex-1 px-1.5 py-1 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:ring-1 focus:ring-ring text-center min-w-0"
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-1 flex-1">
+              <span className="text-xs text-muted-foreground w-4 flex-shrink-0">R</span>
+              <input
+                type="number"
+                value={Math.round((path.transform.rotation * 180) / Math.PI)}
+                onChange={(e) => onUpdateTransform(path.id, bbox, { rotation: (Number(e.target.value) * Math.PI) / 180 })}
+                className="flex-1 px-1.5 py-1 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:ring-1 focus:ring-ring text-center min-w-0"
+              />
+              <span className="text-xs text-muted-foreground flex-shrink-0">deg</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={lockAspectRatio}
+                onChange={(e) => setLockAspectRatio(e.target.checked)}
+                className="rounded border-border accent-primary"
+              />
+              Lock aspect ratio
+            </label>
+          </div>
+        </Section>
+      )}
+
       {/* Path info */}
       <Section title="Path">
         <div className="flex items-center gap-2">
