@@ -1,0 +1,365 @@
+import type { LucideIcon } from "lucide-react"
+import {
+  TreesIcon,
+  DatabaseIcon,
+  PaletteIcon,
+  LayoutDashboardIcon,
+  BracesIcon,
+  RegexIcon,
+  ShuffleIcon,
+  ClockIcon,
+  GlobeIcon,
+  FileTextIcon,
+  CircleDotIcon,
+  KeyRoundIcon,
+  QrCodeIcon,
+  CoinsIcon,
+  PenToolIcon,
+  MonitorSmartphoneIcon,
+  FileOutputIcon,
+  NetworkIcon,
+  FileIcon,
+  FileSpreadsheetIcon,
+  PresentationIcon,
+  CodeIcon,
+  ImageIcon,
+  ImagePlusIcon,
+  TextIcon,
+  MergeIcon,
+  SplitIcon,
+  ArrowUpDownIcon,
+  ArchiveIcon,
+  DropletIcon,
+} from "lucide-react"
+
+export type CategoryId =
+  | "dev-tools"
+  | "converters"
+  | "generators"
+  | "design"
+  | "network"
+  | "pdf"
+  | "fun"
+
+export type ToolCategory = {
+  id: CategoryId
+  label: string
+  path: string
+  icon: LucideIcon
+}
+
+export type SubRoute = {
+  id: string
+  label: string
+  isDefault?: boolean
+}
+
+export type ToolEntry = {
+  id: string
+  label: string
+  description: string
+  icon: LucideIcon
+  categoryId: CategoryId
+  path: string
+  subRoutes?: SubRoute[]
+}
+
+export const CATEGORIES: ToolCategory[] = [
+  { id: "dev-tools", label: "Dev Tools", path: "/dev-tools", icon: BracesIcon },
+  { id: "converters", label: "Converters", path: "/converters", icon: ShuffleIcon },
+  { id: "generators", label: "Generators", path: "/generators", icon: QrCodeIcon },
+  { id: "design", label: "Design", path: "/design", icon: PaletteIcon },
+  { id: "network", label: "Network", path: "/network", icon: NetworkIcon },
+  { id: "pdf", label: "PDF", path: "/pdf", icon: FileIcon },
+  { id: "fun", label: "Fun", path: "/fun", icon: CircleDotIcon },
+]
+
+export const TOOLS: ToolEntry[] = [
+  // Dev Tools
+  {
+    id: "tree",
+    label: "Tree",
+    description: "Generate ASCII tree structures from indented text input",
+    icon: TreesIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/tree",
+  },
+  {
+    id: "db-model",
+    label: "DB Model",
+    description: "Design database schemas with visual ER diagrams using DBML",
+    icon: DatabaseIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/db-model",
+  },
+  {
+    id: "json",
+    label: "JSON",
+    description: "Format, validate, and edit JSON with syntax highlighting",
+    icon: BracesIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/json",
+    subRoutes: [
+      { id: "editor", label: "Editor", isDefault: true },
+      { id: "diff", label: "Diff" },
+    ],
+  },
+  {
+    id: "regex",
+    label: "Regex",
+    description: "Test and debug regular expressions with live matching",
+    icon: RegexIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/regex",
+  },
+  {
+    id: "api",
+    label: "API",
+    description: "Build and test REST API requests with response preview",
+    icon: GlobeIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/api",
+  },
+  {
+    id: "markdown",
+    label: "Markdown",
+    description: "Write markdown and preview the rendered output live",
+    icon: FileTextIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/markdown",
+  },
+  // Converters
+  {
+    id: "encoder",
+    label: "Encoder",
+    description: "Encode and decode text in Base64, URL, and more",
+    icon: ShuffleIcon,
+    categoryId: "converters",
+    path: "/converters/encoder",
+    subRoutes: [
+      { id: "base64", label: "Base64", isDefault: true },
+      { id: "url", label: "URL" },
+    ],
+  },
+  {
+    id: "timestamp",
+    label: "Timestamp",
+    description: "Convert between Unix timestamps and human-readable dates",
+    icon: ClockIcon,
+    categoryId: "converters",
+    path: "/converters/timestamp",
+  },
+  {
+    id: "base64-to-file",
+    label: "Base64 to File",
+    description: "Convert base64 strings to files with preview and download support",
+    icon: FileOutputIcon,
+    categoryId: "converters",
+    path: "/converters/base64-to-file",
+  },
+  // Generators
+  {
+    id: "qr-code",
+    label: "QR Code",
+    description: "Generate styled QR codes with custom colors, dot types, and download as PNG",
+    icon: QrCodeIcon,
+    categoryId: "generators",
+    path: "/generators/qr-code",
+  },
+  {
+    id: "jwt",
+    label: "JWT",
+    description: "Decode existing JWTs or forge new tokens with custom headers and payloads",
+    icon: KeyRoundIcon,
+    categoryId: "generators",
+    path: "/generators/jwt",
+    subRoutes: [
+      { id: "decode", label: "Decode", isDefault: true },
+      { id: "forge", label: "Forge" },
+    ],
+  },
+  // Design
+  {
+    id: "colors",
+    label: "Colors",
+    description: "Generate and explore color palettes with harmony analysis",
+    icon: PaletteIcon,
+    categoryId: "design",
+    path: "/design/colors",
+  },
+  {
+    id: "board",
+    label: "Board",
+    description: "Draw and design on a freeform canvas board",
+    icon: LayoutDashboardIcon,
+    categoryId: "design",
+    path: "/design/board",
+  },
+  {
+    id: "shapemaker",
+    label: "Shape Maker",
+    description: "Draw custom shapes with a Figma-like editor and export as Flutter/Dart CustomPainter code",
+    icon: PenToolIcon,
+    categoryId: "design",
+    path: "/design/shapemaker",
+  },
+  {
+    id: "mockup",
+    label: "Mockup",
+    description: "Place screenshots into device frames and export polished mockups as PNG",
+    icon: MonitorSmartphoneIcon,
+    categoryId: "design",
+    path: "/design/mockup",
+  },
+  // Network
+  {
+    id: "dns-lookup",
+    label: "DNS Lookup",
+    description: "DNS lookup across multiple providers",
+    icon: NetworkIcon,
+    categoryId: "network",
+    path: "/network/dns-lookup",
+  },
+  {
+    id: "whats-my-ip",
+    label: "What's My IP",
+    description: "View your IP address and geolocation info",
+    icon: NetworkIcon,
+    categoryId: "network",
+    path: "/network/whats-my-ip",
+  },
+  // Fun
+  {
+    id: "wheel-of-fate",
+    label: "Wheel of Fate",
+    description: "Spin a wheel to randomly pick from a list of options",
+    icon: CircleDotIcon,
+    categoryId: "fun",
+    path: "/fun/wheel-of-fate",
+  },
+  {
+    id: "coin-flip",
+    label: "Coin Flip",
+    description: "Flip a coin with a satisfying 3D animation and track your results history",
+    icon: CoinsIcon,
+    categoryId: "fun",
+    path: "/fun/coin-flip",
+  },
+  // PDF Tools
+  {
+    id: "jpg-to-pdf",
+    label: "JPG to PDF",
+    description: "Convert JPEG images to PDF pages",
+    icon: ImageIcon,
+    categoryId: "pdf",
+    path: "/pdf/jpg-to-pdf",
+  },
+  {
+    id: "png-to-pdf",
+    label: "PNG to PDF",
+    description: "Convert PNG images to PDF pages",
+    icon: ImagePlusIcon,
+    categoryId: "pdf",
+    path: "/pdf/png-to-pdf",
+  },
+  {
+    id: "pdf-merge",
+    label: "Merge PDF",
+    description: "Combine multiple PDFs into one",
+    icon: MergeIcon,
+    categoryId: "pdf",
+    path: "/pdf/pdf-merge",
+  },
+  {
+    id: "pdf-split",
+    label: "Split PDF",
+    description: "Extract pages or split into parts",
+    icon: SplitIcon,
+    categoryId: "pdf",
+    path: "/pdf/pdf-split",
+  },
+  {
+    id: "pdf-reorder",
+    label: "Reorder PDF",
+    description: "Drag and drop to reorder pages",
+    icon: ArrowUpDownIcon,
+    categoryId: "pdf",
+    path: "/pdf/pdf-reorder",
+  },
+  {
+    id: "pdf-compress",
+    label: "Compress PDF",
+    description: "Reduce PDF file size",
+    icon: ArchiveIcon,
+    categoryId: "pdf",
+    path: "/pdf/pdf-compress",
+  },
+  {
+    id: "pdf-watermark",
+    label: "Watermark PDF",
+    description: "Add text or image watermarks",
+    icon: DropletIcon,
+    categoryId: "pdf",
+    path: "/pdf/pdf-watermark",
+  },
+  {
+    id: "docx-to-pdf",
+    label: "DOCX to PDF",
+    description: "Convert Word documents to PDF",
+    icon: FileTextIcon,
+    categoryId: "pdf",
+    path: "/pdf/docx-to-pdf",
+  },
+  {
+    id: "pptx-to-pdf",
+    label: "PPTX to PDF",
+    description: "Convert PowerPoint presentations to PDF",
+    icon: PresentationIcon,
+    categoryId: "pdf",
+    path: "/pdf/pptx-to-pdf",
+  },
+  {
+    id: "xlsx-to-pdf",
+    label: "XLSX to PDF",
+    description: "Convert Excel spreadsheets to PDF",
+    icon: FileSpreadsheetIcon,
+    categoryId: "pdf",
+    path: "/pdf/xlsx-to-pdf",
+  },
+  {
+    id: "csv-to-pdf",
+    label: "CSV to PDF",
+    description: "Convert CSV spreadsheets to PDF tables",
+    icon: FileSpreadsheetIcon,
+    categoryId: "pdf",
+    path: "/pdf/csv-to-pdf",
+  },
+  {
+    id: "html-to-pdf",
+    label: "HTML to PDF",
+    description: "Convert HTML pages to PDF",
+    icon: CodeIcon,
+    categoryId: "pdf",
+    path: "/pdf/html-to-pdf",
+  },
+  {
+    id: "markdown-to-pdf",
+    label: "Markdown to PDF",
+    description: "Convert Markdown documents to PDF",
+    icon: TextIcon,
+    categoryId: "pdf",
+    path: "/pdf/markdown-to-pdf",
+  },
+]
+
+export function getToolsByCategory(categoryId: CategoryId): ToolEntry[] {
+  return TOOLS.filter((tool) => tool.categoryId === categoryId)
+}
+
+export function getCategoryByPath(path: string): ToolCategory | undefined {
+  return CATEGORIES.find((cat) => cat.path === path)
+}
+
+export function getToolByPath(path: string): ToolEntry | undefined {
+  return TOOLS.find((tool) => tool.path === path)
+}
