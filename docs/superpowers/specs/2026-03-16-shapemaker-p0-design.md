@@ -88,8 +88,11 @@ type InteractionState =
   | { type: "rotating"; pathId: string; center: Point; startAngle: number; originalRotation: number }
   | { type: "resizing"; pathId: string; handle: HandlePosition; origin: Point; originalBBox: BoundingBox; originalSegments: PathSegment[]; originalTransform: ShapeTransform }
   | { type: "dragging-node"; selectedPoint: SelectedPoint }
-  | { type: "drawing-pen" }
+  | { type: "drawing-pen" }  // activePathId on CanvasState tracks which path is being drawn
   | { type: "drawing-shape"; shapeType: "rectangle" | "ellipse" | "line"; start: Point }
+
+// Note: Panning is handled as a parallel concern (separate isPanning boolean),
+// not part of InteractionState. It can occur during any state via middle-click or Alt+click.
 
 type BoundingBox = { x: number; y: number; width: number; height: number }
 
@@ -179,7 +182,7 @@ DRAWING-SHAPE → mouseup → SHAPE-SELECTED
 3. Shape fills (closed paths)
    - `ctx.isPointInPath(path2d, x, y)`
 4. Shape strokes (all paths)
-   - `ctx.isPointInStroke(path2d, x, y)` with inflated lineWidth
+   - `ctx.isPointInStroke(path2d, x, y)` with lineWidth set to `max(strokeWidth, 8/zoom)` for easier picking
 5. Nothing → deselect
 
 ### Transform-Aware Testing
@@ -202,7 +205,7 @@ On drag: `currentAngle = atan2(mouseY - centerY, mouseX - centerX)`, `delta = cu
 
 ### Resize (transient scale, bake on release)
 
-On drag: compute `scaleX = newWidth / originalWidth`, `scaleY = newHeight / originalHeight` from anchor (opposite corner). Shift constrains proportions. On mouseup: apply scale to all points as `newPoint = anchor + (originalPoint - anchor) * scale`, reset scale to 1.0.
+On drag: compute `scaleX = newWidth / originalWidth`, `scaleY = newHeight / originalHeight` from anchor. For corner handles, the anchor is the opposite corner and both axes scale. For edge handles (n/s/e/w), the anchor is the opposite edge and only one axis scales (e.g., dragging "n" handle only changes scaleY). Shift constrains proportions. On mouseup: apply scale to all points as `newPoint = anchor + (originalPoint - anchor) * scale`, reset scale to 1.0.
 
 ### Nudge
 
