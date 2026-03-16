@@ -1,147 +1,8 @@
-import {
-  TreesIcon,
-  DatabaseIcon,
-  PaletteIcon,
-  LayoutDashboardIcon,
-  BracesIcon,
-  RegexIcon,
-  ShuffleIcon,
-  ClockIcon,
-  GlobeIcon,
-  FileTextIcon,
-  CircleDotIcon,
-  KeyRoundIcon,
-  QrCodeIcon,
-  CoinsIcon,
-  PenToolIcon,
-  MonitorSmartphoneIcon,
-  FileOutputIcon,
-  NetworkIcon,
-  type LucideIcon,
-} from "lucide-react"
+import { Link } from "react-router"
+import { TOOLS } from "@/config/toolRegistry"
 import { cn } from "@/lib/utils"
 
-const TOOLS: {
-  value: string
-  label: string
-  description: string
-  icon: LucideIcon
-}[] = [
-  {
-    value: "tree",
-    label: "Tree",
-    description: "Generate ASCII tree structures from indented text input",
-    icon: TreesIcon,
-  },
-  {
-    value: "db",
-    label: "DB Model",
-    description: "Design database schemas with visual ER diagrams using DBML",
-    icon: DatabaseIcon,
-  },
-  {
-    value: "color",
-    label: "Colors",
-    description: "Generate and explore color palettes with harmony analysis",
-    icon: PaletteIcon,
-  },
-  {
-    value: "board",
-    label: "Board",
-    description: "Draw and design on a freeform canvas board",
-    icon: LayoutDashboardIcon,
-  },
-  {
-    value: "json",
-    label: "JSON",
-    description: "Format, validate, and edit JSON with syntax highlighting",
-    icon: BracesIcon,
-  },
-  {
-    value: "regex",
-    label: "Regex",
-    description: "Test and debug regular expressions with live matching",
-    icon: RegexIcon,
-  },
-  {
-    value: "encoder",
-    label: "Encoder",
-    description: "Encode and decode text in Base64, URL, HTML, and more",
-    icon: ShuffleIcon,
-  },
-  {
-    value: "timestamp",
-    label: "Timestamp",
-    description: "Convert between Unix timestamps and human-readable dates",
-    icon: ClockIcon,
-  },
-  {
-    value: "api",
-    label: "API",
-    description: "Build and test REST API requests with response preview",
-    icon: GlobeIcon,
-  },
-  {
-    value: "markdown",
-    label: "Markdown",
-    description: "Write markdown and preview the rendered output live",
-    icon: FileTextIcon,
-  },
-  {
-    value: "wheel",
-    label: "Wheel of Fate",
-    description: "Spin a wheel to randomly pick from a list of options",
-    icon: CircleDotIcon,
-  },
-  {
-    value: "jwt",
-    label: "JWT",
-    description: "Decode existing JWTs or forge new tokens with custom headers and payloads",
-    icon: KeyRoundIcon,
-  },
-  {
-    value: "qr",
-    label: "QR Code",
-    description: "Generate styled QR codes with custom colors, dot types, and download as PNG",
-    icon: QrCodeIcon,
-  },
-  {
-    value: "coinflip",
-    label: "Coin Flip",
-    description: "Flip a coin with a satisfying 3D animation and track your results history",
-    icon: CoinsIcon,
-  },
-  {
-    value: "shapemaker",
-    label: "Shape Maker",
-    description: "Draw custom shapes with a Figma-like editor and export as Flutter/Dart CustomPainter code",
-    icon: PenToolIcon,
-  },
-  {
-    value: "mockup",
-    label: "Mockup",
-    description: "Place screenshots into device frames and export polished mockups as PNG",
-    icon: MonitorSmartphoneIcon,
-  },
-  {
-    value: "base64file",
-    label: "Base64 to File",
-    description: "Convert base64 strings to files with preview and download support",
-    icon: FileOutputIcon,
-  },
-  {
-    value: "dnsip",
-    label: "DNS/IP",
-    description: "DNS lookup across multiple providers and IP geolocation info",
-    icon: NetworkIcon,
-  },
-]
-
-type WelcomePageProps = {
-  onNavigate: (tabValue: string) => void
-}
-
-export function WelcomePage({ onNavigate }: WelcomePageProps) {
+export function WelcomePage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="max-w-5xl mx-auto px-4 py-8 md:px-8 md:py-12">
@@ -166,10 +27,10 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
 
         {/* Tool grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {TOOLS.map(({ value, label, description, icon: Icon }) => (
-            <button
-              key={value}
-              onClick={() => onNavigate(value)}
+          {TOOLS.map(({ id, label, description, icon: Icon, path }) => (
+            <Link
+              key={id}
+              to={path}
               className={cn(
                 "group text-left rounded-xl border border-border p-5",
                 "bg-card hover:bg-accent/50 dark:hover:bg-accent/30",
@@ -197,7 +58,7 @@ export function WelcomePage({ onNavigate }: WelcomePageProps) {
                   </p>
                 </div>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       </div>

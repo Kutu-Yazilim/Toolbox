@@ -2,7 +2,6 @@ import React, { Suspense } from "react"
 import {
   createBrowserRouter,
   Navigate,
-  useNavigate,
 } from "react-router-dom"
 
 import { RootLayout } from "@/layouts/RootLayout"
@@ -225,16 +224,6 @@ function lazy_(C: React.LazyExoticComponent<React.ComponentType>) {
   )
 }
 
-/** Wrapper for WelcomePage — wires onNavigate via useNavigate */
-function WelcomePageWrapper() {
-  const navigate = useNavigate()
-  return (
-    <Lazy>
-      <WelcomePage onNavigate={(path: string) => navigate(`/${path}`)} />
-    </Lazy>
-  )
-}
-
 /** Wrapper for ImageToPdf so we can pass toolId through the route element */
 function JpgToPdfRoute() {
   return (
@@ -264,7 +253,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <WelcomePageWrapper />,
+        element: lazy_(WelcomePage),
       },
       {
         path: "dev-tools",
