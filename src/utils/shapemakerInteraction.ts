@@ -6,10 +6,6 @@ import type {
   CanvasEvent,
   InteractionAction,
   HitTestResult,
-  SelectedPoint,
-  EditingMode,
-  BoundingBox,
-  HandlePosition,
   ShapeTransform,
   PathSegment,
 } from "@/types/shapemaker"
@@ -237,7 +233,7 @@ function processShapeModeMouseDown(
 
 function processNodeModeMouseDown(
   state: Extract<InteractionState, { type: "shape-selected" }>,
-  event: Extract<CanvasEvent, { type: "mousedown" }>,
+  _event: Extract<CanvasEvent, { type: "mousedown" }>,
   ctx: InteractionContext,
   _path: { segments: PathSegment[]; transform: ShapeTransform },
 ): ProcessResult {

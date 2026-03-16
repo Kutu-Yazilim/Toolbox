@@ -8,8 +8,15 @@ import type {
   ToolMode,
   SelectedPoint,
   HistoryEntry,
+  InteractionState,
+  ClipboardEntry,
+  InteractionAction,
+  BoundingBox,
 } from "@/types/shapemaker"
-import { DEFAULT_PAINT } from "@/types/shapemaker"
+import { DEFAULT_PAINT, DEFAULT_TRANSFORM } from "@/types/shapemaker"
+import { translateSegments, scaleSegments } from "@/utils/shapemakerTransform"
+import { copyToClipboard, pasteFromClipboard, duplicatePath, duplicatePathWithOffset } from "@/utils/shapemakerClipboard"
+import { processEvent } from "@/utils/shapemakerInteraction"
 import { ShapeMakerCanvas } from "./ShapeMakerCanvas"
 import { PropertiesPanel } from "./PropertiesPanel"
 import { LayersPanel } from "./LayersPanel"
@@ -61,6 +68,7 @@ function createPath(name: string): ShapePath {
     paint: { ...DEFAULT_PAINT },
     visible: true,
     locked: false,
+    transform: { ...DEFAULT_TRANSFORM },
   }
 }
 
@@ -95,6 +103,10 @@ export function ShapeMaker() {
   // Selection
   const [selectedPoint, setSelectedPoint] = useState<SelectedPoint | null>(null)
 
+  // Interaction state machine
+  const [interactionState, setInteractionState] = useState<InteractionState>({ type: "idle" })
+  const [clipboard, setClipboard] = useState<ClipboardEntry | null>(null)
+
   // Panels
   const [rightPanel, setRightPanel] = useState<RightPanel>("layers")
 
@@ -127,6 +139,7 @@ export function ShapeMaker() {
       setActiveLayerId(entry.activeLayerId)
       setActivePathId(entry.activePathId)
       setHistoryIdx((prev) => prev - 1)
+      setInteractionState({ type: "idle" })
     }
   }, [history, historyIdx])
 
@@ -138,6 +151,7 @@ export function ShapeMaker() {
       setActiveLayerId(entry.activeLayerId)
       setActivePathId(entry.activePathId)
       setHistoryIdx((prev) => prev + 1)
+      setInteractionState({ type: "idle" })
     }
   }, [history, historyIdx])
 
@@ -575,13 +589,297 @@ export function ShapeMaker() {
     [updateActivePath]
   )
 
+  // ─── Action dispatcher ─────────────────────────────────────
+
+  const dispatchActions = useCallback(
+    (actions: InteractionAction[]) => {
+      for (const action of actions) {
+        switch (action.type) {
+          case "select-shape":
+            setActivePathId(action.pathId)
+            setSelectedPoint(null)
+            break
+
+          case "move-shape":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) =>
+                  p.id === action.pathId ? { ...p, segments: action.segments } : p
+                ),
+              }))
+            )
+            break
+
+          case "set-rotation":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) =>
+                  p.id === action.pathId
+                    ? { ...p, transform: { ...p.transform, rotation: action.rotation } }
+                    : p
+                ),
+              }))
+            )
+            break
+
+          case "bake-resize":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) => {
+                  if (p.id !== action.pathId) return p
+                  return {
+                    ...p,
+                    segments: scaleSegments(
+                      action.originalSegments,
+                      action.anchor,
+                      action.scaleX,
+                      action.scaleY,
+                    ),
+                  }
+                }),
+              }))
+            )
+            break
+
+          case "move-node":
+            handleMovePoint(action.selectedPoint, action.newPos)
+            break
+
+          case "delete-shape":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.filter((p) => p.id !== action.pathId),
+              }))
+            )
+            setActivePathId(null)
+            break
+
+          case "copy": {
+            const path = getActivePath()
+            if (path) {
+              setClipboard(copyToClipboard([path]))
+            }
+            break
+          }
+
+          case "paste": {
+            if (!clipboard) break
+            const { paths: pastedPaths, updatedClipboard } = pasteFromClipboard(clipboard)
+            setClipboard(updatedClipboard)
+            if (pastedPaths.length > 0) {
+              pushHistory()
+              setLayers((prev) =>
+                prev.map((layer) => {
+                  if (layer.id !== activeLayerId) return layer
+                  return { ...layer, paths: [...layer.paths, ...pastedPaths] }
+                })
+              )
+              setActivePathId(pastedPaths[0].id)
+              setInteractionState({ type: "shape-selected", pathId: pastedPaths[0].id, mode: "shape" })
+            }
+            break
+          }
+
+          case "duplicate": {
+            const srcPath = getActivePath()
+            if (!srcPath) break
+            const dup = duplicatePathWithOffset(srcPath, 10, 10)
+            setLayers((prev) =>
+              prev.map((layer) => {
+                if (layer.id !== activeLayerId) return layer
+                return { ...layer, paths: [...layer.paths, dup] }
+              })
+            )
+            setActivePathId(dup.id)
+            setInteractionState({ type: "shape-selected", pathId: dup.id, mode: "shape" })
+            break
+          }
+
+          case "duplicate-and-drag": {
+            // Clone stays in place; user drags the original
+            const srcForClone = findPathInLayers(layers, action.pathId)
+            if (!srcForClone) break
+            const clone = duplicatePath(srcForClone)
+            setLayers((prev) =>
+              prev.map((layer) => {
+                if (layer.id !== activeLayerId) return layer
+                return { ...layer, paths: [...layer.paths, clone] }
+              })
+            )
+            break
+          }
+
+          case "nudge": {
+            const targetPath = getActivePath()
+            if (!targetPath) break
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) => {
+                  if (p.id !== targetPath.id) return p
+                  return { ...p, segments: translateSegments(p.segments, action.delta.x, action.delta.y) }
+                }),
+              }))
+            )
+            break
+          }
+
+          case "add-segment":
+            handleAddSegment(action.point)
+            break
+
+          case "close-path":
+            handleClosePath()
+            break
+
+          case "new-path":
+            handleNewPath()
+            break
+
+          case "finish-drawing-shape":
+            handleFinishShape(action.start, action.end)
+            break
+
+          case "push-history":
+            pushHistory()
+            break
+
+          case "set-cursor":
+            // Handled by canvas component, noop here
+            break
+
+          case "resize-shape":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) =>
+                  p.id === action.pathId
+                    ? { ...p, segments: action.newSegments, transform: action.newTransform }
+                    : p
+                ),
+              }))
+            )
+            break
+
+          case "delete-node":
+            setLayers((prev) =>
+              prev.map((layer) => ({
+                ...layer,
+                paths: layer.paths.map((p) => {
+                  if (p.id !== action.selectedPoint.pathId) return p
+                  const segs = [...p.segments]
+                  segs.splice(action.selectedPoint.segmentIndex, 1)
+                  return { ...p, segments: segs }
+                }),
+              }))
+            )
+            setSelectedPoint(null)
+            break
+        }
+      }
+    },
+    [
+      activeLayerId,
+      clipboard,
+      getActivePath,
+      handleAddSegment,
+      handleClosePath,
+      handleFinishShape,
+      handleMovePoint,
+      handleNewPath,
+      layers,
+      pushHistory,
+    ]
+  )
+
+  // ─── Transform update (for Properties panel) ───────────────
+
+  const handleUpdateTransform = useCallback(
+    (pathId: string, currentBBox: BoundingBox, changes: { x?: number; y?: number; width?: number; height?: number; rotation?: number }) => {
+      pushHistory()
+      setLayers((prev) =>
+        prev.map((layer) => ({
+          ...layer,
+          paths: layer.paths.map((p) => {
+            if (p.id !== pathId) return p
+            let newSegments = [...p.segments]
+            let newTransform = { ...p.transform }
+            if (changes.x !== undefined) {
+              const dx = changes.x - currentBBox.x
+              newSegments = translateSegments(newSegments, dx, 0)
+            }
+            if (changes.y !== undefined) {
+              const dy = changes.y - currentBBox.y
+              newSegments = translateSegments(newSegments, 0, dy)
+            }
+            if (changes.width !== undefined && currentBBox.width > 0) {
+              newSegments = scaleSegments(newSegments, { x: currentBBox.x, y: currentBBox.y }, changes.width / currentBBox.width, 1)
+            }
+            if (changes.height !== undefined && currentBBox.height > 0) {
+              newSegments = scaleSegments(newSegments, { x: currentBBox.x, y: currentBBox.y }, 1, changes.height / currentBBox.height)
+            }
+            if (changes.rotation !== undefined) {
+              newTransform.rotation = (changes.rotation * Math.PI) / 180
+            }
+            return { ...p, segments: newSegments, transform: newTransform }
+          }),
+        }))
+      )
+    },
+    [pushHistory]
+  )
+
   // ─── Keyboard shortcuts ────────────────────────────────────
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return
 
-      if (e.key === "v" || e.key === "V") {
+      const mod = e.ctrlKey || e.metaKey
+
+      // Route through state machine when a shape is selected
+      if (interactionState.type === "shape-selected") {
+        const result = processEvent(
+          interactionState,
+          {
+            type: "keydown",
+            key: e.key,
+            ctrlKey: e.ctrlKey,
+            metaKey: e.metaKey,
+            shiftKey: e.shiftKey,
+          },
+          {
+            layers,
+            tool,
+            zoom,
+            panX,
+            panY,
+            snapEnabled,
+            gridSize,
+            hitTest: { type: "none" },
+            activePathId,
+          },
+        )
+        if (result.actions.length > 0 || result.newState !== interactionState) {
+          setInteractionState(result.newState)
+          dispatchActions(result.actions)
+          e.preventDefault()
+          return
+        }
+      }
+
+      // Global Ctrl+V paste fallback (idle state)
+      if (mod && e.key === "v" && interactionState.type === "idle" && clipboard) {
+        dispatchActions([{ type: "paste" }])
+        e.preventDefault()
+        return
+      }
+
+      if (!mod && (e.key === "v" || e.key === "V")) {
         setTool("select")
       } else if (e.key === "p" || e.key === "P") {
         setTool("pen")
@@ -594,20 +892,29 @@ export function ShapeMaker() {
       } else if (e.key === "g" || e.key === "G") {
         setShowGrid((v) => !v)
       } else if (e.key === "s" || e.key === "S") {
-        if (!e.ctrlKey && !e.metaKey) setSnapEnabled((v) => !v)
+        if (!mod) setSnapEnabled((v) => !v)
       } else if (e.key === "Escape") {
+        if (interactionState.type !== "idle") {
+          setInteractionState({ type: "idle" })
+        }
         handleNewPath()
       } else if (e.key === "Enter") {
         handleClosePath()
       } else if (e.key === "Delete" || e.key === "Backspace") {
         handleDeleteSelectedPoint()
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "z") {
+      } else if (mod && e.key === "z") {
         e.preventDefault()
-        if (e.shiftKey) redo()
-        else undo()
-      } else if ((e.ctrlKey || e.metaKey) && e.key === "y") {
+        if (e.shiftKey) {
+          redo()
+          setInteractionState({ type: "idle" })
+        } else {
+          undo()
+          setInteractionState({ type: "idle" })
+        }
+      } else if (mod && e.key === "y") {
         e.preventDefault()
         redo()
+        setInteractionState({ type: "idle" })
       } else if (e.key === "1") {
         setCurveMode("line")
       } else if (e.key === "2") {
@@ -616,7 +923,24 @@ export function ShapeMaker() {
         setCurveMode("cubic")
       }
     },
-    [handleNewPath, handleClosePath, handleDeleteSelectedPoint, undo, redo]
+    [
+      handleNewPath,
+      handleClosePath,
+      handleDeleteSelectedPoint,
+      undo,
+      redo,
+      interactionState,
+      layers,
+      tool,
+      zoom,
+      panX,
+      panY,
+      snapEnabled,
+      gridSize,
+      activePathId,
+      clipboard,
+      dispatchActions,
+    ]
   )
 
   const activePath = getActivePath()
@@ -906,6 +1230,9 @@ export function ShapeMaker() {
           onSelectPath={(id) => setActivePathId(id)}
           onDragStart={pushHistory}
           curveMode={curveMode}
+          interactionState={interactionState}
+          onInteractionStateChange={setInteractionState}
+          onDispatchActions={dispatchActions}
         />
 
         {/* Right panel */}
@@ -972,8 +1299,10 @@ export function ShapeMaker() {
               {rightPanel === "properties" && (
                 <PropertiesPanel
                   path={activePath}
+                  interactionState={interactionState}
                   onUpdatePaint={handleUpdatePaint}
                   onUpdatePath={handleUpdatePath}
+                  onUpdateTransform={handleUpdateTransform}
                 />
               )}
               {rightPanel === "code" && (
@@ -1004,4 +1333,14 @@ function getLastPoint(segments: PathSegment[]): Point {
       return seg.endPoint
   }
   return { x: 0, y: 0 }
+}
+
+// Helper to find a path across all layers
+function findPathInLayers(layers: Layer[], pathId: string): ShapePath | null {
+  for (const layer of layers) {
+    for (const path of layer.paths) {
+      if (path.id === pathId) return path
+    }
+  }
+  return null
 }
