@@ -108,6 +108,11 @@ const SqlFormatter = React.lazy(() =>
     default: m.SqlFormatter,
   })),
 )
+const CronBuilder = React.lazy(() =>
+  import("@/components/cron/CronBuilder").then((m) => ({
+    default: m.CronBuilder,
+  })),
+)
 const TextDiff = React.lazy(() =>
   import("@/components/textdiff/TextDiff").then((m) => ({
     default: m.TextDiff,
@@ -309,6 +314,7 @@ export const router = createBrowserRouter([
           { path: "sql-formatter", element: lazy_(SqlFormatter) },
           { path: "text-diff", element: lazy_(TextDiff) },
           { path: "json-to-types", element: lazy_(JsonToTypes) },
+          { path: "cron", element: lazy_(CronBuilder) },
         ],
       },
       {

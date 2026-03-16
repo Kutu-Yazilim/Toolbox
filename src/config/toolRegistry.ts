@@ -152,6 +152,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "dev-tools",
     path: "/dev-tools/json-to-types",
   },
+  {
+    id: "cron",
+    label: "Cron Builder",
+    description: "Build cron expressions visually with human-readable descriptions and next run times",
+    icon: ClockIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/cron",
+  },
   // Converters
   {
     id: "encoder",
