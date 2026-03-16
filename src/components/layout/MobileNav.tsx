@@ -6,28 +6,31 @@ import {
   SunIcon,
   XIcon,
 } from "lucide-react"
-import { TabsTrigger } from "@/components/ui/tabs"
+import { Link, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
-import { NAV_ITEMS } from "@/components/layout/AppSidebar"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/hooks/useTheme"
+import {
+  CATEGORIES,
+  TOOLS,
+  getToolsByCategory,
+  type CategoryId,
+} from "@/config/toolRegistry"
 
-type MobileNavProps = {
-  activeTab: string
-}
-
-const MOBILE_NAV_ITEMS = [
-  { value: "home", label: "Home", icon: HomeIcon },
-  ...NAV_ITEMS,
-]
-
-export function MobileNav({ activeTab }: MobileNavProps) {
+export function MobileNav() {
   const { isDark, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
+  const location = useLocation()
 
   const activeItem = useMemo(() => {
-    return MOBILE_NAV_ITEMS.find((item) => item.value === activeTab) ?? MOBILE_NAV_ITEMS[0]
-  }, [activeTab])
+    const tool = TOOLS.find((t) => location.pathname.startsWith(t.path))
+    if (tool) return { label: tool.label, icon: tool.icon }
+    const category = CATEGORIES.find((c) =>
+      location.pathname.startsWith(c.path)
+    )
+    if (category) return { label: category.label, icon: category.icon }
+    return { label: "Home", icon: HomeIcon }
+  }, [location.pathname])
 
   useEffect(() => {
     if (!open) return
@@ -91,29 +94,55 @@ export function MobileNav({ activeTab }: MobileNavProps) {
           />
 
           <div className="absolute bottom-0 left-0 right-0 rounded-t-2xl border border-border bg-background max-h-[80vh] overflow-hidden">
-            <div className="px-4 pt-4 pb-3 border-b border-border">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Tools
-              </p>
-            </div>
-
             <div className="overflow-y-auto p-3 pb-4">
-              <div className="grid grid-cols-2 gap-2">
-                {MOBILE_NAV_ITEMS.map(({ value, label, icon: Icon }) => (
-                  <TabsTrigger
-                    key={value}
-                    value={value}
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      "h-auto px-3 py-2.5 justify-start rounded-lg border border-border bg-card/40",
-                      "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:border-primary"
-                    )}
-                  >
-                    <Icon className="h-4 w-4 flex-shrink-0" />
-                    <span className="text-xs font-medium truncate">{label}</span>
-                  </TabsTrigger>
-                ))}
+              {/* Home */}
+              <div className="px-1 pb-2">
+                <Link
+                  to="/"
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "flex items-center gap-2 h-auto px-3 py-2.5 rounded-lg border border-border bg-card/40",
+                    location.pathname === "/" &&
+                      "bg-primary text-primary-foreground border-primary"
+                  )}
+                >
+                  <HomeIcon className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-xs font-medium truncate">Home</span>
+                </Link>
               </div>
+
+              {/* Categories */}
+              {CATEGORIES.map((category) => {
+                const tools = getToolsByCategory(category.id as CategoryId)
+                return (
+                  <div key={category.id} className="mb-3">
+                    <div className="px-4 pt-2 pb-1.5">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                        {category.label}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {tools.map(({ id, label, icon: Icon, path }) => (
+                        <Link
+                          key={id}
+                          to={path}
+                          onClick={() => setOpen(false)}
+                          className={cn(
+                            "flex items-center gap-2 h-auto px-3 py-2.5 justify-start rounded-lg border border-border bg-card/40",
+                            location.pathname.startsWith(path) &&
+                              "bg-primary text-primary-foreground border-primary"
+                          )}
+                        >
+                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <span className="text-xs font-medium truncate">
+                            {label}
+                          </span>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
