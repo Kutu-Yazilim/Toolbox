@@ -7,6 +7,7 @@ import type {
   GradientDef,
   SelectedPoint,
 } from "@/types/shapemaker"
+import { computeBoundingBox } from "./shapemakerTransform"
 
 // ─── Render helpers ─────────────────────────────────────────────
 
@@ -151,6 +152,16 @@ export function renderPath(
   if (!path.visible || path.segments.length === 0) return
 
   ctx.save()
+
+  if (path.transform.rotation !== 0) {
+    const bbox = computeBoundingBox(path.segments)
+    const cx = bbox.x + bbox.width / 2
+    const cy = bbox.y + bbox.height / 2
+    ctx.translate(cx, cy)
+    ctx.rotate(path.transform.rotation)
+    ctx.translate(-cx, -cy)
+  }
+
   applyPaint(ctx, path.paint)
   tracePath(ctx, path.segments)
 
@@ -476,4 +487,57 @@ export function screenToCanvas(
     x: (screenX - canvasRect.left - panX) / zoom,
     y: (screenY - canvasRect.top - panY) / zoom,
   }
+}
+
+export function renderBoundingBox(
+  ctx: CanvasRenderingContext2D,
+  path: ShapePath,
+  zoom: number,
+  panX: number,
+  panY: number,
+) {
+  const bbox = computeBoundingBox(path.segments)
+  if (bbox.width === 0 && bbox.height === 0) return
+
+  const center = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 }
+
+  ctx.save()
+  ctx.translate(panX, panY)
+  ctx.scale(zoom, zoom)
+
+  ctx.translate(center.x, center.y)
+  ctx.rotate(path.transform.rotation)
+  ctx.translate(-center.x, -center.y)
+
+  // Dashed bounding box
+  ctx.strokeStyle = "#818cf8"
+  ctx.lineWidth = 1 / zoom
+  ctx.setLineDash([6 / zoom, 4 / zoom])
+  ctx.strokeRect(bbox.x, bbox.y, bbox.width, bbox.height)
+  ctx.setLineDash([])
+
+  // Resize handles
+  const handleSize = 8 / zoom
+  const halfHandle = handleSize / 2
+  ctx.fillStyle = "#ffffff"
+  ctx.strokeStyle = "#818cf8"
+  ctx.lineWidth = 1.5 / zoom
+
+  const handles = [
+    { x: bbox.x, y: bbox.y },
+    { x: bbox.x + bbox.width / 2, y: bbox.y },
+    { x: bbox.x + bbox.width, y: bbox.y },
+    { x: bbox.x + bbox.width, y: bbox.y + bbox.height / 2 },
+    { x: bbox.x + bbox.width, y: bbox.y + bbox.height },
+    { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height },
+    { x: bbox.x, y: bbox.y + bbox.height },
+    { x: bbox.x, y: bbox.y + bbox.height / 2 },
+  ]
+
+  for (const h of handles) {
+    ctx.fillRect(h.x - halfHandle, h.y - halfHandle, handleSize, handleSize)
+    ctx.strokeRect(h.x - halfHandle, h.y - halfHandle, handleSize, handleSize)
+  }
+
+  ctx.restore()
 }
