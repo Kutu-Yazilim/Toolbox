@@ -221,13 +221,21 @@ export function CsvToPdf() {
 
         captureRef.current.style.width = `${contentWidth}px`
 
-        await new Promise((r) => setTimeout(r, 50))
+        // Force a synchronous reflow so the browser computes layout
+        // before we measure scrollHeight and capture the image.
+        void captureRef.current.offsetHeight
+
+        // Wait for fonts/images to settle
+        await new Promise((r) => setTimeout(r, 100))
+
+        // Re-read height after reflow
+        const capturedHeight = captureRef.current.scrollHeight || captureRef.current.offsetHeight
 
         const dataUrl = await toPng(captureRef.current, {
           width: contentWidth,
-          height: captureRef.current.scrollHeight,
+          height: capturedHeight,
           canvasWidth: contentWidth,
-          canvasHeight: captureRef.current.scrollHeight,
+          canvasHeight: capturedHeight,
           backgroundColor: "#ffffff",
         })
 
@@ -241,7 +249,7 @@ export function CsvToPdf() {
           padding,
           padding,
           contentWidth,
-          captureRef.current.scrollHeight
+          capturedHeight
         )
 
         setProcessing({
@@ -399,9 +407,10 @@ export function CsvToPdf() {
       <div
         ref={captureRef}
         style={{
-          position: "fixed",
+          position: "absolute",
           left: "-9999px",
           top: 0,
+          visibility: "hidden",
           background: "white",
         }}
       />

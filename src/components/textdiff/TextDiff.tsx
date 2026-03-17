@@ -6,8 +6,6 @@ import { useIsMobile } from "@/hooks/useIsMobile"
 
 export function TextDiff() {
   const isMobile = useIsMobile()
-  const [original, setOriginal] = useState("")
-  const [modified, setModified] = useState("")
   const [sideBySide, setSideBySide] = useState(!isMobile)
 
   return (
@@ -48,25 +46,14 @@ export function TextDiff() {
         <DiffEditor
           height="100%"
           language="plaintext"
-          original={original}
-          modified={modified}
           theme="vs-dark"
-          onMount={(_editor) => {
-            const modifiedEditor = _editor.getModifiedEditor()
-            const originalEditor = _editor.getOriginalEditor()
-            modifiedEditor.onDidChangeModelContent(() => {
-              setModified(modifiedEditor.getValue())
-            })
-            originalEditor.onDidChangeModelContent(() => {
-              setOriginal(originalEditor.getValue())
-            })
-          }}
           options={{
             minimap: { enabled: false },
             fontSize: 13,
             scrollBeyondLastLine: false,
             wordWrap: "on",
             renderSideBySide: sideBySide,
+            originalEditable: true,
             automaticLayout: true,
             padding: { top: 8 },
             scrollbar: {
