@@ -9,6 +9,7 @@ import { CategoryLayout } from "@/layouts/CategoryLayout"
 import { JsonLayout } from "@/layouts/JsonLayout"
 import { JwtLayout } from "@/layouts/JwtLayout"
 import { EncoderLayout } from "@/layouts/EncoderLayout"
+import { TimelineLayout } from "@/layouts/TimelineLayout"
 
 import { RouteErrorBoundary } from "@/components/common/RouteErrorBoundary"
 import { CategoryLandingPage } from "@/components/common/CategoryLandingPage"
@@ -155,6 +156,18 @@ const ShapeMaker = React.lazy(() =>
 const MockupEditor = React.lazy(() =>
   import("@/components/mockup/MockupEditor").then((m) => ({
     default: m.MockupEditor,
+  })),
+)
+
+// Timeline
+const PriorityTimeline = React.lazy(() =>
+  import("@/components/timeline/PriorityTimeline").then((m) => ({
+    default: m.PriorityTimeline,
+  })),
+)
+const DateTimeline = React.lazy(() =>
+  import("@/components/timeline/DateTimeline").then((m) => ({
+    default: m.DateTimeline,
   })),
 )
 
@@ -362,6 +375,15 @@ export const router = createBrowserRouter([
           { path: "board", element: lazy_(BoardEditor) },
           { path: "shapemaker", element: lazy_(ShapeMaker) },
           { path: "mockup", element: lazy_(MockupEditor) },
+          {
+            path: "timeline",
+            element: <TimelineLayout />,
+            children: [
+              { index: true, element: <Navigate to="priority" replace /> },
+              { path: "priority", element: lazy_(PriorityTimeline) },
+              { path: "date", element: lazy_(DateTimeline) },
+            ],
+          },
         ],
       },
       {

@@ -30,6 +30,7 @@ import {
   ArrowUpDownIcon,
   ArchiveIcon,
   DropletIcon,
+  GanttChartIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -258,6 +259,18 @@ export const TOOLS: ToolEntry[] = [
     icon: MonitorSmartphoneIcon,
     categoryId: "design",
     path: "/design/mockup",
+  },
+  {
+    id: "timeline",
+    label: "Timeline",
+    description: "Create project timelines with priority-based or date-based visualization",
+    icon: GanttChartIcon,
+    categoryId: "design",
+    path: "/design/timeline",
+    subRoutes: [
+      { id: "priority", label: "Priority & Workload", isDefault: true },
+      { id: "date", label: "Date-Based" },
+    ],
   },
   // Network
   {
