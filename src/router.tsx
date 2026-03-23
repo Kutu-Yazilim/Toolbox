@@ -470,6 +470,11 @@ const RandomPicker = React.lazy(() =>
     default: m.RandomPicker,
   })),
 )
+const Magic8Ball = React.lazy(() =>
+  import("@/components/magic8ball/Magic8Ball").then((m) => ({
+    default: m.Magic8Ball,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -707,6 +712,7 @@ export const router = createBrowserRouter([
           { path: "team-shuffler", element: lazy_(TeamShuffler) },
           { path: "bracket", element: lazy_(BracketGenerator) },
           { path: "random-picker", element: lazy_(RandomPicker) },
+          { path: "magic-8-ball", element: lazy_(Magic8Ball) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

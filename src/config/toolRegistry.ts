@@ -669,6 +669,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "fun",
     path: "/fun/random-picker",
   },
+  {
+    id: "magic-8-ball",
+    label: "Magic 8-Ball",
+    description: "Ask the Magic 8-Ball a yes/no question and shake for your answer",
+    icon: CircleDotIcon,
+    categoryId: "fun",
+    path: "/fun/magic-8-ball",
+  },
   // PDF Tools
   {
     id: "jpg-to-pdf",
