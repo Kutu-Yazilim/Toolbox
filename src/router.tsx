@@ -210,6 +210,13 @@ const MockupEditor = React.lazy(() =>
   })),
 )
 
+// Gradient
+const GradientGenerator = React.lazy(() =>
+  import("@/components/gradient/GradientGenerator").then((m) => ({
+    default: m.GradientGenerator,
+  })),
+)
+
 // Timeline
 const PriorityTimeline = React.lazy(() =>
   import("@/components/timeline/PriorityTimeline").then((m) => ({
@@ -469,6 +476,7 @@ export const router = createBrowserRouter([
           { path: "board", element: lazy_(BoardEditor) },
           { path: "shapemaker", element: lazy_(ShapeMaker) },
           { path: "mockup", element: lazy_(MockupEditor) },
+          { path: "gradient", element: lazy_(GradientGenerator) },
           {
             path: "timeline",
             element: <TimelineLayout />,

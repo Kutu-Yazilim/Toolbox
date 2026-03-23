@@ -44,6 +44,7 @@ import {
   SearchIcon,
   WandIcon,
   BarChart3Icon,
+  PaintbrushIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -360,6 +361,14 @@ export const TOOLS: ToolEntry[] = [
       { id: "priority", label: "Priority & Workload", isDefault: true },
       { id: "date", label: "Date-Based" },
     ],
+  },
+  {
+    id: "gradient",
+    label: "Gradient Generator",
+    description: "Create CSS and Flutter gradients with visual controls and preset gallery",
+    icon: PaintbrushIcon,
+    categoryId: "design",
+    path: "/design/gradient",
   },
   // Network
   {
