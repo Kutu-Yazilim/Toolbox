@@ -13,7 +13,7 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from "lucide-react"
-import initSqlJs, { type Database } from "sql.js"
+import initSqlJs, { type Database } from "sql.js/dist/sql-asm.js"
 
 type TableInfo = {
   name: string
@@ -132,9 +132,7 @@ export function SqlPlayground() {
 
   useEffect(() => {
     let cancelled = false
-    initSqlJs({
-      locateFile: () => `/sql-wasm.wasm`,
-    })
+    initSqlJs()
       .then((SQL) => {
         if (cancelled) return
         const database = new SQL.Database()
