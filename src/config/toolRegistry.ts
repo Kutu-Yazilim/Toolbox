@@ -33,6 +33,7 @@ import {
   GanttChartIcon,
   FingerprintIcon,
   UsersIcon,
+  HashIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -252,6 +253,14 @@ export const TOOLS: ToolEntry[] = [
     icon: UsersIcon,
     categoryId: "generators",
     path: "/generators/fake-data",
+  },
+  {
+    id: "hash",
+    label: "Hash Generator",
+    description: "Generate MD5, SHA-1, SHA-256, and SHA-512 hashes from text or files",
+    icon: HashIcon,
+    categoryId: "generators",
+    path: "/generators/hash",
   },
   // Design
   {

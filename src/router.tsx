@@ -154,6 +154,13 @@ const FakeDataGenerator = React.lazy(() =>
   })),
 )
 
+// Hash
+const HashGenerator = React.lazy(() =>
+  import("@/components/hash/HashGenerator").then((m) => ({
+    default: m.HashGenerator,
+  })),
+)
+
 // Design
 const ColorPicker = React.lazy(() =>
   import("@/components/color/ColorPicker").then((m) => ({
@@ -383,6 +390,7 @@ export const router = createBrowserRouter([
           { path: "uuid", element: lazy_(UuidGenerator) },
           { path: "lorem-ipsum", element: lazy_(LoremIpsumGenerator) },
           { path: "fake-data", element: lazy_(FakeDataGenerator) },
+          { path: "hash", element: lazy_(HashGenerator) },
         ],
       },
       {
