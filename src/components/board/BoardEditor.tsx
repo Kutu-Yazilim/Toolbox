@@ -144,6 +144,11 @@ export function BoardEditor() {
     setClipboard(newElements)
   }, [clipboard])
 
+  const cutSelected = useCallback(() => {
+    copySelected()
+    deleteSelected()
+  }, [copySelected, deleteSelected])
+
   const bringToFront = useCallback(() => {
     setElements((prev) => {
       const selected = prev.filter((el) => selectedIds.includes(el.id))
@@ -159,6 +164,52 @@ export function BoardEditor() {
       return [...selected, ...rest]
     })
   }, [selectedIds])
+
+  const bringForward = useCallback(() => {
+    setElements((prev) => {
+      const newArr = [...prev]
+      // Move each selected element one step forward (higher index)
+      for (let i = newArr.length - 2; i >= 0; i--) {
+        if (selectedIds.includes(newArr[i].id) && !selectedIds.includes(newArr[i + 1].id)) {
+          const temp = newArr[i]
+          newArr[i] = newArr[i + 1]
+          newArr[i + 1] = temp
+        }
+      }
+      return newArr
+    })
+  }, [selectedIds])
+
+  const sendBackward = useCallback(() => {
+    setElements((prev) => {
+      const newArr = [...prev]
+      // Move each selected element one step backward (lower index)
+      for (let i = 1; i < newArr.length; i++) {
+        if (selectedIds.includes(newArr[i].id) && !selectedIds.includes(newArr[i - 1].id)) {
+          const temp = newArr[i]
+          newArr[i] = newArr[i - 1]
+          newArr[i - 1] = temp
+        }
+      }
+      return newArr
+    })
+  }, [selectedIds])
+
+  const selectAll = useCallback(() => {
+    setSelectedIds(elements.map((el) => el.id))
+  }, [elements])
+
+  const toggleLock = useCallback(() => {
+    if (selectedIds.length === 0) return
+    const firstEl = elements.find((e) => e.id === selectedIds[0])
+    if (!firstEl) return
+    const newLocked = !firstEl.locked
+    setElements((prev) =>
+      prev.map((el) =>
+        selectedIds.includes(el.id) ? { ...el, locked: newLocked } : el
+      )
+    )
+  }, [elements, selectedIds])
 
   const updateSelectedElements = useCallback(
     (updates: Partial<BoardElement>) => {
@@ -181,6 +232,13 @@ export function BoardEditor() {
     (id: string) => {
       const el = elements.find((e) => e.id === id)
       if (!el) return
+      // For arrows, edit the label field
+      if (el.type === "arrow") {
+        setEditingId(id)
+        setEditText(el.label || "")
+        setTimeout(() => textareaRef.current?.focus(), 50)
+        return
+      }
       setEditingId(id)
       setEditText(el.text)
       setTimeout(() => textareaRef.current?.focus(), 50)
@@ -190,12 +248,20 @@ export function BoardEditor() {
 
   const commitText = useCallback(() => {
     if (editingId) {
-      setElements((prev) =>
-        prev.map((el) => (el.id === editingId ? { ...el, text: editText } : el))
-      )
+      const el = elements.find((e) => e.id === editingId)
+      if (el && el.type === "arrow") {
+        // Commit arrow label
+        setElements((prev) =>
+          prev.map((el) => (el.id === editingId ? { ...el, label: editText } : el))
+        )
+      } else {
+        setElements((prev) =>
+          prev.map((el) => (el.id === editingId ? { ...el, text: editText } : el))
+        )
+      }
       setEditingId(null)
     }
-  }, [editingId, editText])
+  }, [editingId, editText, elements])
 
   // ── Keyboard Shortcuts ────────────────────────────────────────
 
@@ -251,6 +317,13 @@ export function BoardEditor() {
         return
       }
 
+      // Cut
+      if ((e.ctrlKey || e.metaKey) && e.key === "x") {
+        e.preventDefault()
+        cutSelected()
+        return
+      }
+
       // Copy
       if ((e.ctrlKey || e.metaKey) && e.key === "c") {
         e.preventDefault()
@@ -275,7 +348,7 @@ export function BoardEditor() {
       // Select All
       if ((e.ctrlKey || e.metaKey) && e.key === "a") {
         e.preventDefault()
-        setSelectedIds(elements.map((el) => el.id))
+        selectAll()
         return
       }
 
@@ -296,7 +369,9 @@ export function BoardEditor() {
     deleteSelected,
     duplicateSelected,
     copySelected,
+    cutSelected,
     pasteClipboard,
+    selectAll,
     undo,
     redo,
     commitText,
@@ -381,6 +456,44 @@ export function BoardEditor() {
     const el = elements.find((e) => e.id === editingId)
     if (!el) return null
 
+    // For arrow labels, position at arrow midpoint
+    if (el.type === "arrow" && el.points.length >= 2) {
+      const start = el.points[0]
+      const end = el.points[el.points.length - 1]
+      let labelX = (start.x + end.x) / 2
+      let labelY = (start.y + end.y) / 2
+      if (el.controlPointOffset && (el.controlPointOffset.x !== 0 || el.controlPointOffset.y !== 0)) {
+        const cpx = (start.x + end.x) / 2 + el.controlPointOffset.x
+        const cpy = (start.y + end.y) / 2 + el.controlPointOffset.y
+        labelX = 0.25 * start.x + 0.5 * cpx + 0.25 * end.x
+        labelY = 0.25 * start.y + 0.5 * cpy + 0.25 * end.y
+      }
+      const screenX = labelX * camera.zoom + camera.x
+      const screenY = labelY * camera.zoom + camera.y
+      const w = 150 * camera.zoom
+
+      return {
+        position: "absolute" as const,
+        left: screenX - w / 2,
+        top: screenY - 15 * camera.zoom,
+        width: w,
+        height: 30 * camera.zoom,
+        fontSize: el.style.fontSize * camera.zoom,
+        fontFamily: el.style.fontFamily,
+        textAlign: "center" as const,
+        color: el.style.strokeColor,
+        background: "transparent",
+        border: "none",
+        outline: "2px solid #3B82F6",
+        borderRadius: 4,
+        padding: 4,
+        resize: "none" as const,
+        overflow: "hidden",
+        zIndex: 30,
+        lineHeight: "1.4",
+      }
+    }
+
     const bounds = getElementBounds(el)
     const screenX = bounds.x * camera.zoom + camera.x
     const screenY = bounds.y * camera.zoom + camera.y
@@ -432,6 +545,17 @@ export function BoardEditor() {
         onToolChange={setTool}
         onEditText={startEditText}
         onCommitText={commitText}
+        onCut={cutSelected}
+        onCopy={copySelected}
+        onPaste={pasteClipboard}
+        onDuplicate={duplicateSelected}
+        onDelete={deleteSelected}
+        onBringToFront={bringToFront}
+        onBringForward={bringForward}
+        onSendBackward={sendBackward}
+        onSendToBack={sendToBack}
+        onSelectAll={selectAll}
+        onToggleLock={toggleLock}
       />
 
       {/* Toolbar (left) */}
@@ -485,7 +609,7 @@ export function BoardEditor() {
 
       {/* Bottom-right hints */}
       <div className="hidden md:block absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
-        Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text
+        Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text | Right-click for context menu
       </div>
     </div>
   )

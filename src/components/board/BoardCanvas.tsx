@@ -15,6 +15,8 @@ import {
   pointInElement,
   elementsInSelectionBox,
   getResizeHandleAtPoint,
+  getRotationHandleAtPoint,
+  getArrowControlHandleAtPoint,
   resizeElement,
   createElement,
   getElementBounds,
@@ -22,6 +24,11 @@ import {
   getConnectionPointAtMouse,
   updateArrowConnections,
 } from "@/utils/boardEngine"
+
+interface ContextMenuState {
+  x: number
+  y: number
+}
 
 interface BoardCanvasProps {
   elements: BoardElement[]
@@ -37,6 +44,17 @@ interface BoardCanvasProps {
   onToolChange: (tool: Tool) => void
   onEditText: (id: string) => void
   onCommitText: () => void
+  onCut: () => void
+  onCopy: () => void
+  onPaste: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+  onBringToFront: () => void
+  onBringForward: () => void
+  onSendBackward: () => void
+  onSendToBack: () => void
+  onSelectAll: () => void
+  onToggleLock: () => void
 }
 
 type InteractionState =
@@ -47,6 +65,8 @@ type InteractionState =
   | { type: "moving"; startWorld: Point; elementSnapshots: Map<string, { x: number; y: number; points: Point[] }> }
   | { type: "resizing"; handle: ResizeHandle; elementId: string; startWorld: Point; snapshot: BoardElement }
   | { type: "connecting"; fromElementId: string; fromSide: ConnectionSide; arrow: BoardElement }
+  | { type: "rotating"; elementId: string; startAngle: number; startRotation: number }
+  | { type: "curving"; arrowId: string; startOffset: Point }
 
 export function BoardCanvas({
   elements,
@@ -62,6 +82,17 @@ export function BoardCanvas({
   onToolChange,
   onEditText,
   onCommitText,
+  onCut,
+  onCopy,
+  onPaste,
+  onDuplicate,
+  onDelete,
+  onBringToFront,
+  onBringForward,
+  onSendBackward,
+  onSendToBack,
+  onSelectAll,
+  onToggleLock,
 }: BoardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -71,6 +102,7 @@ export function BoardCanvas({
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 })
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const [activeConnectionPoint, setActiveConnectionPoint] = useState<{ elementId: string; side: ConnectionSide } | null>(null)
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const spaceHeldRef = useRef(false)
   const interactionRef = useRef(interaction)
   interactionRef.current = interaction
@@ -131,9 +163,36 @@ export function BoardCanvas({
     [camera]
   )
 
+  // Close context menu on any click
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      const world = getWorldPoint(e)
+
+      // Select the element under cursor if not already selected
+      for (let i = elements.length - 1; i >= 0; i--) {
+        const el = elements[i]
+        if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
+          if (!selectedIds.includes(el.id)) {
+            onSelectionChange([el.id])
+          }
+          break
+        }
+      }
+
+      setContextMenu({ x: e.clientX, y: e.clientY })
+    },
+    [elements, camera, selectedIds, getWorldPoint, onSelectionChange]
+  )
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
+      closeContextMenu()
       const world = getWorldPoint(e)
       const rect = canvasRef.current!.getBoundingClientRect()
       const screenX = e.clientX - rect.left
@@ -172,7 +231,43 @@ export function BoardCanvas({
 
       // ── Select tool ─────────────────────────────────────────
       if (tool === "select") {
-        // Check resize handles on selected elements first
+        // Check rotation handle on selected elements first
+        for (const id of selectedIds) {
+          const el = elements.find((el) => el.id === id)
+          if (el && !el.locked) {
+            if (getRotationHandleAtPoint(world.x, world.y, el, camera)) {
+              const center = {
+                x: getElementBounds(el).x + getElementBounds(el).width / 2,
+                y: getElementBounds(el).y + getElementBounds(el).height / 2,
+              }
+              const startAngle = Math.atan2(world.y - center.y, world.x - center.x)
+              setInteraction({
+                type: "rotating",
+                elementId: id,
+                startAngle,
+                startRotation: el.rotation,
+              })
+              return
+            }
+          }
+        }
+
+        // Check arrow control point handle
+        for (const id of selectedIds) {
+          const el = elements.find((el) => el.id === id)
+          if (el && el.type === "arrow" && !el.locked) {
+            if (getArrowControlHandleAtPoint(world.x, world.y, el, camera)) {
+              setInteraction({
+                type: "curving",
+                arrowId: id,
+                startOffset: el.controlPointOffset || { x: 0, y: 0 },
+              })
+              return
+            }
+          }
+        }
+
+        // Check resize handles on selected elements
         for (const id of selectedIds) {
           const el = elements.find((el) => el.id === id)
           if (el && !el.locked) {
@@ -279,7 +374,7 @@ export function BoardCanvas({
       setInteraction({ type: "drawing", element: drawingElement })
       setPreviewElement(drawingElement)
     },
-    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText, onCommitText]
+    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText, onCommitText, closeContextMenu]
   )
 
   const handleMouseMove = useCallback(
@@ -342,6 +437,43 @@ export function BoardCanvas({
           setPreviewElement(updated)
           break
         }
+        case "rotating": {
+          const el = elements.find((el) => el.id === current.elementId)
+          if (!el) break
+          const bounds = getElementBounds(el)
+          const centerX = bounds.x + bounds.width / 2
+          const centerY = bounds.y + bounds.height / 2
+          const currentAngle = Math.atan2(world.y - centerY, world.x - centerX)
+          let newRotation = current.startRotation + (currentAngle - current.startAngle)
+
+          // Shift constrains to 15 degree increments
+          if (e.shiftKey) {
+            const step = (Math.PI / 180) * 15
+            newRotation = Math.round(newRotation / step) * step
+          }
+
+          onElementsChange(
+            elements.map((el) =>
+              el.id === current.elementId ? { ...el, rotation: newRotation } : el
+            )
+          )
+          break
+        }
+        case "curving": {
+          const el = elements.find((el) => el.id === current.arrowId)
+          if (!el || el.points.length < 2) break
+          const start = el.points[0]
+          const end = el.points[el.points.length - 1]
+          const midX = (start.x + end.x) / 2
+          const midY = (start.y + end.y) / 2
+          const newOffset = { x: world.x - midX, y: world.y - midY }
+          onElementsChange(
+            elements.map((el) =>
+              el.id === current.arrowId ? { ...el, controlPointOffset: newOffset } : el
+            )
+          )
+          break
+        }
         case "drawing": {
           const el = current.element
           if (el.type === "arrow") {
@@ -352,7 +484,22 @@ export function BoardCanvas({
               points[points.length - 1] = { ...cp.point }
               setActiveConnectionPoint({ elementId: cp.elementId, side: cp.side })
             } else {
-              points[points.length - 1] = { x: world.x, y: world.y }
+              // Shift constrains arrow to 45 degree increments
+              if (e.shiftKey) {
+                const start = points[0]
+                const dx = world.x - start.x
+                const dy = world.y - start.y
+                const angle = Math.atan2(dy, dx)
+                const step = Math.PI / 4
+                const snappedAngle = Math.round(angle / step) * step
+                const dist = Math.sqrt(dx * dx + dy * dy)
+                points[points.length - 1] = {
+                  x: start.x + dist * Math.cos(snappedAngle),
+                  y: start.y + dist * Math.sin(snappedAngle),
+                }
+              } else {
+                points[points.length - 1] = { x: world.x, y: world.y }
+              }
               setActiveConnectionPoint(null)
             }
             const updated = { ...el, points }
@@ -360,7 +507,21 @@ export function BoardCanvas({
             setPreviewElement(updated)
           } else if (el.type === "line") {
             const points = [...el.points]
-            points[points.length - 1] = { x: world.x, y: world.y }
+            if (e.shiftKey) {
+              const start = points[0]
+              const dx = world.x - start.x
+              const dy = world.y - start.y
+              const angle = Math.atan2(dy, dx)
+              const step = Math.PI / 4
+              const snappedAngle = Math.round(angle / step) * step
+              const dist = Math.sqrt(dx * dx + dy * dy)
+              points[points.length - 1] = {
+                x: start.x + dist * Math.cos(snappedAngle),
+                y: start.y + dist * Math.sin(snappedAngle),
+              }
+            } else {
+              points[points.length - 1] = { x: world.x, y: world.y }
+            }
             const updated = { ...el, points }
             setInteraction({ type: "drawing", element: updated })
             setPreviewElement(updated)
@@ -614,6 +775,14 @@ export function BoardCanvas({
     }
   }, [])
 
+  // Close context menu when clicking elsewhere
+  useEffect(() => {
+    if (!contextMenu) return
+    const handler = () => setContextMenu(null)
+    window.addEventListener("click", handler)
+    return () => window.removeEventListener("click", handler)
+  }, [contextMenu])
+
   // ── Double Click (Edit Text) ────────────────────────────────
 
   const handleDoubleClick = useCallback(
@@ -622,6 +791,12 @@ export function BoardCanvas({
       for (let i = elements.length - 1; i >= 0; i--) {
         const el = elements[i]
         if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
+          if (el.type === "arrow") {
+            // Double-click on arrow: start editing the label
+            onSelectionChange([el.id])
+            onEditText(el.id)
+            return
+          }
           if (el.type === "text" || el.type === "sticky" || el.type === "rectangle" || el.type === "ellipse" || el.type === "diamond") {
             onSelectionChange([el.id])
             onEditText(el.id)
@@ -639,11 +814,16 @@ export function BoardCanvas({
     if (spaceHeldRef.current || tool === "hand") return interaction.type === "panning" ? "grabbing" : "grab"
     if (interaction.type === "panning") return "grabbing"
     if (interaction.type === "connecting") return "crosshair"
+    if (interaction.type === "rotating") return "grab"
+    if (interaction.type === "curving") return "move"
     if (activeConnectionPoint) return "crosshair"
     if (tool === "select") return "default"
     if (tool === "text") return "text"
     return "crosshair"
   }
+
+  const selectedElement = selectedIds.length === 1 ? elements.find((el) => el.id === selectedIds[0]) : null
+  const isLocked = selectedElement?.locked ?? false
 
   return (
     <div ref={containerRef} className="absolute inset-0 overflow-hidden">
@@ -661,8 +841,58 @@ export function BoardCanvas({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
-        onContextMenu={(e) => e.preventDefault()}
+        onContextMenu={handleContextMenu}
       />
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-card border border-border rounded-lg shadow-lg py-1 min-w-[180px] text-sm"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <ContextMenuItem label="Cut" shortcut="Ctrl+X" disabled={selectedIds.length === 0} onClick={() => { onCut(); closeContextMenu() }} />
+          <ContextMenuItem label="Copy" shortcut="Ctrl+C" disabled={selectedIds.length === 0} onClick={() => { onCopy(); closeContextMenu() }} />
+          <ContextMenuItem label="Paste" shortcut="Ctrl+V" onClick={() => { onPaste(); closeContextMenu() }} />
+          <ContextMenuItem label="Duplicate" shortcut="Ctrl+D" disabled={selectedIds.length === 0} onClick={() => { onDuplicate(); closeContextMenu() }} />
+          <ContextMenuSeparator />
+          <ContextMenuItem label="Bring to Front" disabled={selectedIds.length === 0} onClick={() => { onBringToFront(); closeContextMenu() }} />
+          <ContextMenuItem label="Bring Forward" disabled={selectedIds.length === 0} onClick={() => { onBringForward(); closeContextMenu() }} />
+          <ContextMenuItem label="Send Backward" disabled={selectedIds.length === 0} onClick={() => { onSendBackward(); closeContextMenu() }} />
+          <ContextMenuItem label="Send to Back" disabled={selectedIds.length === 0} onClick={() => { onSendToBack(); closeContextMenu() }} />
+          <ContextMenuSeparator />
+          <ContextMenuItem
+            label={isLocked ? "Unlock" : "Lock"}
+            disabled={selectedIds.length === 0}
+            onClick={() => { onToggleLock(); closeContextMenu() }}
+          />
+          <ContextMenuItem label="Delete" disabled={selectedIds.length === 0} onClick={() => { onDelete(); closeContextMenu() }} />
+          <ContextMenuSeparator />
+          <ContextMenuItem label="Select All" shortcut="Ctrl+A" onClick={() => { onSelectAll(); closeContextMenu() }} />
+        </div>
+      )}
     </div>
   )
+}
+
+function ContextMenuItem({ label, shortcut, disabled, onClick }: {
+  label: string
+  shortcut?: string
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      className="w-full flex items-center justify-between px-3 py-1.5 text-left hover:bg-accent disabled:opacity-40 disabled:pointer-events-none transition-colors"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span>{label}</span>
+      {shortcut && <span className="text-xs text-muted-foreground ml-4">{shortcut}</span>}
+    </button>
+  )
+}
+
+function ContextMenuSeparator() {
+  return <div className="h-px bg-border my-1" />
 }

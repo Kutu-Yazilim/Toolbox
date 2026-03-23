@@ -39,6 +39,24 @@ export function worldToScreen(worldX: number, worldY: number, camera: Camera): P
   }
 }
 
+// ── Rotation Helpers ────────────────────────────────────────────
+
+function getElementCenter(el: BoardElement): Point {
+  const bounds = getElementBounds(el)
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }
+}
+
+function rotatePoint(px: number, py: number, cx: number, cy: number, angle: number): Point {
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const dx = px - cx
+  const dy = py - cy
+  return {
+    x: cx + dx * cos - dy * sin,
+    y: cy + dx * sin + dy * cos,
+  }
+}
+
 // ── Element Factory ─────────────────────────────────────────────
 
 export function createElement(
@@ -135,14 +153,31 @@ export function getElementBounds(el: BoardElement): Bounds {
 // ── Hit Testing ─────────────────────────────────────────────────
 
 export function pointInElement(px: number, py: number, el: BoardElement, tolerance = 4): boolean {
+  // If element has rotation, inverse-rotate the test point around element center
+  let testX = px
+  let testY = py
+  if (el.rotation !== 0) {
+    const center = getElementCenter(el)
+    const unrotated = rotatePoint(px, py, center.x, center.y, -el.rotation)
+    testX = unrotated.x
+    testY = unrotated.y
+  }
+
   const bounds = getElementBounds(el)
 
   switch (el.type) {
     case "line":
     case "arrow": {
       if (el.points.length < 2) return false
+      // For curved arrows, check distance to bezier curve
+      if (el.type === "arrow" && el.controlPointOffset && (el.controlPointOffset.x !== 0 || el.controlPointOffset.y !== 0)) {
+        const start = el.points[0]
+        const end = el.points[el.points.length - 1]
+        const mid = { x: (start.x + end.x) / 2 + el.controlPointOffset.x, y: (start.y + end.y) / 2 + el.controlPointOffset.y }
+        return pointNearBezier(testX, testY, start, mid, end, tolerance + el.style.strokeWidth)
+      }
       for (let i = 0; i < el.points.length - 1; i++) {
-        if (pointNearLine(px, py, el.points[i], el.points[i + 1], tolerance + el.style.strokeWidth)) {
+        if (pointNearLine(testX, testY, el.points[i], el.points[i + 1], tolerance + el.style.strokeWidth)) {
           return true
         }
       }
@@ -151,7 +186,7 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
     case "draw": {
       if (el.points.length < 2) return false
       for (let i = 0; i < el.points.length - 1; i++) {
-        if (pointNearLine(px, py, el.points[i], el.points[i + 1], tolerance + el.style.strokeWidth + 2)) {
+        if (pointNearLine(testX, testY, el.points[i], el.points[i + 1], tolerance + el.style.strokeWidth + 2)) {
           return true
         }
       }
@@ -163,8 +198,8 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       const rx = bounds.width / 2 + tolerance
       const ry = bounds.height / 2 + tolerance
       if (rx === 0 || ry === 0) return false
-      const dx = (px - cx) / rx
-      const dy = (py - cy) / ry
+      const dx = (testX - cx) / rx
+      const dy = (testY - cy) / ry
       const outside = dx * dx + dy * dy
 
       if (el.style.fillColor !== "transparent") {
@@ -174,8 +209,8 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       const rxInner = Math.max(0, bounds.width / 2 - tolerance)
       const ryInner = Math.max(0, bounds.height / 2 - tolerance)
       if (rxInner === 0 || ryInner === 0) return outside <= 1
-      const dxInner = (px - cx) / rxInner
-      const dyInner = (py - cy) / ryInner
+      const dxInner = (testX - cx) / rxInner
+      const dyInner = (testY - cy) / ryInner
       return outside <= 1 && dxInner * dxInner + dyInner * dyInner >= 1
     }
     case "diamond": {
@@ -184,16 +219,16 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       const hw = bounds.width / 2 + tolerance
       const hh = bounds.height / 2 + tolerance
       if (hw === 0 || hh === 0) return false
-      const dx = Math.abs(px - cx) / hw
-      const dy = Math.abs(py - cy) / hh
+      const dx = Math.abs(testX - cx) / hw
+      const dy = Math.abs(testY - cy) / hh
       if (el.style.fillColor !== "transparent") {
         return dx + dy <= 1
       }
       const hwInner = Math.max(0, bounds.width / 2 - tolerance)
       const hhInner = Math.max(0, bounds.height / 2 - tolerance)
       if (hwInner === 0 || hhInner === 0) return dx + dy <= 1
-      const dxInner = Math.abs(px - cx) / hwInner
-      const dyInner = Math.abs(py - cy) / hhInner
+      const dxInner = Math.abs(testX - cx) / hwInner
+      const dyInner = Math.abs(testY - cy) / hhInner
       return dx + dy <= 1 && dxInner + dyInner >= 1
     }
     default: {
@@ -201,19 +236,19 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       const t = tolerance
       if (el.style.fillColor !== "transparent" || el.type === "text" || el.type === "sticky") {
         return (
-          px >= bounds.x - t &&
-          px <= bounds.x + bounds.width + t &&
-          py >= bounds.y - t &&
-          py <= bounds.y + bounds.height + t
+          testX >= bounds.x - t &&
+          testX <= bounds.x + bounds.width + t &&
+          testY >= bounds.y - t &&
+          testY <= bounds.y + bounds.height + t
         )
       }
       // Stroke-only rectangle
       return (
-        px >= bounds.x - t && px <= bounds.x + bounds.width + t &&
-        py >= bounds.y - t && py <= bounds.y + bounds.height + t &&
+        testX >= bounds.x - t && testX <= bounds.x + bounds.width + t &&
+        testY >= bounds.y - t && testY <= bounds.y + bounds.height + t &&
         !(
-          px >= bounds.x + t && px <= bounds.x + bounds.width - t &&
-          py >= bounds.y + t && py <= bounds.y + bounds.height - t
+          testX >= bounds.x + t && testX <= bounds.x + bounds.width - t &&
+          testY >= bounds.y + t && testY <= bounds.y + bounds.height - t
         )
       )
     }
@@ -234,6 +269,25 @@ function pointNearLine(px: number, py: number, a: Point, b: Point, threshold: nu
   const closestY = a.y + t * dy
   const dist = Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2)
   return dist <= threshold
+}
+
+function pointNearBezier(px: number, py: number, start: Point, control: Point, end: Point, threshold: number): boolean {
+  // Sample the bezier curve and check distance to segments
+  const steps = 20
+  let prevX = start.x
+  let prevY = start.y
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps
+    const invT = 1 - t
+    const bx = invT * invT * start.x + 2 * invT * t * control.x + t * t * end.x
+    const by = invT * invT * start.y + 2 * invT * t * control.y + t * t * end.y
+    if (pointNearLine(px, py, { x: prevX, y: prevY }, { x: bx, y: by }, threshold)) {
+      return true
+    }
+    prevX = bx
+    prevY = by
+  }
+  return false
 }
 
 // ── Selection Box Hit Test ──────────────────────────────────────
@@ -275,6 +329,16 @@ export function getResizeHandleAtPoint(
   const bounds = getElementBounds(el)
   const handleSize = HANDLE_SIZE / camera.zoom
 
+  // If element is rotated, inverse-rotate the test point
+  let testX = px
+  let testY = py
+  if (el.rotation !== 0) {
+    const center = getElementCenter(el)
+    const unrotated = rotatePoint(px, py, center.x, center.y, -el.rotation)
+    testX = unrotated.x
+    testY = unrotated.y
+  }
+
   const handles: { handle: ResizeHandle; x: number; y: number }[] = [
     { handle: "nw", x: bounds.x, y: bounds.y },
     { handle: "n", x: bounds.x + bounds.width / 2, y: bounds.y },
@@ -288,13 +352,64 @@ export function getResizeHandleAtPoint(
 
   for (const h of handles) {
     if (
-      Math.abs(px - h.x) <= handleSize &&
-      Math.abs(py - h.y) <= handleSize
+      Math.abs(testX - h.x) <= handleSize &&
+      Math.abs(testY - h.y) <= handleSize
     ) {
       return h.handle
     }
   }
   return null
+}
+
+// ── Rotation Handle Hit Test ────────────────────────────────────
+
+const ROTATION_HANDLE_OFFSET = 24
+
+export function getRotationHandleAtPoint(
+  px: number,
+  py: number,
+  el: BoardElement,
+  camera: Camera
+): boolean {
+  // Don't show rotation handles for lines/arrows/draw
+  if (el.type === "line" || el.type === "arrow" || el.type === "draw") return false
+
+  const bounds = getElementBounds(el)
+  const center = getElementCenter(el)
+  const handleSize = HANDLE_SIZE / camera.zoom
+  const offset = ROTATION_HANDLE_OFFSET / camera.zoom
+
+  // Rotation handle is above top-center, then rotated
+  let handleX = bounds.x + bounds.width / 2
+  let handleY = bounds.y - offset
+
+  if (el.rotation !== 0) {
+    const rotated = rotatePoint(handleX, handleY, center.x, center.y, el.rotation)
+    handleX = rotated.x
+    handleY = rotated.y
+  }
+
+  return Math.abs(px - handleX) <= handleSize && Math.abs(py - handleY) <= handleSize
+}
+
+// ── Arrow Control Point Handle Hit Test ─────────────────────────
+
+export function getArrowControlHandleAtPoint(
+  px: number,
+  py: number,
+  el: BoardElement,
+  camera: Camera
+): boolean {
+  if (el.type !== "arrow" || el.points.length < 2) return false
+  if (!el.controlPointOffset || (el.controlPointOffset.x === 0 && el.controlPointOffset.y === 0)) return false
+
+  const start = el.points[0]
+  const end = el.points[el.points.length - 1]
+  const cpx = (start.x + end.x) / 2 + el.controlPointOffset.x
+  const cpy = (start.y + end.y) / 2 + el.controlPointOffset.y
+  const handleSize = HANDLE_SIZE / camera.zoom
+
+  return Math.abs(px - cpx) <= handleSize && Math.abs(py - cpy) <= handleSize
 }
 
 // ── Snap to Grid ────────────────────────────────────────────────
@@ -494,6 +609,14 @@ function drawElement(ctx: CanvasRenderingContext2D, el: BoardElement, _isSelecte
   ctx.save()
   ctx.globalAlpha = el.style.opacity
 
+  // Apply rotation transform
+  if (el.rotation !== 0) {
+    const center = getElementCenter(el)
+    ctx.translate(center.x, center.y)
+    ctx.rotate(el.rotation)
+    ctx.translate(-center.x, -center.y)
+  }
+
   // Set stroke style
   if (el.style.strokeStyle === "dashed") {
     ctx.setLineDash([8, 4])
@@ -647,36 +770,107 @@ function drawLine(ctx: CanvasRenderingContext2D, el: BoardElement) {
   ctx.stroke()
 }
 
+function drawArrowhead(ctx: CanvasRenderingContext2D, tip: Point, angle: number, headLen: number, color: string) {
+  ctx.beginPath()
+  ctx.moveTo(tip.x, tip.y)
+  ctx.lineTo(
+    tip.x - headLen * Math.cos(angle - Math.PI / 6),
+    tip.y - headLen * Math.sin(angle - Math.PI / 6)
+  )
+  ctx.lineTo(
+    tip.x - headLen * Math.cos(angle + Math.PI / 6),
+    tip.y - headLen * Math.sin(angle + Math.PI / 6)
+  )
+  ctx.closePath()
+  ctx.fillStyle = color
+  ctx.fill()
+}
+
 function drawArrow(ctx: CanvasRenderingContext2D, el: BoardElement) {
   if (el.points.length < 2) return
 
-  // Draw the line
-  ctx.beginPath()
-  ctx.moveTo(el.points[0].x, el.points[0].y)
-  for (let i = 1; i < el.points.length; i++) {
-    ctx.lineTo(el.points[i].x, el.points[i].y)
-  }
-  ctx.stroke()
-
-  // Draw arrowhead
-  const last = el.points[el.points.length - 1]
-  const prev = el.points[el.points.length - 2]
-  const angle = Math.atan2(last.y - prev.y, last.x - prev.x)
+  const start = el.points[0]
+  const end = el.points[el.points.length - 1]
+  const hasCurve = el.controlPointOffset && (el.controlPointOffset.x !== 0 || el.controlPointOffset.y !== 0)
   const headLen = 12 + el.style.strokeWidth * 2
 
-  ctx.beginPath()
-  ctx.moveTo(last.x, last.y)
-  ctx.lineTo(
-    last.x - headLen * Math.cos(angle - Math.PI / 6),
-    last.y - headLen * Math.sin(angle - Math.PI / 6)
-  )
-  ctx.lineTo(
-    last.x - headLen * Math.cos(angle + Math.PI / 6),
-    last.y - headLen * Math.sin(angle + Math.PI / 6)
-  )
-  ctx.closePath()
-  ctx.fillStyle = el.style.strokeColor
-  ctx.fill()
+  if (hasCurve) {
+    // Draw quadratic bezier curve
+    const cpx = (start.x + end.x) / 2 + el.controlPointOffset!.x
+    const cpy = (start.y + end.y) / 2 + el.controlPointOffset!.y
+
+    ctx.beginPath()
+    ctx.moveTo(start.x, start.y)
+    ctx.quadraticCurveTo(cpx, cpy, end.x, end.y)
+    ctx.stroke()
+
+    // End arrowhead: tangent at t=1 for quadratic bezier is direction from control point to end
+    const endAngle = Math.atan2(end.y - cpy, end.x - cpx)
+    drawArrowhead(ctx, end, endAngle, headLen, el.style.strokeColor)
+
+    // Bidirectional: start arrowhead
+    if (el.bidirectional) {
+      const startAngle = Math.atan2(start.y - cpy, start.x - cpx)
+      drawArrowhead(ctx, start, startAngle, headLen, el.style.strokeColor)
+    }
+  } else {
+    // Draw straight line
+    ctx.beginPath()
+    ctx.moveTo(start.x, start.y)
+    for (let i = 1; i < el.points.length; i++) {
+      ctx.lineTo(el.points[i].x, el.points[i].y)
+    }
+    ctx.stroke()
+
+    // End arrowhead
+    const prev = el.points[el.points.length - 2]
+    const endAngle = Math.atan2(end.y - prev.y, end.x - prev.x)
+    drawArrowhead(ctx, end, endAngle, headLen, el.style.strokeColor)
+
+    // Bidirectional: start arrowhead
+    if (el.bidirectional) {
+      const next = el.points[1]
+      const startAngle = Math.atan2(start.y - next.y, start.x - next.x)
+      drawArrowhead(ctx, start, startAngle, headLen, el.style.strokeColor)
+    }
+  }
+
+  // Draw label
+  if (el.label) {
+    const midX = hasCurve
+      ? ((start.x + end.x) / 2 + (start.x + end.x) / 2 + el.controlPointOffset!.x * 2) / 2
+      : (start.x + end.x) / 2
+    const midY = hasCurve
+      ? ((start.y + end.y) / 2 + (start.y + end.y) / 2 + el.controlPointOffset!.y * 2) / 2
+      : (start.y + end.y) / 2
+
+    // For bezier, use the actual midpoint on the curve (t=0.5)
+    let labelX = midX
+    let labelY = midY
+    if (hasCurve) {
+      const cpx = (start.x + end.x) / 2 + el.controlPointOffset!.x
+      const cpy = (start.y + end.y) / 2 + el.controlPointOffset!.y
+      labelX = 0.25 * start.x + 0.5 * cpx + 0.25 * end.x
+      labelY = 0.25 * start.y + 0.5 * cpy + 0.25 * end.y
+    }
+
+    ctx.save()
+    ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
+    const metrics = ctx.measureText(el.label)
+    const textW = metrics.width + 8
+    const textH = el.style.fontSize + 6
+
+    ctx.fillStyle = getThemeCanvasBg()
+    ctx.globalAlpha = 0.85
+    ctx.fillRect(labelX - textW / 2, labelY - textH / 2, textW, textH)
+    ctx.globalAlpha = 1
+
+    ctx.fillStyle = getThemeTextColor()
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(el.label, labelX, labelY)
+    ctx.restore()
+  }
 }
 
 function drawFreehand(ctx: CanvasRenderingContext2D, el: BoardElement) {
@@ -817,6 +1011,16 @@ function drawSelectionHandles(
   const bounds = getElementBounds(el)
   const handleSize = HANDLE_SIZE / camera.zoom
   const padding = 4 / camera.zoom
+  const center = getElementCenter(el)
+
+  ctx.save()
+
+  // Apply rotation for selection outline and handles
+  if (el.rotation !== 0) {
+    ctx.translate(center.x, center.y)
+    ctx.rotate(el.rotation)
+    ctx.translate(-center.x, -center.y)
+  }
 
   // Selection outline
   ctx.strokeStyle = "#3B82F6"
@@ -830,7 +1034,17 @@ function drawSelectionHandles(
   )
 
   // Don't draw resize handles for lines/arrows/freehand
-  if (el.type === "line" || el.type === "arrow" || el.type === "draw") return
+  if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+    // For arrows with control point, draw the control handle
+    if (el.type === "arrow" && el.points.length >= 2) {
+      ctx.restore()
+      // Draw outside rotation context since arrows use world coordinates
+      drawArrowControlHandle(ctx, el, camera)
+      return
+    }
+    ctx.restore()
+    return
+  }
 
   // Handle positions
   const handles: Point[] = [
@@ -852,6 +1066,59 @@ function drawSelectionHandles(
     ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
     ctx.strokeRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
   }
+
+  // Rotation handle: above top-center
+  const rotHandleOffset = ROTATION_HANDLE_OFFSET / camera.zoom
+  const rotHandleX = bounds.x + bounds.width / 2
+  const rotHandleY = bounds.y - rotHandleOffset
+
+  // Line from top-center to rotation handle
+  ctx.beginPath()
+  ctx.strokeStyle = "#3B82F6"
+  ctx.lineWidth = 1 / camera.zoom
+  ctx.moveTo(bounds.x + bounds.width / 2, bounds.y - padding)
+  ctx.lineTo(rotHandleX, rotHandleY)
+  ctx.stroke()
+
+  // Rotation handle circle
+  const rotRadius = 5 / camera.zoom
+  ctx.beginPath()
+  ctx.arc(rotHandleX, rotHandleY, rotRadius, 0, Math.PI * 2)
+  ctx.fillStyle = "#FFFFFF"
+  ctx.fill()
+  ctx.strokeStyle = "#3B82F6"
+  ctx.lineWidth = 1.5 / camera.zoom
+  ctx.stroke()
+
+  ctx.restore()
+}
+
+function drawArrowControlHandle(
+  ctx: CanvasRenderingContext2D,
+  el: BoardElement,
+  camera: Camera
+) {
+  if (el.points.length < 2) return
+  const start = el.points[0]
+  const end = el.points[el.points.length - 1]
+  const offset = el.controlPointOffset || { x: 0, y: 0 }
+  const cpx = (start.x + end.x) / 2 + offset.x
+  const cpy = (start.y + end.y) / 2 + offset.y
+
+  const handleSize = 6 / camera.zoom
+
+  // Draw a small diamond handle
+  ctx.beginPath()
+  ctx.moveTo(cpx, cpy - handleSize)
+  ctx.lineTo(cpx + handleSize, cpy)
+  ctx.lineTo(cpx, cpy + handleSize)
+  ctx.lineTo(cpx - handleSize, cpy)
+  ctx.closePath()
+  ctx.fillStyle = "#FFFFFF"
+  ctx.fill()
+  ctx.strokeStyle = "#3B82F6"
+  ctx.lineWidth = 1.5 / camera.zoom
+  ctx.stroke()
 }
 
 function drawConnectionPoints(

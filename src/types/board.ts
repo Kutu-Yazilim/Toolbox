@@ -73,6 +73,10 @@ export interface BoardElement {
   // Arrow connections: which element+side the start/end is attached to
   startConnection?: Connection
   endConnection?: Connection
+  // Arrow-specific properties
+  controlPointOffset?: Point // for curved arrows (bezier control point offset from midpoint)
+  bidirectional?: boolean // draw arrowhead at both ends
+  label?: string // text label displayed at arrow midpoint
 }
 
 // ── Camera ──────────────────────────────────────────────────────
@@ -117,6 +121,8 @@ export type BoardAction =
   | { type: "MOVE_ELEMENTS"; ids: string[]; dx: number; dy: number }
   | { type: "BRING_TO_FRONT"; ids: string[] }
   | { type: "SEND_TO_BACK"; ids: string[] }
+  | { type: "BRING_FORWARD"; ids: string[] }
+  | { type: "SEND_BACKWARD"; ids: string[] }
   | { type: "DUPLICATE_ELEMENTS"; ids: string[] }
   | { type: "LOAD_STATE"; state: Pick<BoardState, "elements" | "camera" | "gridEnabled" | "gridSize"> }
 

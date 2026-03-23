@@ -9,6 +9,7 @@ import {
   ArrowDownToLineIcon,
   LockIcon,
   LockOpenIcon,
+  RotateCcwIcon,
 } from "lucide-react"
 
 interface BoardPropertiesProps {
@@ -35,10 +36,14 @@ export function BoardProperties({
   const isMultiple = selectedElements.length > 1
   const hasText = firstEl.type === "text" || firstEl.type === "sticky" || firstEl.type === "rectangle" || firstEl.type === "ellipse" || firstEl.type === "diamond"
   const isSticky = firstEl.type === "sticky"
+  const isArrow = firstEl.type === "arrow"
+  const hasRotation = firstEl.type !== "line" && firstEl.type !== "arrow" && firstEl.type !== "draw"
 
   const updateStyle = (updates: Partial<ElementStyle>) => {
     onUpdateElements({ style: { ...style, ...updates } })
   }
+
+  const rotationDegrees = Math.round((firstEl.rotation * 180) / Math.PI)
 
   return (
     <div className="absolute left-0 right-0 bottom-0 md:left-auto md:right-3 md:top-16 md:bottom-auto z-20 bg-card border border-border rounded-t-lg md:rounded-lg shadow-lg p-3 w-full md:w-52 max-h-60 md:max-h-[calc(100vh-250px)] overflow-y-auto flex flex-col gap-3">
@@ -70,6 +75,82 @@ export function BoardProperties({
           <Trash2Icon className="size-3" />
         </Button>
       </div>
+
+      {/* Rotation */}
+      {hasRotation && !isMultiple && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase">
+            Rotation ({rotationDegrees}°)
+          </label>
+          <div className="flex items-center gap-1">
+            <input
+              type="range"
+              min={-180}
+              max={180}
+              value={rotationDegrees}
+              onChange={(e) => {
+                const deg = parseInt(e.target.value)
+                onUpdateElements({ rotation: (deg * Math.PI) / 180 })
+              }}
+              className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer bg-muted [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
+            />
+            <Button
+              variant="outline"
+              size="icon-xs"
+              onClick={() => onUpdateElements({ rotation: 0 })}
+              title="Reset rotation"
+              disabled={firstEl.rotation === 0}
+            >
+              <RotateCcwIcon className="size-3" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Arrow-specific: Bidirectional toggle */}
+      {isArrow && !isMultiple && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase">Arrow Style</label>
+          <div className="flex gap-1">
+            <button
+              onClick={() => onUpdateElements({ bidirectional: false })}
+              className={cn(
+                "flex-1 h-7 rounded border text-[10px] font-medium transition-colors",
+                !firstEl.bidirectional
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted border-border hover:bg-accent"
+              )}
+            >
+              One-way
+            </button>
+            <button
+              onClick={() => onUpdateElements({ bidirectional: true })}
+              className={cn(
+                "flex-1 h-7 rounded border text-[10px] font-medium transition-colors",
+                firstEl.bidirectional
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted border-border hover:bg-accent"
+              )}
+            >
+              Both
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Arrow-specific: Reset curve */}
+      {isArrow && !isMultiple && firstEl.controlPointOffset && (firstEl.controlPointOffset.x !== 0 || firstEl.controlPointOffset.y !== 0) && (
+        <div className="flex flex-col gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full text-[10px] h-7"
+            onClick={() => onUpdateElements({ controlPointOffset: { x: 0, y: 0 } })}
+          >
+            Reset Curve
+          </Button>
+        </div>
+      )}
 
       {/* Stroke color */}
       {firstEl.type !== "text" && (
