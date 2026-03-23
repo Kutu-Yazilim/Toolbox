@@ -35,6 +35,7 @@ import {
   UsersIcon,
   HashIcon,
   LinkIcon,
+  BinaryIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -209,6 +210,14 @@ export const TOOLS: ToolEntry[] = [
     icon: FileTextIcon,
     categoryId: "converters",
     path: "/converters/yaml-json",
+  },
+  {
+    id: "number-base",
+    label: "Number Base",
+    description: "Convert between binary, octal, decimal, and hexadecimal with bit visualization",
+    icon: BinaryIcon,
+    categoryId: "converters",
+    path: "/converters/number-base",
   },
   // Generators
   {
