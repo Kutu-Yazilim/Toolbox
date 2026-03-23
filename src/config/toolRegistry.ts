@@ -52,6 +52,7 @@ import {
   CameraIcon,
   LockKeyholeIcon,
   ShieldCheckIcon,
+  ShieldAlertIcon,
   TimerIcon,
 } from "lucide-react"
 
@@ -483,6 +484,14 @@ export const TOOLS: ToolEntry[] = [
     icon: TimerIcon,
     categoryId: "security",
     path: "/security/totp",
+  },
+  {
+    id: "csp-builder",
+    label: "CSP Builder",
+    description: "Build Content-Security-Policy headers visually with validation warnings",
+    icon: ShieldAlertIcon,
+    categoryId: "security",
+    path: "/security/csp-builder",
   },
   // Data Tools
   {

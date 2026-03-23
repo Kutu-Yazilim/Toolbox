@@ -359,6 +359,11 @@ const TotpGenerator = React.lazy(() =>
     default: m.TotpGenerator,
   })),
 )
+const CspHeaderBuilder = React.lazy(() =>
+  import("@/components/cspbuilder/CspHeaderBuilder").then((m) => ({
+    default: m.CspHeaderBuilder,
+  })),
+)
 
 // Data Tools
 const CsvViewer = React.lazy(() =>
@@ -590,6 +595,7 @@ export const router = createBrowserRouter([
           { path: "encryption", element: lazy_(EncryptionTool) },
           { path: "cert-decoder", element: lazy_(CertificateDecoder) },
           { path: "totp", element: lazy_(TotpGenerator) },
+          { path: "csp-builder", element: lazy_(CspHeaderBuilder) },
         ],
       },
       {
