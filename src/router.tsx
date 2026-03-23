@@ -299,6 +299,13 @@ const PasswordGenerator = React.lazy(() =>
   })),
 )
 
+// Data Tools
+const CsvViewer = React.lazy(() =>
+  import("@/components/csvviewer/CsvViewer").then((m) => ({
+    default: m.CsvViewer,
+  })),
+)
+
 // Fun
 const WheelOfFate = React.lazy(() =>
   import("@/components/wheel/WheelOfFate").then((m) => ({
@@ -491,6 +498,15 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CategoryLandingPage /> },
           { path: "password-generator", element: lazy_(PasswordGenerator) },
+        ],
+      },
+      {
+        path: "data-tools",
+        element: <CategoryLayout />,
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          { index: true, element: <CategoryLandingPage /> },
+          { path: "csv-viewer", element: lazy_(CsvViewer) },
         ],
       },
       {

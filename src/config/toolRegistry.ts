@@ -40,6 +40,7 @@ import {
   ShieldIcon,
   LockIcon,
   TerminalIcon,
+  TableIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -50,6 +51,7 @@ export type CategoryId =
   | "network"
   | "pdf"
   | "security"
+  | "data-tools"
   | "fun"
 
 export type ToolCategory = {
@@ -83,6 +85,7 @@ export const CATEGORIES: ToolCategory[] = [
   { id: "network", label: "Network", path: "/network", icon: NetworkIcon },
   { id: "pdf", label: "PDF", path: "/pdf", icon: FileIcon },
   { id: "security", label: "Security", path: "/security", icon: ShieldIcon },
+  { id: "data-tools", label: "Data Tools", path: "/data-tools", icon: TableIcon },
   { id: "fun", label: "Fun", path: "/fun", icon: CircleDotIcon },
 ]
 
@@ -380,6 +383,15 @@ export const TOOLS: ToolEntry[] = [
     icon: LockIcon,
     categoryId: "security",
     path: "/security/password-generator",
+  },
+  // Data Tools
+  {
+    id: "csv-viewer",
+    label: "CSV Viewer",
+    description: "View, edit, sort, and export CSV/TSV data in a spreadsheet-like interface",
+    icon: FileSpreadsheetIcon,
+    categoryId: "data-tools",
+    path: "/data-tools/csv-viewer",
   },
   // Fun
   {
