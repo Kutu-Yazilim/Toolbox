@@ -13,7 +13,26 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from "lucide-react"
-import initSqlJs, { type Database } from "sql.js/dist/sql-asm.js"
+// @ts-expect-error sql.js lacks proper type declarations for the asm build
+import initSqlJs from "sql.js/dist/sql-asm.js"
+
+type Statement = {
+  bind: (values: unknown[]) => void
+  run: (values?: unknown[]) => void
+  step: () => boolean
+  free: () => void
+}
+
+type Database = {
+  exec: (sql: string) => { columns: string[]; values: unknown[][] }[]
+  run: (sql: string) => void
+  prepare: (sql: string) => Statement
+  close: () => void
+}
+
+type SqlJsStatic = {
+  Database: new () => Database
+}
 
 type TableInfo = {
   name: string
@@ -133,14 +152,14 @@ export function SqlPlayground() {
   useEffect(() => {
     let cancelled = false
     initSqlJs()
-      .then((SQL) => {
+      .then((SQL: SqlJsStatic) => {
         if (cancelled) return
         const database = new SQL.Database()
         dbRef.current = database
         setDb(database)
         setLoading(false)
       })
-      .catch((err) => {
+      .catch((err: unknown) => {
         if (cancelled) return
         setInitError(err instanceof Error ? err.message : "Failed to initialize SQLite")
         setLoading(false)
@@ -170,7 +189,7 @@ export function SqlPlayground() {
           const pragmaResult = database.exec(`PRAGMA table_info("${tableName}")`)
           const columns =
             pragmaResult.length > 0
-              ? pragmaResult[0].values.map((r) => ({
+              ? pragmaResult[0].values.map((r: unknown[]) => ({
                   name: String(r[1]),
                   type: String(r[2]) || "TEXT",
                 }))
@@ -289,7 +308,7 @@ export function SqlPlayground() {
       const elapsed = performance.now() - start
       setExecTime(elapsed)
       setResults(
-        res.map((r) => ({ columns: r.columns, values: r.values as QueryResult["values"] })),
+        res.map((r: { columns: string[]; values: unknown[][] }) => ({ columns: r.columns, values: r.values as QueryResult["values"] })),
       )
       refreshTables(db)
     } catch (err) {
