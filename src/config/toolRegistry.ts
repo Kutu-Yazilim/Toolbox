@@ -59,6 +59,7 @@ import {
   ArrowLeftRightIcon,
   PipetteIcon,
   FrameIcon,
+  Code2Icon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -589,6 +590,14 @@ export const TOOLS: ToolEntry[] = [
     icon: FrameIcon,
     categoryId: "image-tools",
     path: "/image-tools/placeholder",
+  },
+  {
+    id: "image-to-base64",
+    label: "Image to Base64",
+    description: "Convert images to base64 strings with data URI, HTML, and CSS output",
+    icon: Code2Icon,
+    categoryId: "image-tools",
+    path: "/image-tools/to-base64",
   },
   // Fun
   {

@@ -423,6 +423,11 @@ const PlaceholderImage = React.lazy(() =>
     default: m.PlaceholderImage,
   })),
 )
+const ImageToBase64 = React.lazy(() =>
+  import("@/components/imagebase64/ImageToBase64").then((m) => ({
+    default: m.ImageToBase64,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -655,6 +660,7 @@ export const router = createBrowserRouter([
           { path: "format", element: lazy_(ImageFormatConverter) },
           { path: "color-picker", element: lazy_(ImageColorPicker) },
           { path: "placeholder", element: lazy_(PlaceholderImage) },
+          { path: "to-base64", element: lazy_(ImageToBase64) },
         ],
       },
       {
