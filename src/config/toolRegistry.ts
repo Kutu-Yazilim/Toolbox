@@ -411,6 +411,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "data-tools",
     path: "/data-tools/data-transformer",
   },
+  {
+    id: "sql-playground",
+    label: "SQL Playground",
+    description: "Run SQL queries on uploaded CSV/JSON data with in-browser SQLite",
+    icon: DatabaseIcon,
+    categoryId: "data-tools",
+    path: "/data-tools/sql-playground",
+  },
   // Fun
   {
     id: "wheel-of-fate",

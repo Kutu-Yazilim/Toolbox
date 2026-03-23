@@ -315,6 +315,11 @@ const DataTransformer = React.lazy(() =>
     default: m.DataTransformer,
   })),
 )
+const SqlPlayground = React.lazy(() =>
+  import("@/components/sqlplayground/SqlPlayground").then((m) => ({
+    default: m.SqlPlayground,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -519,6 +524,7 @@ export const router = createBrowserRouter([
           { path: "csv-viewer", element: lazy_(CsvViewer) },
           { path: "json-path", element: lazy_(JsonPathFinder) },
           { path: "data-transformer", element: lazy_(DataTransformer) },
+          { path: "sql-playground", element: lazy_(SqlPlayground) },
         ],
       },
       {
