@@ -354,6 +354,11 @@ const CertificateDecoder = React.lazy(() =>
     default: m.CertificateDecoder,
   })),
 )
+const TotpGenerator = React.lazy(() =>
+  import("@/components/totp/TotpGenerator").then((m) => ({
+    default: m.TotpGenerator,
+  })),
+)
 
 // Data Tools
 const CsvViewer = React.lazy(() =>
@@ -584,6 +589,7 @@ export const router = createBrowserRouter([
           { path: "password-generator", element: lazy_(PasswordGenerator) },
           { path: "encryption", element: lazy_(EncryptionTool) },
           { path: "cert-decoder", element: lazy_(CertificateDecoder) },
+          { path: "totp", element: lazy_(TotpGenerator) },
         ],
       },
       {

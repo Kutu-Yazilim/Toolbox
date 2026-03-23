@@ -52,6 +52,7 @@ import {
   CameraIcon,
   LockKeyholeIcon,
   ShieldCheckIcon,
+  TimerIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -474,6 +475,14 @@ export const TOOLS: ToolEntry[] = [
     icon: ShieldCheckIcon,
     categoryId: "security",
     path: "/security/cert-decoder",
+  },
+  {
+    id: "totp",
+    label: "TOTP Generator",
+    description: "Generate time-based one-time passwords with QR code for authenticator apps",
+    icon: TimerIcon,
+    categoryId: "security",
+    path: "/security/totp",
   },
   // Data Tools
   {
