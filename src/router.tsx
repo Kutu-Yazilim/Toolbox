@@ -475,6 +475,11 @@ const Magic8Ball = React.lazy(() =>
     default: m.Magic8Ball,
   })),
 )
+const RockPaperScissors = React.lazy(() =>
+  import("@/components/rps/RockPaperScissors").then((m) => ({
+    default: m.RockPaperScissors,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -713,6 +718,7 @@ export const router = createBrowserRouter([
           { path: "bracket", element: lazy_(BracketGenerator) },
           { path: "random-picker", element: lazy_(RandomPicker) },
           { path: "magic-8-ball", element: lazy_(Magic8Ball) },
+          { path: "rock-paper-scissors", element: lazy_(RockPaperScissors) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

@@ -65,6 +65,7 @@ import {
   UsersRoundIcon,
   TrophyIcon,
   TargetIcon,
+  Gamepad2Icon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -676,6 +677,14 @@ export const TOOLS: ToolEntry[] = [
     icon: CircleDotIcon,
     categoryId: "fun",
     path: "/fun/magic-8-ball",
+  },
+  {
+    id: "rock-paper-scissors",
+    label: "Rock Paper Scissors",
+    description: "Play Rock Paper Scissors against the computer with score tracking",
+    icon: Gamepad2Icon,
+    categoryId: "fun",
+    path: "/fun/rock-paper-scissors",
   },
   // PDF Tools
   {
