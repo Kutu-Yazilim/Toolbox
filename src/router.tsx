@@ -310,6 +310,11 @@ const JsonPathFinder = React.lazy(() =>
     default: m.JsonPathFinder,
   })),
 )
+const DataTransformer = React.lazy(() =>
+  import("@/components/datatransform/DataTransformer").then((m) => ({
+    default: m.DataTransformer,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -513,6 +518,7 @@ export const router = createBrowserRouter([
           { index: true, element: <CategoryLandingPage /> },
           { path: "csv-viewer", element: lazy_(CsvViewer) },
           { path: "json-path", element: lazy_(JsonPathFinder) },
+          { path: "data-transformer", element: lazy_(DataTransformer) },
         ],
       },
       {

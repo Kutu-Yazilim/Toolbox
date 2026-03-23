@@ -42,6 +42,7 @@ import {
   TerminalIcon,
   TableIcon,
   SearchIcon,
+  WandIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -401,6 +402,14 @@ export const TOOLS: ToolEntry[] = [
     icon: SearchIcon,
     categoryId: "data-tools",
     path: "/data-tools/json-path",
+  },
+  {
+    id: "data-transformer",
+    label: "Data Transformer",
+    description: "Transform JSON/CSV data with filter, sort, map, rename, and deduplicate operations",
+    icon: WandIcon,
+    categoryId: "data-tools",
+    path: "/data-tools/data-transformer",
   },
   // Fun
   {
