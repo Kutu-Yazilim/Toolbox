@@ -287,6 +287,13 @@ const MarkdownToPdf = React.lazy(() =>
   })),
 )
 
+// Security
+const PasswordGenerator = React.lazy(() =>
+  import("@/components/password/PasswordGenerator").then((m) => ({
+    default: m.PasswordGenerator,
+  })),
+)
+
 // Fun
 const WheelOfFate = React.lazy(() =>
   import("@/components/wheel/WheelOfFate").then((m) => ({
@@ -469,6 +476,15 @@ export const router = createBrowserRouter([
           { path: "csv-to-pdf", element: lazy_(CsvToPdf) },
           { path: "html-to-pdf", element: lazy_(HtmlToPdf) },
           { path: "markdown-to-pdf", element: lazy_(MarkdownToPdf) },
+        ],
+      },
+      {
+        path: "security",
+        element: <CategoryLayout />,
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          { index: true, element: <CategoryLandingPage /> },
+          { path: "password-generator", element: lazy_(PasswordGenerator) },
         ],
       },
       {

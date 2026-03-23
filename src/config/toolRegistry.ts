@@ -37,6 +37,8 @@ import {
   LinkIcon,
   BinaryIcon,
   RulerIcon,
+  ShieldIcon,
+  LockIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -46,6 +48,7 @@ export type CategoryId =
   | "design"
   | "network"
   | "pdf"
+  | "security"
   | "fun"
 
 export type ToolCategory = {
@@ -78,6 +81,7 @@ export const CATEGORIES: ToolCategory[] = [
   { id: "design", label: "Design", path: "/design", icon: PaletteIcon },
   { id: "network", label: "Network", path: "/network", icon: NetworkIcon },
   { id: "pdf", label: "PDF", path: "/pdf", icon: FileIcon },
+  { id: "security", label: "Security", path: "/security", icon: ShieldIcon },
   { id: "fun", label: "Fun", path: "/fun", icon: CircleDotIcon },
 ]
 
@@ -358,6 +362,15 @@ export const TOOLS: ToolEntry[] = [
     icon: NetworkIcon,
     categoryId: "network",
     path: "/network/whats-my-ip",
+  },
+  // Security
+  {
+    id: "password-generator",
+    label: "Password Generator",
+    description: "Generate secure passwords and passphrases with strength analysis",
+    icon: LockIcon,
+    categoryId: "security",
+    path: "/security/password-generator",
   },
   // Fun
   {
