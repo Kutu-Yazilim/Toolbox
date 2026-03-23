@@ -428,6 +428,11 @@ const ImageToBase64 = React.lazy(() =>
     default: m.ImageToBase64,
   })),
 )
+const FaviconGenerator = React.lazy(() =>
+  import("@/components/favicon/FaviconGenerator").then((m) => ({
+    default: m.FaviconGenerator,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -661,6 +666,7 @@ export const router = createBrowserRouter([
           { path: "color-picker", element: lazy_(ImageColorPicker) },
           { path: "placeholder", element: lazy_(PlaceholderImage) },
           { path: "to-base64", element: lazy_(ImageToBase64) },
+          { path: "favicon", element: lazy_(FaviconGenerator) },
         ],
       },
       {

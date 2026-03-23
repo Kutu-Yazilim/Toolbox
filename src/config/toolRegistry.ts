@@ -60,6 +60,7 @@ import {
   PipetteIcon,
   FrameIcon,
   Code2Icon,
+  SparklesIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -598,6 +599,14 @@ export const TOOLS: ToolEntry[] = [
     icon: Code2Icon,
     categoryId: "image-tools",
     path: "/image-tools/to-base64",
+  },
+  {
+    id: "favicon",
+    label: "Favicon Generator",
+    description: "Generate all standard favicon sizes from a single image with HTML tags",
+    icon: SparklesIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/favicon",
   },
   // Fun
   {
