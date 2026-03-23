@@ -413,6 +413,11 @@ const ImageFormatConverter = React.lazy(() =>
     default: m.ImageFormatConverter,
   })),
 )
+const ImageColorPicker = React.lazy(() =>
+  import("@/components/colorpicker/ImageColorPicker").then((m) => ({
+    default: m.ImageColorPicker,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -643,6 +648,7 @@ export const router = createBrowserRouter([
           { path: "crop", element: lazy_(ImageCropper) },
           { path: "compress", element: lazy_(ImageCompressor) },
           { path: "format", element: lazy_(ImageFormatConverter) },
+          { path: "color-picker", element: lazy_(ImageColorPicker) },
         ],
       },
       {

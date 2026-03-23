@@ -57,6 +57,7 @@ import {
   Maximize2Icon,
   CropIcon,
   ArrowLeftRightIcon,
+  PipetteIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -571,6 +572,14 @@ export const TOOLS: ToolEntry[] = [
     icon: ArrowLeftRightIcon,
     categoryId: "image-tools",
     path: "/image-tools/format",
+  },
+  {
+    id: "color-from-image",
+    label: "Color Picker",
+    description: "Pick colors from any image with magnifier and HEX/RGB/HSL output",
+    icon: PipetteIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/color-picker",
   },
   // Fun
   {
