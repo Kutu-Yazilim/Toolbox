@@ -408,8 +408,6 @@ export function SqlPlayground() {
     URL.revokeObjectURL(url)
   }, [results, resultToCSV])
 
-  const isDark = document.documentElement.classList.contains("dark")
-
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -526,7 +524,7 @@ export function SqlPlayground() {
                 <Editor
                   height="100%"
                   language="sql"
-                  theme={isDark ? "vs-dark" : "light"}
+                  theme="vs-dark"
                   value={sql}
                   onChange={(v) => setSql(v ?? "")}
                   onMount={(editor) => {
@@ -555,7 +553,7 @@ export function SqlPlayground() {
                   Run
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  {navigator.platform?.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to run
+                  {/Mac|iPhone|iPad/.test(navigator.userAgent) ? "Cmd" : "Ctrl"}+Enter to run
                 </span>
                 {execTime !== null && (
                   <span className="text-xs text-muted-foreground ml-auto">

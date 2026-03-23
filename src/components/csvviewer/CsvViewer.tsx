@@ -135,13 +135,13 @@ export function CsvViewer() {
   )
 
   const sortedRows = useMemo(() => {
-    if (data.length < 2) return data.slice(1)
-    const rows = data.slice(1)
-    if (sortCol === null || sortDir === null) return rows
+    if (data.length < 2) return data.slice(1).map((row, i) => ({ row, originalIndex: i + 1 }))
+    const indexed = data.slice(1).map((row, i) => ({ row, originalIndex: i + 1 }))
+    if (sortCol === null || sortDir === null) return indexed
 
-    return [...rows].sort((a, b) => {
-      const aVal = a[sortCol] ?? ""
-      const bVal = b[sortCol] ?? ""
+    return [...indexed].sort((a, b) => {
+      const aVal = a.row[sortCol] ?? ""
+      const bVal = b.row[sortCol] ?? ""
       const aNum = Number(aVal)
       const bNum = Number(bVal)
       const isNumeric = !isNaN(aNum) && !isNaN(bNum) && aVal !== "" && bVal !== ""
@@ -413,14 +413,9 @@ export function CsvViewer() {
             </tr>
           </thead>
           <tbody>
-            {sortedRows.map((row, displayIdx) => {
-              // Find original data index for this row
-              const dataIdx = data.indexOf(row)
-              const actualDataIdx = dataIdx !== -1 ? dataIdx : displayIdx + 1
-
-              return (
+            {sortedRows.map(({ row, originalIndex }, displayIdx) => (
                 <tr
-                  key={displayIdx}
+                  key={originalIndex}
                   className={displayIdx % 2 === 0 ? "bg-background" : "bg-muted/30"}
                 >
                   <td className="px-2 py-1 text-xs text-muted-foreground text-center border-r border-border">
@@ -429,14 +424,14 @@ export function CsvViewer() {
                   {headers.map((_, colIdx) => {
                     const cellValue = row[colIdx] ?? ""
                     const isEditing =
-                      editCell?.row === actualDataIdx && editCell?.col === colIdx
+                      editCell?.row === originalIndex && editCell?.col === colIdx
 
                     return (
                       <td
                         key={colIdx}
                         className="px-3 py-1 border-r border-border"
                         onDoubleClick={() =>
-                          startEdit(actualDataIdx, colIdx, cellValue)
+                          startEdit(originalIndex, colIdx, cellValue)
                         }
                       >
                         {isEditing ? (
@@ -460,15 +455,14 @@ export function CsvViewer() {
                   <td className="px-1 py-1 text-center">
                     <button
                       className="p-0.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                      onClick={() => deleteRow(actualDataIdx)}
+                      onClick={() => deleteRow(originalIndex)}
                       title="Delete row"
                     >
                       <XIcon className="h-3 w-3" />
                     </button>
                   </td>
                 </tr>
-              )
-            })}
+              ))}
           </tbody>
         </table>
       </div>

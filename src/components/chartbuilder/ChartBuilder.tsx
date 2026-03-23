@@ -172,7 +172,7 @@ export function ChartBuilder() {
 
   const handleExportPng = useCallback(async () => {
     if (!chartRef.current) return
-    const dataUrl = await toPng(chartRef.current, { backgroundColor: "#ffffff" })
+    const dataUrl = await toPng(chartRef.current, { backgroundColor: document.documentElement.classList.contains("dark") ? "#09090b" : "#ffffff" })
     const link = document.createElement("a")
     link.download = `${title || "chart"}.png`
     link.href = dataUrl
