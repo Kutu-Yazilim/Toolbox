@@ -31,6 +31,7 @@ import {
   ArchiveIcon,
   DropletIcon,
   GanttChartIcon,
+  FingerprintIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -214,6 +215,14 @@ export const TOOLS: ToolEntry[] = [
     icon: QrCodeIcon,
     categoryId: "generators",
     path: "/generators/qr-code",
+  },
+  {
+    id: "uuid",
+    label: "UUID",
+    description: "Generate UUID v1, v4, and v7 with bulk generation and format options",
+    icon: FingerprintIcon,
+    categoryId: "generators",
+    path: "/generators/uuid",
   },
   {
     id: "jwt",

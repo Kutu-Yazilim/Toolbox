@@ -136,6 +136,11 @@ const QrGenerator = React.lazy(() =>
     default: m.QrGenerator,
   })),
 )
+const UuidGenerator = React.lazy(() =>
+  import("@/components/uuid/UuidGenerator").then((m) => ({
+    default: m.UuidGenerator,
+  })),
+)
 
 // Design
 const ColorPicker = React.lazy(() =>
@@ -363,6 +368,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CategoryLandingPage /> },
           { path: "qr-code", element: lazy_(QrGenerator) },
+          { path: "uuid", element: lazy_(UuidGenerator) },
         ],
       },
       {
