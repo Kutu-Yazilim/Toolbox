@@ -36,6 +36,7 @@ import {
   HashIcon,
   LinkIcon,
   BinaryIcon,
+  RulerIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -218,6 +219,14 @@ export const TOOLS: ToolEntry[] = [
     icon: BinaryIcon,
     categoryId: "converters",
     path: "/converters/number-base",
+  },
+  {
+    id: "unit-converter",
+    label: "Unit Converter",
+    description: "Convert between length, weight, temperature, data size, time, and speed units",
+    icon: RulerIcon,
+    categoryId: "converters",
+    path: "/converters/unit-converter",
   },
   // Generators
   {

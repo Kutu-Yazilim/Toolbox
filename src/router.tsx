@@ -107,6 +107,11 @@ const NumberBaseConverter = React.lazy(() =>
     default: m.NumberBaseConverter,
   })),
 )
+const UnitConverter = React.lazy(() =>
+  import("@/components/unitconverter/UnitConverter").then((m) => ({
+    default: m.UnitConverter,
+  })),
+)
 
 // Dev Tools
 const SqlFormatter = React.lazy(() =>
@@ -391,6 +396,7 @@ export const router = createBrowserRouter([
           { path: "base64-to-file", element: lazy_(Base64ToFile) },
           { path: "yaml-json", element: lazy_(YamlJsonConverter) },
           { path: "number-base", element: lazy_(NumberBaseConverter) },
+          { path: "unit-converter", element: lazy_(UnitConverter) },
         ],
       },
       {
