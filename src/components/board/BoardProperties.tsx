@@ -20,6 +20,8 @@ import {
   AlignVerticalSpaceBetweenIcon,
   BoldIcon,
   ItalicIcon,
+  GroupIcon,
+  UngroupIcon,
 } from "lucide-react"
 
 const FONT_FAMILIES: { label: string; value: FontFamily }[] = [
@@ -44,6 +46,8 @@ interface BoardPropertiesProps {
   onSendToBack: () => void
   onAlignElements: (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => void
   onDistributeElements: (axis: "horizontal" | "vertical") => void
+  onGroupSelected: () => void
+  onUngroupSelected: () => void
 }
 
 export function BoardProperties({
@@ -55,6 +59,8 @@ export function BoardProperties({
   onSendToBack,
   onAlignElements,
   onDistributeElements,
+  onGroupSelected,
+  onUngroupSelected,
 }: BoardPropertiesProps) {
   if (selectedElements.length === 0) return null
 
@@ -64,7 +70,9 @@ export function BoardProperties({
   const hasText = firstEl.type === "text" || firstEl.type === "sticky" || firstEl.type === "rectangle" || firstEl.type === "ellipse" || firstEl.type === "diamond"
   const isSticky = firstEl.type === "sticky"
   const isArrow = firstEl.type === "arrow"
-  const hasRotation = firstEl.type !== "line" && firstEl.type !== "arrow" && firstEl.type !== "draw"
+  const isGroupEl = firstEl.isGroup === true
+  const hasGroupSelection = selectedElements.some((el) => el.isGroup)
+  const hasRotation = firstEl.type !== "line" && firstEl.type !== "arrow" && firstEl.type !== "draw" && firstEl.type !== "group"
 
   const updateStyle = (updates: Partial<ElementStyle>) => {
     onUpdateElements({ style: { ...style, ...updates } })
@@ -76,7 +84,11 @@ export function BoardProperties({
     <div className="absolute left-0 right-0 bottom-0 md:left-auto md:right-3 md:top-16 md:bottom-auto z-20 bg-card border border-border rounded-t-lg md:rounded-lg shadow-lg p-3 w-full md:w-52 max-h-60 md:max-h-[calc(100vh-250px)] overflow-y-auto flex flex-col gap-3">
       {/* Selection info */}
       <div className="text-xs text-muted-foreground font-medium">
-        {isMultiple ? `${selectedElements.length} elements selected` : firstEl.type.charAt(0).toUpperCase() + firstEl.type.slice(1)}
+        {isMultiple
+          ? `${selectedElements.length} elements selected`
+          : isGroupEl
+            ? "Group"
+            : firstEl.type.charAt(0).toUpperCase() + firstEl.type.slice(1)}
       </div>
 
       {/* Actions */}
@@ -102,6 +114,29 @@ export function BoardProperties({
           <Trash2Icon className="size-3" />
         </Button>
       </div>
+
+      {/* Group/Ungroup */}
+      {(isMultiple || hasGroupSelection) && (
+        <div className="flex items-center gap-1">
+          {isMultiple && (
+            <Button variant="outline" size="icon-xs" onClick={onGroupSelected} title="Group (Ctrl+G)">
+              <GroupIcon className="size-3" />
+            </Button>
+          )}
+          {hasGroupSelection && (
+            <Button variant="outline" size="icon-xs" onClick={onUngroupSelected} title="Ungroup (Ctrl+Shift+G)">
+              <UngroupIcon className="size-3" />
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Group info */}
+      {isGroupEl && !isMultiple && (
+        <div className="text-[10px] text-muted-foreground">
+          Group ({firstEl.childIds?.length ?? 0} children) - double-click to edit
+        </div>
+      )}
 
       {/* Rotation */}
       {hasRotation && !isMultiple && (

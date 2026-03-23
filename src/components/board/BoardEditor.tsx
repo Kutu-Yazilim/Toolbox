@@ -15,6 +15,10 @@ import {
   exportBoardToSvg,
   generateElementId,
   getElementBounds,
+  copyBoardToPngClipboard,
+  computeGroupBounds,
+  getGroupNestingDepth,
+  getGroupDescendantIds,
 } from "@/utils/boardEngine"
 import { downloadKutud, readKutudFile } from "@/utils/kutudFormat"
 
@@ -37,6 +41,12 @@ export function BoardEditor() {
   const [history, setHistory] = useState<BoardElement[][]>([[]])
   const [historyIndex, setHistoryIndex] = useState(0)
   const skipHistoryRef = useRef(false)
+
+  // ── Grouping ────────────────────────────────────────────────────
+  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+
+  // ── Export ──────────────────────────────────────────────────────
+  const [transparentBg, setTransparentBg] = useState(false)
 
   // ── Text Editing ──────────────────────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -92,9 +102,20 @@ export function BoardEditor() {
   // ── Element Operations ────────────────────────────────────────
 
   const deleteSelected = useCallback(() => {
-    setElements((prev) => prev.filter((el) => !selectedIds.includes(el.id)))
+    // Collect all IDs to delete including group descendants
+    const allDeleteIds = new Set<string>()
+    for (const id of selectedIds) {
+      allDeleteIds.add(id)
+      const el = elements.find((e) => e.id === id)
+      if (el?.isGroup) {
+        for (const did of getGroupDescendantIds(id, elements)) {
+          allDeleteIds.add(did)
+        }
+      }
+    }
+    setElements((prev) => prev.filter((el) => !allDeleteIds.has(el.id)))
     setSelectedIds([])
-  }, [selectedIds])
+  }, [elements, selectedIds])
 
   const duplicateSelected = useCallback(() => {
     const newElements: BoardElement[] = []
@@ -211,6 +232,115 @@ export function BoardEditor() {
       )
     )
   }, [elements, selectedIds])
+
+  // ── Grouping Operations ──────────────────────────────────────
+
+  const groupSelected = useCallback(() => {
+    if (selectedIds.length < 2) return
+    // Check max nesting depth
+    for (const id of selectedIds) {
+      if (getGroupNestingDepth(id, elements) >= 2) return // max 3 levels (0,1,2 → depth 2 means the child is already 2 levels deep)
+    }
+
+    // Compute bounding box
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    for (const id of selectedIds) {
+      const el = elements.find((e) => e.id === id)
+      if (!el) continue
+      const b = el.isGroup ? computeGroupBounds(el, elements) : getElementBounds(el)
+      minX = Math.min(minX, b.x)
+      minY = Math.min(minY, b.y)
+      maxX = Math.max(maxX, b.x + b.width)
+      maxY = Math.max(maxY, b.y + b.height)
+    }
+
+    const groupEl: BoardElement = {
+      id: generateElementId(),
+      type: "group",
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      rotation: 0,
+      points: [],
+      text: "",
+      style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
+      locked: false,
+      isGroup: true,
+      childIds: [...selectedIds],
+    }
+
+    setElements((prev) => {
+      const updated = prev.map((el) =>
+        selectedIds.includes(el.id) ? { ...el, groupId: groupEl.id } : el
+      )
+      return [...updated, groupEl]
+    })
+    setSelectedIds([groupEl.id])
+  }, [elements, selectedIds, defaultStyle])
+
+  const ungroupSelected = useCallback(() => {
+    const groupIds = selectedIds.filter((id) => {
+      const el = elements.find((e) => e.id === id)
+      return el?.isGroup
+    })
+    if (groupIds.length === 0) return
+
+    const newSelectedIds: string[] = []
+    setElements((prev) => {
+      let updated = [...prev]
+      for (const gid of groupIds) {
+        const group = updated.find((e) => e.id === gid)
+        if (!group?.childIds) continue
+        // Remove groupId from children
+        updated = updated.map((el) =>
+          group.childIds!.includes(el.id) ? { ...el, groupId: undefined } : el
+        )
+        newSelectedIds.push(...group.childIds)
+        // Remove the group element
+        updated = updated.filter((el) => el.id !== gid)
+      }
+      return updated
+    })
+    setSelectedIds(newSelectedIds)
+    setEditingGroupId(null)
+  }, [elements, selectedIds])
+
+  const nudgeSelected = useCallback(
+    (dx: number, dy: number) => {
+      if (selectedIds.length === 0) return
+      // Collect all IDs to move (including group descendants)
+      const allMoveIds = new Set<string>()
+      for (const id of selectedIds) {
+        allMoveIds.add(id)
+        const el = elements.find((e) => e.id === id)
+        if (el?.isGroup) {
+          for (const did of getGroupDescendantIds(id, elements)) {
+            allMoveIds.add(did)
+          }
+        }
+      }
+      setElements((prev) =>
+        prev.map((el) => {
+          if (!allMoveIds.has(el.id)) return el
+          if (el.locked) return el
+          if (el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")) {
+            return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
+          }
+          return { ...el, x: el.x + dx, y: el.y + dy }
+        })
+      )
+    },
+    [elements, selectedIds]
+  )
+
+  const copyCanvasToClipboard = useCallback(async () => {
+    try {
+      await copyBoardToPngClipboard(elements, transparentBg)
+    } catch {
+      // Fallback: ignore silently
+    }
+  }, [elements, transparentBg])
 
   const updateSelectedElements = useCallback(
     (updates: Partial<BoardElement>) => {
@@ -537,10 +667,67 @@ export function BoardEditor() {
         return
       }
 
+      // Copy canvas as PNG to clipboard
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
+        e.preventDefault()
+        copyCanvasToClipboard()
+        return
+      }
+
+      // Group (Ctrl+G)
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "g") {
+        e.preventDefault()
+        groupSelected()
+        return
+      }
+
+      // Ungroup (Ctrl+Shift+G)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "G") {
+        e.preventDefault()
+        ungroupSelected()
+        return
+      }
+
+      // Arrow keys: nudge
+      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        if (selectedIds.length > 0) {
+          e.preventDefault()
+          const step = e.shiftKey ? 10 : 1
+          const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0
+          const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0
+          nudgeSelected(dx, dy)
+        }
+        return
+      }
+
+      // Z-order: ] bring forward, [ send backward
+      if (e.key === "]") {
+        e.preventDefault()
+        if (e.ctrlKey || e.metaKey) {
+          bringToFront()
+        } else {
+          bringForward()
+        }
+        return
+      }
+      if (e.key === "[") {
+        e.preventDefault()
+        if (e.ctrlKey || e.metaKey) {
+          sendToBack()
+        } else {
+          sendBackward()
+        }
+        return
+      }
+
       // Escape
       if (e.key === "Escape") {
-        setSelectedIds([])
-        setTool("select")
+        if (editingGroupId) {
+          setEditingGroupId(null)
+        } else {
+          setSelectedIds([])
+          setTool("select")
+        }
         if (editingId) commitText()
       }
     }
@@ -551,6 +738,7 @@ export function BoardEditor() {
     selectedIds,
     elements,
     editingId,
+    editingGroupId,
     deleteSelected,
     duplicateSelected,
     copySelected,
@@ -562,20 +750,28 @@ export function BoardEditor() {
     commitText,
     camera,
     defaultStyle,
+    groupSelected,
+    ungroupSelected,
+    nudgeSelected,
+    bringToFront,
+    sendToBack,
+    bringForward,
+    sendBackward,
+    copyCanvasToClipboard,
   ])
 
   // ── File Operations ───────────────────────────────────────────
 
   const handleExportPng = useCallback(async () => {
-    const dataUrl = await exportBoardToPng(elements)
+    const dataUrl = await exportBoardToPng(elements, 40, transparentBg)
     const a = document.createElement("a")
     a.href = dataUrl
     a.download = "board.png"
     a.click()
-  }, [elements])
+  }, [elements, transparentBg])
 
   const handleExportSvg = useCallback(() => {
-    const svgString = exportBoardToSvg(elements)
+    const svgString = exportBoardToSvg(elements, 20, transparentBg)
     const blob = new Blob([svgString], { type: "image/svg+xml" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -583,7 +779,7 @@ export function BoardEditor() {
     a.download = "board.svg"
     a.click()
     URL.revokeObjectURL(url)
-  }, [elements])
+  }, [elements, transparentBg])
 
   const handleSaveKutud = useCallback(() => {
     downloadKutud({
@@ -754,6 +950,8 @@ export function BoardEditor() {
         onSendToBack={sendToBack}
         onSelectAll={selectAll}
         onToggleLock={toggleLock}
+        editingGroupId={editingGroupId}
+        onEditingGroupChange={setEditingGroupId}
       />
 
       {/* Toolbar (left) */}
@@ -766,6 +964,7 @@ export function BoardEditor() {
         gridSize={gridSize}
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
+        transparentBg={transparentBg}
         onCameraChange={setCamera}
         onToggleGrid={() => setGridEnabled(!gridEnabled)}
         onGridSizeChange={setGridSize}
@@ -776,6 +975,7 @@ export function BoardEditor() {
         onSaveKutud={handleSaveKutud}
         onLoadKutud={handleLoadKutud}
         onFitToScreen={handleFitToScreen}
+        onToggleTransparentBg={() => setTransparentBg(!transparentBg)}
       />
 
       {/* Properties panel (right) */}
@@ -788,6 +988,8 @@ export function BoardEditor() {
         onSendToBack={sendToBack}
         onAlignElements={alignElements}
         onDistributeElements={distributeElements}
+        onGroupSelected={groupSelected}
+        onUngroupSelected={ungroupSelected}
       />
 
       {/* Text editing overlay */}
@@ -812,7 +1014,7 @@ export function BoardEditor() {
 
       {/* Bottom-right hints */}
       <div className="hidden md:block absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
-        Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text | Right-click for context menu
+        Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text | Ctrl+G group | Arrows to nudge
       </div>
     </div>
   )

@@ -26,6 +26,8 @@ import {
   updateArrowConnections,
   computeSmartGuides,
   generateElementId,
+  getGroupDescendantIds,
+  syncAllGroupBounds,
 } from "@/utils/boardEngine"
 
 interface ContextMenuState {
@@ -58,6 +60,8 @@ interface BoardCanvasProps {
   onSendToBack: () => void
   onSelectAll: () => void
   onToggleLock: () => void
+  editingGroupId: string | null
+  onEditingGroupChange: (id: string | null) => void
 }
 
 type InteractionState =
@@ -96,6 +100,8 @@ export function BoardCanvas({
   onSendToBack,
   onSelectAll,
   onToggleLock,
+  editingGroupId,
+  onEditingGroupChange,
 }: BoardCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -110,6 +116,15 @@ export function BoardCanvas({
   const spaceHeldRef = useRef(false)
   const interactionRef = useRef(interaction)
   interactionRef.current = interaction
+
+  // Touch support refs
+  const touchRef = useRef<{
+    startTouches: { x: number; y: number }[]
+    startDist: number
+    startMidpoint: { x: number; y: number }
+    startCamera: Camera
+    isTwoFinger: boolean
+  } | null>(null)
 
   // Resize observer
   useEffect(() => {
@@ -290,24 +305,53 @@ export function BoardCanvas({
           }
         }
 
-        // Check if clicking on an element
+        // Check if clicking on an element (group-aware)
         for (let i = elements.length - 1; i >= 0; i--) {
           const el = elements[i]
+          if (el.isGroup) continue // skip group containers, we hit-test children
           if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
-            if (e.shiftKey) {
-              const newIds = selectedIds.includes(el.id)
-                ? selectedIds.filter((id) => id !== el.id)
-                : [...selectedIds, el.id]
-              onSelectionChange(newIds)
-            } else if (!selectedIds.includes(el.id)) {
-              onSelectionChange([el.id])
+            // Resolve to top-level group unless we're editing inside a group
+            let targetId = el.id
+            if (el.groupId && el.groupId !== editingGroupId) {
+              // Walk up to find the top-level group (or the group being edited)
+              let gid = el.groupId
+              while (gid) {
+                const parent = elements.find((e) => e.id === gid)
+                if (!parent) break
+                targetId = parent.id
+                if (parent.groupId && parent.groupId !== editingGroupId) {
+                  gid = parent.groupId
+                } else {
+                  break
+                }
+              }
             }
-            const ids = selectedIds.includes(el.id) ? selectedIds : [el.id]
-            if (!selectedIds.includes(el.id)) {
-              onSelectionChange([el.id])
+
+            if (e.shiftKey) {
+              const newIds = selectedIds.includes(targetId)
+                ? selectedIds.filter((id) => id !== targetId)
+                : [...selectedIds, targetId]
+              onSelectionChange(newIds)
+            } else if (!selectedIds.includes(targetId)) {
+              onSelectionChange([targetId])
+            }
+            const ids = selectedIds.includes(targetId) ? selectedIds : [targetId]
+            if (!selectedIds.includes(targetId)) {
+              onSelectionChange([targetId])
+            }
+            // For group move: include all descendants
+            const allMoveIds = new Set<string>()
+            for (const id of ids) {
+              allMoveIds.add(id)
+              const elem = elements.find((e) => e.id === id)
+              if (elem?.isGroup) {
+                for (const did of getGroupDescendantIds(id, elements)) {
+                  allMoveIds.add(did)
+                }
+              }
             }
             const snapshots = new Map<string, { x: number; y: number; points: Point[] }>()
-            for (const id of ids) {
+            for (const id of allMoveIds) {
               const elem = elements.find((e) => e.id === id)
               if (elem && !elem.locked) {
                 snapshots.set(id, { x: elem.x, y: elem.y, points: [...elem.points] })
@@ -379,7 +423,7 @@ export function BoardCanvas({
       setInteraction({ type: "drawing", element: drawingElement })
       setPreviewElement(drawingElement)
     },
-    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText, onCommitText, closeContextMenu]
+    [tool, camera, elements, selectedIds, gridEnabled, gridSize, defaultStyle, getWorldPoint, onElementsChange, onSelectionChange, onToolChange, onEditText, onCommitText, closeContextMenu, editingGroupId]
   )
 
   const handleMouseMove = useCallback(
@@ -644,7 +688,7 @@ export function BoardCanvas({
             }
           }
 
-          onElementsChange(newElements)
+          onElementsChange(syncAllGroupBounds(newElements))
           break
         }
         case "resizing": {
@@ -843,11 +887,22 @@ export function BoardCanvas({
   const handleDoubleClick = useCallback(
     (e: React.MouseEvent) => {
       const world = getWorldPoint(e)
+
+      // Check if double-clicking on a selected group to enter editing mode
+      for (const id of selectedIds) {
+        const el = elements.find((el) => el.id === id)
+        if (el?.isGroup && pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
+          onEditingGroupChange(el.id)
+          onSelectionChange([])
+          return
+        }
+      }
+
       for (let i = elements.length - 1; i >= 0; i--) {
         const el = elements[i]
+        if (el.isGroup) continue
         if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
           if (el.type === "arrow") {
-            // Double-click on arrow: start editing the label
             onSelectionChange([el.id])
             onEditText(el.id)
             return
@@ -859,8 +914,13 @@ export function BoardCanvas({
           }
         }
       }
+
+      // Double-click on empty space while editing a group → exit group editing
+      if (editingGroupId) {
+        onEditingGroupChange(null)
+      }
     },
-    [elements, camera, getWorldPoint, onSelectionChange, onEditText]
+    [elements, camera, selectedIds, getWorldPoint, onSelectionChange, onEditText, editingGroupId, onEditingGroupChange]
   )
 
   // ── Cursor ──────────────────────────────────────────────────
@@ -936,6 +996,203 @@ export function BoardCanvas({
     [camera, elements, defaultStyle, onElementsChange, onSelectionChange]
   )
 
+  // ── Touch Handlers ────────────────────────────────────────────
+
+  const handleTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      const touches = e.touches
+
+      if (touches.length === 1) {
+        // Single touch → simulate mouse down
+        const touch = touches[0]
+        const rect = canvasRef.current!.getBoundingClientRect()
+        const screenX = touch.clientX - rect.left
+        const screenY = touch.clientY - rect.top
+        const world = screenToWorld(screenX, screenY, camera)
+
+        touchRef.current = {
+          startTouches: [{ x: touch.clientX, y: touch.clientY }],
+          startDist: 0,
+          startMidpoint: { x: touch.clientX, y: touch.clientY },
+          startCamera: { ...camera },
+          isTwoFinger: false,
+        }
+
+        // For select tool, try to select element
+        if (tool === "select") {
+          for (let i = elements.length - 1; i >= 0; i--) {
+            const el = elements[i]
+            if (el.isGroup) continue
+            if (pointInElement(world.x, world.y, el, 6 / camera.zoom)) {
+              let targetId = el.id
+              if (el.groupId && el.groupId !== editingGroupId) {
+                let gid = el.groupId
+                while (gid) {
+                  const parent = elements.find((e) => e.id === gid)
+                  if (!parent) break
+                  targetId = parent.id
+                  if (parent.groupId && parent.groupId !== editingGroupId) {
+                    gid = parent.groupId
+                  } else {
+                    break
+                  }
+                }
+              }
+              onSelectionChange([targetId])
+              const allMoveIds = new Set<string>()
+              allMoveIds.add(targetId)
+              const tEl = elements.find((e) => e.id === targetId)
+              if (tEl?.isGroup) {
+                for (const did of getGroupDescendantIds(targetId, elements)) {
+                  allMoveIds.add(did)
+                }
+              }
+              const snapshots = new Map<string, { x: number; y: number; points: Point[] }>()
+              for (const id of allMoveIds) {
+                const elem = elements.find((e) => e.id === id)
+                if (elem && !elem.locked) {
+                  snapshots.set(id, { x: elem.x, y: elem.y, points: [...elem.points] })
+                }
+              }
+              setInteraction({ type: "moving", startWorld: world, elementSnapshots: snapshots })
+              return
+            }
+          }
+          // Touched empty space
+          onSelectionChange([])
+        } else if (tool === "hand") {
+          setInteraction({
+            type: "panning",
+            startX: screenX,
+            startY: screenY,
+            startCamX: camera.x,
+            startCamY: camera.y,
+          })
+        }
+      } else if (touches.length === 2) {
+        // Two-finger → pinch zoom / pan
+        const t0 = touches[0]
+        const t1 = touches[1]
+        const dx = t1.clientX - t0.clientX
+        const dy = t1.clientY - t0.clientY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const midX = (t0.clientX + t1.clientX) / 2
+        const midY = (t0.clientY + t1.clientY) / 2
+
+        touchRef.current = {
+          startTouches: [
+            { x: t0.clientX, y: t0.clientY },
+            { x: t1.clientX, y: t1.clientY },
+          ],
+          startDist: dist,
+          startMidpoint: { x: midX, y: midY },
+          startCamera: { ...camera },
+          isTwoFinger: true,
+        }
+        // Cancel any existing interaction
+        setInteraction({ type: "idle" })
+      }
+    },
+    [camera, tool, elements, selectedIds, editingGroupId, onSelectionChange]
+  )
+
+  const handleTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      const touches = e.touches
+      const ref = touchRef.current
+      if (!ref) return
+
+      if (touches.length === 1 && !ref.isTwoFinger) {
+        // Single touch move → simulate mouse move
+        const touch = touches[0]
+        const rect = canvasRef.current!.getBoundingClientRect()
+        const screenX = touch.clientX - rect.left
+        const screenY = touch.clientY - rect.top
+        const world = screenToWorld(screenX, screenY, camera)
+        const current = interactionRef.current
+
+        if (current.type === "panning") {
+          const dx = screenX - current.startX
+          const dy = screenY - current.startY
+          onCameraChange({
+            ...camera,
+            x: current.startCamX + dx,
+            y: current.startCamY + dy,
+          })
+        } else if (current.type === "moving") {
+          let dx = world.x - current.startWorld.x
+          let dy = world.y - current.startWorld.y
+          if (gridEnabled) {
+            dx = snapToGrid(dx, gridSize)
+            dy = snapToGrid(dy, gridSize)
+          }
+          const newElements = elements.map((el) => {
+            const snap = current.elementSnapshots.get(el.id)
+            if (!snap) return el
+            if (el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")) {
+              return { ...el, points: snap.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
+            }
+            return { ...el, x: snap.x + dx, y: snap.y + dy }
+          })
+          onElementsChange(newElements)
+        }
+      } else if (touches.length === 2 && ref.isTwoFinger) {
+        // Two-finger: pinch + pan
+        const t0 = touches[0]
+        const t1 = touches[1]
+        const dx = t1.clientX - t0.clientX
+        const dy = t1.clientY - t0.clientY
+        const dist = Math.sqrt(dx * dx + dy * dy)
+        const midX = (t0.clientX + t1.clientX) / 2
+        const midY = (t0.clientY + t1.clientY) / 2
+
+        const rect = canvasRef.current!.getBoundingClientRect()
+
+        // Zoom
+        const scale = dist / ref.startDist
+        const newZoom = Math.max(0.1, Math.min(10, ref.startCamera.zoom * scale))
+
+        // Pan
+        const panDx = midX - ref.startMidpoint.x
+        const panDy = midY - ref.startMidpoint.y
+
+        // Zoom toward midpoint
+        const midScreenX = midX - rect.left
+        const midScreenY = midY - rect.top
+        const worldBefore = screenToWorld(midScreenX, midScreenY, ref.startCamera)
+
+        const newCam: Camera = {
+          x: ref.startCamera.x + panDx,
+          y: ref.startCamera.y + panDy,
+          zoom: newZoom,
+        }
+
+        const worldAfter = screenToWorld(midScreenX, midScreenY, newCam)
+        newCam.x += (worldAfter.x - worldBefore.x) * newZoom
+        newCam.y += (worldAfter.y - worldBefore.y) * newZoom
+
+        onCameraChange(newCam)
+      }
+    },
+    [camera, elements, gridEnabled, gridSize, onCameraChange, onElementsChange]
+  )
+
+  const handleTouchEnd = useCallback(
+    (e: React.TouchEvent) => {
+      e.preventDefault()
+      if (e.touches.length === 0) {
+        const current = interactionRef.current
+        if (current.type === "moving" || current.type === "panning") {
+          setInteraction({ type: "idle" })
+        }
+        touchRef.current = null
+      }
+    },
+    []
+  )
+
   const selectedElement = selectedIds.length === 1 ? elements.find((el) => el.id === selectedIds[0]) : null
   const isLocked = selectedElement?.locked ?? false
 
@@ -956,6 +1213,9 @@ export function BoardCanvas({
         onMouseUp={handleMouseUp}
         onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       />
 
       {/* Context Menu */}

@@ -12,6 +12,7 @@ import {
   ImageIcon,
   FileIcon,
   FileCodeIcon,
+  EyeOffIcon,
 } from "lucide-react"
 
 interface BoardTopBarProps {
@@ -20,6 +21,7 @@ interface BoardTopBarProps {
   gridSize: number
   canUndo: boolean
   canRedo: boolean
+  transparentBg: boolean
   onCameraChange: (camera: Camera) => void
   onToggleGrid: () => void
   onGridSizeChange: (size: number) => void
@@ -30,6 +32,7 @@ interface BoardTopBarProps {
   onSaveKutud: () => void
   onLoadKutud: (file: File) => void
   onFitToScreen: () => void
+  onToggleTransparentBg: () => void
 }
 
 const GRID_SIZES = [10, 20, 40, 80] as const
@@ -40,6 +43,7 @@ export function BoardTopBar({
   gridSize,
   canUndo,
   canRedo,
+  transparentBg,
   onCameraChange,
   onToggleGrid,
   onGridSizeChange,
@@ -50,6 +54,7 @@ export function BoardTopBar({
   onSaveKutud,
   onLoadKutud,
   onFitToScreen,
+  onToggleTransparentBg,
 }: BoardTopBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -148,8 +153,18 @@ export function BoardTopBar({
           <ImageIcon className="size-3.5" />
         </Button>
         <div className="w-px h-5 bg-border" />
-        <Button variant="ghost" size="icon-xs" onClick={onExportSvg} title="Export as SVG" className="rounded-l-none">
+        <Button variant="ghost" size="icon-xs" onClick={onExportSvg} title="Export as SVG">
           <FileCodeIcon className="size-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border" />
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onToggleTransparentBg}
+          title={transparentBg ? "Use white background for export" : "Use transparent background for export"}
+          className={`rounded-l-none ${transparentBg ? "text-primary" : ""}`}
+        >
+          <EyeOffIcon className="size-3.5" />
         </Button>
       </div>
 

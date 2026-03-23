@@ -176,6 +176,72 @@ export function getElementBounds(el: BoardElement): Bounds {
   }
 }
 
+// ── Group Helpers ───────────────────────────────────────────────
+
+/** Calculate bounding box of a group from its children */
+export function computeGroupBounds(
+  groupEl: BoardElement,
+  allElements: BoardElement[]
+): Bounds {
+  const childIds = groupEl.childIds || []
+  if (childIds.length === 0) return getElementBounds(groupEl)
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const cid of childIds) {
+    const child = allElements.find((e) => e.id === cid)
+    if (!child) continue
+    const b = getElementBounds(child)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.width)
+    maxY = Math.max(maxY, b.y + b.height)
+  }
+
+  if (minX === Infinity) return getElementBounds(groupEl)
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}
+
+/** Get nesting depth of a group (0 = top-level element) */
+export function getGroupNestingDepth(
+  elementId: string,
+  allElements: BoardElement[]
+): number {
+  let depth = 0
+  let current = allElements.find((e) => e.id === elementId)
+  while (current?.groupId) {
+    depth++
+    current = allElements.find((e) => e.id === current!.groupId)
+  }
+  return depth
+}
+
+/** Get all descendant IDs of a group recursively */
+export function getGroupDescendantIds(
+  groupId: string,
+  allElements: BoardElement[]
+): string[] {
+  const group = allElements.find((e) => e.id === groupId)
+  if (!group?.childIds) return []
+  const result: string[] = []
+  for (const cid of group.childIds) {
+    result.push(cid)
+    const child = allElements.find((e) => e.id === cid)
+    if (child?.isGroup) {
+      result.push(...getGroupDescendantIds(cid, allElements))
+    }
+  }
+  return result
+}
+
+/** Sync all group elements' bounds to match their children */
+export function syncAllGroupBounds(elements: BoardElement[]): BoardElement[] {
+  return elements.map((el) => {
+    if (!el.isGroup) return el
+    const bounds = computeGroupBounds(el, elements)
+    return { ...el, x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+  })
+}
+
 // ── Hit Testing ─────────────────────────────────────────────────
 
 export function pointInElement(px: number, py: number, el: BoardElement, tolerance = 4): boolean {
@@ -256,6 +322,16 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       const dxInner = Math.abs(testX - cx) / hwInner
       const dyInner = Math.abs(testY - cy) / hhInner
       return dx + dy <= 1 && dxInner + dyInner >= 1
+    }
+    case "group": {
+      // Groups use bounding box hit test (filled)
+      const t = tolerance
+      return (
+        testX >= bounds.x - t &&
+        testX <= bounds.x + bounds.width + t &&
+        testY >= bounds.y - t &&
+        testY <= bounds.y + bounds.height + t
+      )
     }
     default: {
       // Rectangle, text, sticky, image - bounding box check
@@ -556,8 +632,23 @@ export function renderBoard(
     drawGrid(ctx, camera, canvasWidth, canvasHeight, gridSize)
   }
 
-  // Draw elements
+  // Viewport culling: calculate visible area in world coordinates
+  const vpTopLeft = screenToWorld(0, 0, camera)
+  const vpBottomRight = screenToWorld(canvasWidth, canvasHeight, camera)
+  const vpMargin = 50 / camera.zoom // small margin to avoid popping
+
+  // Draw elements (with viewport culling)
   for (const el of elements) {
+    const b = getElementBounds(el)
+    // Skip elements entirely outside viewport
+    if (
+      b.x + b.width < vpTopLeft.x - vpMargin ||
+      b.x > vpBottomRight.x + vpMargin ||
+      b.y + b.height < vpTopLeft.y - vpMargin ||
+      b.y > vpBottomRight.y + vpMargin
+    ) {
+      continue
+    }
     drawElement(ctx, el, false)
   }
 
@@ -689,6 +780,9 @@ function drawElement(ctx: CanvasRenderingContext2D, el: BoardElement, _isSelecte
       break
     case "image":
       drawImage(ctx, el)
+      break
+    case "group":
+      // Groups are transparent containers, children are drawn separately
       break
   }
 
@@ -1060,13 +1154,42 @@ function drawSelectionHandles(
   // Selection outline
   ctx.strokeStyle = "#3B82F6"
   ctx.lineWidth = 1.5 / camera.zoom
-  ctx.setLineDash([])
+  if (el.isGroup) {
+    // Dashed bounding box for groups
+    ctx.setLineDash([6 / camera.zoom, 4 / camera.zoom])
+  } else {
+    ctx.setLineDash([])
+  }
   ctx.strokeRect(
     bounds.x - padding,
     bounds.y - padding,
     bounds.width + padding * 2,
     bounds.height + padding * 2
   )
+  ctx.setLineDash([])
+
+  // Groups: draw handles but no rotation handle
+  if (el.isGroup) {
+    const handles: Point[] = [
+      { x: bounds.x, y: bounds.y },
+      { x: bounds.x + bounds.width / 2, y: bounds.y },
+      { x: bounds.x + bounds.width, y: bounds.y },
+      { x: bounds.x, y: bounds.y + bounds.height / 2 },
+      { x: bounds.x + bounds.width, y: bounds.y + bounds.height / 2 },
+      { x: bounds.x, y: bounds.y + bounds.height },
+      { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height },
+      { x: bounds.x + bounds.width, y: bounds.y + bounds.height },
+    ]
+    ctx.fillStyle = "#FFFFFF"
+    ctx.strokeStyle = "#3B82F6"
+    ctx.lineWidth = 1.5 / camera.zoom
+    for (const h of handles) {
+      ctx.fillRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
+      ctx.strokeRect(h.x - handleSize / 2, h.y - handleSize / 2, handleSize, handleSize)
+    }
+    ctx.restore()
+    return
+  }
 
   // Don't draw resize handles for lines/arrows/freehand
   if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
@@ -1231,7 +1354,8 @@ export function resizeElement(
 
 export function exportBoardToPng(
   elements: BoardElement[],
-  padding = 40
+  padding = 40,
+  transparentBg = false
 ): Promise<string> {
   return new Promise((resolve) => {
     if (elements.length === 0) {
@@ -1269,9 +1393,11 @@ export function exportBoardToPng(
     const ctx = canvas.getContext("2d")!
     ctx.scale(2, 2)
 
-    // White background
-    ctx.fillStyle = "#ffffff"
-    ctx.fillRect(0, 0, width, height)
+    // Background
+    if (!transparentBg) {
+      ctx.fillStyle = "#ffffff"
+      ctx.fillRect(0, 0, width, height)
+    }
 
     // Render with offset camera
     const exportCamera: Camera = {
@@ -1286,6 +1412,52 @@ export function exportBoardToPng(
     }
 
     resolve(canvas.toDataURL("image/png"))
+  })
+}
+
+/** Copy board to clipboard as PNG */
+export async function copyBoardToPngClipboard(
+  elements: BoardElement[],
+  transparentBg = false
+): Promise<void> {
+  if (elements.length === 0) return
+
+  const padding = 40
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const el of elements) {
+    const b = getElementBounds(el)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.width)
+    maxY = Math.max(maxY, b.y + b.height)
+  }
+
+  const width = maxX - minX + padding * 2
+  const height = maxY - minY + padding * 2
+
+  const canvas = document.createElement("canvas")
+  canvas.width = width * 2
+  canvas.height = height * 2
+  const ctx = canvas.getContext("2d")!
+  ctx.scale(2, 2)
+
+  if (!transparentBg) {
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, width, height)
+  }
+
+  ctx.translate(-minX + padding, -minY + padding)
+  for (const el of elements) {
+    drawElement(ctx, el, false)
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { reject(new Error("Failed to create blob")); return }
+      navigator.clipboard.write([
+        new ClipboardItem({ "image/png": blob }),
+      ]).then(resolve).catch(reject)
+    }, "image/png")
   })
 }
 
@@ -1501,6 +1673,9 @@ function elementToSvg(el: BoardElement): string {
       const h = Math.abs(el.height)
       return `<image href="${el.imageData}" x="${x}" y="${y}" width="${w}" height="${h}" ${opacity} ${transform} />`
     }
+    case "group":
+      // Groups are virtual containers, children are exported individually
+      return ""
     default:
       return ""
   }
@@ -1541,7 +1716,7 @@ function svgTextBlock(el: BoardElement, x: number, y: number, w: number, h: numb
   return svg
 }
 
-export function exportBoardToSvg(elements: BoardElement[], padding = 20): string {
+export function exportBoardToSvg(elements: BoardElement[], padding = 20, transparentBg = false): string {
   if (elements.length === 0) {
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
   <rect width="400" height="300" fill="#ffffff"/>
@@ -1564,7 +1739,9 @@ export function exportBoardToSvg(elements: BoardElement[], padding = 20): string
   const vbY = minY - padding
 
   let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${width} ${height}" width="${width}" height="${height}">\n`
-  svg += `  <rect x="${vbX}" y="${vbY}" width="${width}" height="${height}" fill="#ffffff"/>\n`
+  if (!transparentBg) {
+    svg += `  <rect x="${vbX}" y="${vbY}" width="${width}" height="${height}" fill="#ffffff"/>\n`
+  }
 
   for (const el of elements) {
     svg += `  ${elementToSvg(el)}\n`

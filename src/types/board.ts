@@ -38,6 +38,7 @@ export type ElementType =
   | "text"
   | "sticky"
   | "image"
+  | "group"
 
 export type FontFamily = "sans-serif" | "serif" | "monospace" | "cursive"
 export type FontWeight = "normal" | "bold"
@@ -87,6 +88,10 @@ export interface BoardElement {
   label?: string // text label displayed at arrow midpoint
   // Image-specific properties
   imageData?: string // base64 data URI for image elements
+  // Group-specific properties
+  groupId?: string // parent group ID this element belongs to
+  isGroup?: boolean // whether this element is a group container
+  childIds?: string[] // IDs of children (for group elements)
 }
 
 // ── Camera ──────────────────────────────────────────────────────
