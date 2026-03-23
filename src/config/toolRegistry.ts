@@ -45,6 +45,7 @@ import {
   WandIcon,
   BarChart3Icon,
   PaintbrushIcon,
+  BoxSelectIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -369,6 +370,14 @@ export const TOOLS: ToolEntry[] = [
     icon: PaintbrushIcon,
     categoryId: "design",
     path: "/design/gradient",
+  },
+  {
+    id: "box-shadow",
+    label: "Box Shadow",
+    description: "Create CSS and Flutter box shadows with multiple layers and live preview",
+    icon: BoxSelectIcon,
+    categoryId: "design",
+    path: "/design/box-shadow",
   },
   // Network
   {

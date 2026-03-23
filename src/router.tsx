@@ -217,6 +217,13 @@ const GradientGenerator = React.lazy(() =>
   })),
 )
 
+// Box Shadow
+const BoxShadowGenerator = React.lazy(() =>
+  import("@/components/boxshadow/BoxShadowGenerator").then((m) => ({
+    default: m.BoxShadowGenerator,
+  })),
+)
+
 // Timeline
 const PriorityTimeline = React.lazy(() =>
   import("@/components/timeline/PriorityTimeline").then((m) => ({
@@ -477,6 +484,7 @@ export const router = createBrowserRouter([
           { path: "shapemaker", element: lazy_(ShapeMaker) },
           { path: "mockup", element: lazy_(MockupEditor) },
           { path: "gradient", element: lazy_(GradientGenerator) },
+          { path: "box-shadow", element: lazy_(BoxShadowGenerator) },
           {
             path: "timeline",
             element: <TimelineLayout />,
