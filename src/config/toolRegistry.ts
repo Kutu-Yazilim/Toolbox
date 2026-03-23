@@ -54,6 +54,7 @@ import {
   ShieldCheckIcon,
   ShieldAlertIcon,
   TimerIcon,
+  Maximize2Icon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -65,6 +66,7 @@ export type CategoryId =
   | "pdf"
   | "security"
   | "data-tools"
+  | "image-tools"
   | "fun"
 
 export type ToolCategory = {
@@ -99,6 +101,7 @@ export const CATEGORIES: ToolCategory[] = [
   { id: "pdf", label: "PDF", path: "/pdf", icon: FileIcon },
   { id: "security", label: "Security", path: "/security", icon: ShieldIcon },
   { id: "data-tools", label: "Data Tools", path: "/data-tools", icon: TableIcon },
+  { id: "image-tools", label: "Image Tools", path: "/image-tools", icon: ImageIcon },
   { id: "fun", label: "Fun", path: "/fun", icon: CircleDotIcon },
 ]
 
@@ -533,6 +536,15 @@ export const TOOLS: ToolEntry[] = [
     icon: BarChart3Icon,
     categoryId: "data-tools",
     path: "/data-tools/chart-builder",
+  },
+  // Image Tools
+  {
+    id: "image-resize",
+    label: "Image Resize",
+    description: "Resize images with aspect ratio lock, percentage mode, and instant download",
+    icon: Maximize2Icon,
+    categoryId: "image-tools",
+    path: "/image-tools/resize",
   },
   // Fun
   {

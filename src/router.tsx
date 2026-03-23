@@ -392,6 +392,13 @@ const ChartBuilder = React.lazy(() =>
   })),
 )
 
+// Image Tools
+const ImageResizer = React.lazy(() =>
+  import("@/components/imageresizer/ImageResizer").then((m) => ({
+    default: m.ImageResizer,
+  })),
+)
+
 // Fun
 const WheelOfFate = React.lazy(() =>
   import("@/components/wheel/WheelOfFate").then((m) => ({
@@ -609,6 +616,15 @@ export const router = createBrowserRouter([
           { path: "data-transformer", element: lazy_(DataTransformer) },
           { path: "sql-playground", element: lazy_(SqlPlayground) },
           { path: "chart-builder", element: lazy_(ChartBuilder) },
+        ],
+      },
+      {
+        path: "image-tools",
+        element: <CategoryLayout />,
+        errorElement: <RouteErrorBoundary />,
+        children: [
+          { index: true, element: <CategoryLandingPage /> },
+          { path: "resize", element: lazy_(ImageResizer) },
         ],
       },
       {
