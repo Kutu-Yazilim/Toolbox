@@ -43,6 +43,7 @@ import {
   TableIcon,
   SearchIcon,
   WandIcon,
+  BarChart3Icon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -418,6 +419,14 @@ export const TOOLS: ToolEntry[] = [
     icon: DatabaseIcon,
     categoryId: "data-tools",
     path: "/data-tools/sql-playground",
+  },
+  {
+    id: "chart-builder",
+    label: "Chart Builder",
+    description: "Visualize CSV/JSON data as bar, line, pie, scatter, and area charts",
+    icon: BarChart3Icon,
+    categoryId: "data-tools",
+    path: "/data-tools/chart-builder",
   },
   // Fun
   {

@@ -320,6 +320,11 @@ const SqlPlayground = React.lazy(() =>
     default: m.SqlPlayground,
   })),
 )
+const ChartBuilder = React.lazy(() =>
+  import("@/components/chartbuilder/ChartBuilder").then((m) => ({
+    default: m.ChartBuilder,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -525,6 +530,7 @@ export const router = createBrowserRouter([
           { path: "json-path", element: lazy_(JsonPathFinder) },
           { path: "data-transformer", element: lazy_(DataTransformer) },
           { path: "sql-playground", element: lazy_(SqlPlayground) },
+          { path: "chart-builder", element: lazy_(ChartBuilder) },
         ],
       },
       {
