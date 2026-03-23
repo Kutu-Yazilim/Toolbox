@@ -67,6 +67,7 @@ import {
   TargetIcon,
   Gamepad2Icon,
   ScaleIcon,
+  ZapIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -694,6 +695,14 @@ export const TOOLS: ToolEntry[] = [
     icon: ScaleIcon,
     categoryId: "fun",
     path: "/fun/would-you-rather",
+  },
+  {
+    id: "decision-maker",
+    label: "Decision Maker",
+    description: "Get dramatic yes/no answers to your toughest questions",
+    icon: ZapIcon,
+    categoryId: "fun",
+    path: "/fun/decision-maker",
   },
   // PDF Tools
   {

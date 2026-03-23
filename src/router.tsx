@@ -485,6 +485,11 @@ const WouldYouRather = React.lazy(() =>
     default: m.WouldYouRather,
   })),
 )
+const DecisionMaker = React.lazy(() =>
+  import("@/components/decisionmaker/DecisionMaker").then((m) => ({
+    default: m.DecisionMaker,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -725,6 +730,7 @@ export const router = createBrowserRouter([
           { path: "magic-8-ball", element: lazy_(Magic8Ball) },
           { path: "rock-paper-scissors", element: lazy_(RockPaperScissors) },
           { path: "would-you-rather", element: lazy_(WouldYouRather) },
+          { path: "decision-maker", element: lazy_(DecisionMaker) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },
