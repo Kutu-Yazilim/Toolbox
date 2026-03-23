@@ -305,6 +305,11 @@ const CsvViewer = React.lazy(() =>
     default: m.CsvViewer,
   })),
 )
+const JsonPathFinder = React.lazy(() =>
+  import("@/components/jsonpath/JsonPathFinder").then((m) => ({
+    default: m.JsonPathFinder,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -507,6 +512,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CategoryLandingPage /> },
           { path: "csv-viewer", element: lazy_(CsvViewer) },
+          { path: "json-path", element: lazy_(JsonPathFinder) },
         ],
       },
       {

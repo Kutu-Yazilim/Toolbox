@@ -41,6 +41,7 @@ import {
   LockIcon,
   TerminalIcon,
   TableIcon,
+  SearchIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -392,6 +393,14 @@ export const TOOLS: ToolEntry[] = [
     icon: FileSpreadsheetIcon,
     categoryId: "data-tools",
     path: "/data-tools/csv-viewer",
+  },
+  {
+    id: "json-path",
+    label: "JSON Path",
+    description: "Explore JSON structure, find paths, and query with JSONPath expressions",
+    icon: SearchIcon,
+    categoryId: "data-tools",
+    path: "/data-tools/json-path",
   },
   // Fun
   {
