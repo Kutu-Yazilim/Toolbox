@@ -147,6 +147,13 @@ const LoremIpsumGenerator = React.lazy(() =>
   })),
 )
 
+// Fake Data
+const FakeDataGenerator = React.lazy(() =>
+  import("@/components/fakedata/FakeDataGenerator").then((m) => ({
+    default: m.FakeDataGenerator,
+  })),
+)
+
 // Design
 const ColorPicker = React.lazy(() =>
   import("@/components/color/ColorPicker").then((m) => ({
@@ -375,6 +382,7 @@ export const router = createBrowserRouter([
           { path: "qr-code", element: lazy_(QrGenerator) },
           { path: "uuid", element: lazy_(UuidGenerator) },
           { path: "lorem-ipsum", element: lazy_(LoremIpsumGenerator) },
+          { path: "fake-data", element: lazy_(FakeDataGenerator) },
         ],
       },
       {

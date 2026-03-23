@@ -32,6 +32,7 @@ import {
   DropletIcon,
   GanttChartIcon,
   FingerprintIcon,
+  UsersIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -243,6 +244,14 @@ export const TOOLS: ToolEntry[] = [
       { id: "decode", label: "Decode", isDefault: true },
       { id: "forge", label: "Forge" },
     ],
+  },
+  {
+    id: "fake-data",
+    label: "Fake Data",
+    description: "Generate fake names, emails, addresses, and custom JSON datasets",
+    icon: UsersIcon,
+    categoryId: "generators",
+    path: "/generators/fake-data",
   },
   // Design
   {
