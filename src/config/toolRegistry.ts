@@ -55,6 +55,7 @@ import {
   ShieldAlertIcon,
   TimerIcon,
   Maximize2Icon,
+  CropIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -545,6 +546,14 @@ export const TOOLS: ToolEntry[] = [
     icon: Maximize2Icon,
     categoryId: "image-tools",
     path: "/image-tools/resize",
+  },
+  {
+    id: "image-crop",
+    label: "Image Crop",
+    description: "Crop images with preset aspect ratios and draggable selection",
+    icon: CropIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/crop",
   },
   // Fun
   {

@@ -398,6 +398,11 @@ const ImageResizer = React.lazy(() =>
     default: m.ImageResizer,
   })),
 )
+const ImageCropper = React.lazy(() =>
+  import("@/components/imagecropper/ImageCropper").then((m) => ({
+    default: m.ImageCropper,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -625,6 +630,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CategoryLandingPage /> },
           { path: "resize", element: lazy_(ImageResizer) },
+          { path: "crop", element: lazy_(ImageCropper) },
         ],
       },
       {
