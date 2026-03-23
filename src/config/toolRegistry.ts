@@ -555,6 +555,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "image-tools",
     path: "/image-tools/crop",
   },
+  {
+    id: "image-compress",
+    label: "Image Compress",
+    description: "Compress images with adjustable quality and format conversion",
+    icon: ArchiveIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/compress",
+  },
   // Fun
   {
     id: "wheel-of-fate",
