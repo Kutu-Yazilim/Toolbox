@@ -147,6 +147,13 @@ const LoremIpsumGenerator = React.lazy(() =>
   })),
 )
 
+// Slug
+const SlugGenerator = React.lazy(() =>
+  import("@/components/slug/SlugGenerator").then((m) => ({
+    default: m.SlugGenerator,
+  })),
+)
+
 // Fake Data
 const FakeDataGenerator = React.lazy(() =>
   import("@/components/fakedata/FakeDataGenerator").then((m) => ({
@@ -391,6 +398,7 @@ export const router = createBrowserRouter([
           { path: "lorem-ipsum", element: lazy_(LoremIpsumGenerator) },
           { path: "fake-data", element: lazy_(FakeDataGenerator) },
           { path: "hash", element: lazy_(HashGenerator) },
+          { path: "slug", element: lazy_(SlugGenerator) },
         ],
       },
       {

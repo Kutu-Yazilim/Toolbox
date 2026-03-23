@@ -34,6 +34,7 @@ import {
   FingerprintIcon,
   UsersIcon,
   HashIcon,
+  LinkIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -261,6 +262,14 @@ export const TOOLS: ToolEntry[] = [
     icon: HashIcon,
     categoryId: "generators",
     path: "/generators/hash",
+  },
+  {
+    id: "slug",
+    label: "Slug Generator",
+    description: "Convert text to URL-friendly slugs with transliteration support",
+    icon: LinkIcon,
+    categoryId: "generators",
+    path: "/generators/slug",
   },
   // Design
   {
