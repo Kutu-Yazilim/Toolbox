@@ -49,6 +49,7 @@ import {
   PencilRulerIcon,
   Settings2Icon,
   GitBranchIcon,
+  CameraIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -214,6 +215,14 @@ export const TOOLS: ToolEntry[] = [
     icon: GitBranchIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/git-builder",
+  },
+  {
+    id: "code-screenshot",
+    label: "Code Screenshot",
+    description: "Create beautiful code screenshots with custom backgrounds and window chrome",
+    icon: CameraIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/code-screenshot",
   },
   // Converters
   {

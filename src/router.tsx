@@ -159,6 +159,11 @@ const GitCommandBuilder = React.lazy(() =>
     default: m.GitCommandBuilder,
   })),
 )
+const CodeScreenshot = React.lazy(() =>
+  import("@/components/codescreenshot/CodeScreenshot").then((m) => ({
+    default: m.CodeScreenshot,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -463,6 +468,7 @@ export const router = createBrowserRouter([
           { path: "chmod", element: lazy_(ChmodCalculator) },
           { path: "env-editor", element: lazy_(EnvEditor) },
           { path: "git-builder", element: lazy_(GitCommandBuilder) },
+          { path: "code-screenshot", element: lazy_(CodeScreenshot) },
         ],
       },
       {
