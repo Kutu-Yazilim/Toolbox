@@ -460,6 +460,11 @@ const TeamShuffler = React.lazy(() =>
     default: m.TeamShuffler,
   })),
 )
+const BracketGenerator = React.lazy(() =>
+  import("@/components/bracket/BracketGenerator").then((m) => ({
+    default: m.BracketGenerator,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -695,6 +700,7 @@ export const router = createBrowserRouter([
           { path: "dice-roller", element: lazy_(DiceRoller) },
           { path: "random-number", element: lazy_(RandomNumberGenerator) },
           { path: "team-shuffler", element: lazy_(TeamShuffler) },
+          { path: "bracket", element: lazy_(BracketGenerator) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

@@ -63,6 +63,7 @@ import {
   SparklesIcon,
   DicesIcon,
   UsersRoundIcon,
+  TrophyIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -650,6 +651,14 @@ export const TOOLS: ToolEntry[] = [
     icon: UsersRoundIcon,
     categoryId: "fun",
     path: "/fun/team-shuffler",
+  },
+  {
+    id: "bracket",
+    label: "Bracket",
+    description: "Generate single-elimination tournament brackets with interactive winner selection",
+    icon: TrophyIcon,
+    categoryId: "fun",
+    path: "/fun/bracket",
   },
   // PDF Tools
   {
