@@ -64,6 +64,7 @@ import {
   DicesIcon,
   UsersRoundIcon,
   TrophyIcon,
+  TargetIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -659,6 +660,14 @@ export const TOOLS: ToolEntry[] = [
     icon: TrophyIcon,
     categoryId: "fun",
     path: "/fun/bracket",
+  },
+  {
+    id: "random-picker",
+    label: "Random Picker",
+    description: "Randomly pick items from a list with dramatic card-flip reveal",
+    icon: TargetIcon,
+    categoryId: "fun",
+    path: "/fun/random-picker",
   },
   // PDF Tools
   {
