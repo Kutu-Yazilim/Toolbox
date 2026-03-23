@@ -11,33 +11,42 @@ import {
   UploadIcon,
   ImageIcon,
   FileIcon,
+  FileCodeIcon,
 } from "lucide-react"
 
 interface BoardTopBarProps {
   camera: Camera
   gridEnabled: boolean
+  gridSize: number
   canUndo: boolean
   canRedo: boolean
   onCameraChange: (camera: Camera) => void
   onToggleGrid: () => void
+  onGridSizeChange: (size: number) => void
   onUndo: () => void
   onRedo: () => void
   onExportPng: () => void
+  onExportSvg: () => void
   onSaveKutud: () => void
   onLoadKutud: (file: File) => void
   onFitToScreen: () => void
 }
 
+const GRID_SIZES = [10, 20, 40, 80] as const
+
 export function BoardTopBar({
   camera,
   gridEnabled,
+  gridSize,
   canUndo,
   canRedo,
   onCameraChange,
   onToggleGrid,
+  onGridSizeChange,
   onUndo,
   onRedo,
   onExportPng,
+  onExportSvg,
   onSaveKutud,
   onLoadKutud,
   onFitToScreen,
@@ -99,6 +108,21 @@ export function BoardTopBar({
         >
           <GridIcon className="size-3.5" />
         </Button>
+        {gridEnabled && (
+          <>
+            <div className="w-px h-5 bg-border" />
+            <select
+              value={gridSize}
+              onChange={(e) => onGridSizeChange(Number(e.target.value))}
+              className="h-6 px-1 text-[10px] bg-transparent border-none outline-none cursor-pointer text-muted-foreground hover:text-foreground"
+              title="Grid size"
+            >
+              {GRID_SIZES.map((s) => (
+                <option key={s} value={s}>{s}px</option>
+              ))}
+            </select>
+          </>
+        )}
         <div className="w-px h-5 bg-border" />
         <Button variant="ghost" size="icon-xs" onClick={onFitToScreen} title="Fit to screen">
           <MaximizeIcon className="size-3.5" />
@@ -120,8 +144,12 @@ export function BoardTopBar({
           <UploadIcon className="size-3.5" />
         </Button>
         <div className="w-px h-5 bg-border" />
-        <Button variant="ghost" size="icon-xs" onClick={onExportPng} title="Export as PNG" className="rounded-l-none">
+        <Button variant="ghost" size="icon-xs" onClick={onExportPng} title="Export as PNG">
           <ImageIcon className="size-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border" />
+        <Button variant="ghost" size="icon-xs" onClick={onExportSvg} title="Export as SVG" className="rounded-l-none">
+          <FileCodeIcon className="size-3.5" />
         </Button>
       </div>
 

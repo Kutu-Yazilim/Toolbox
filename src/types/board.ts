@@ -37,6 +37,11 @@ export type ElementType =
   | "draw"
   | "text"
   | "sticky"
+  | "image"
+
+export type FontFamily = "sans-serif" | "serif" | "monospace" | "cursive"
+export type FontWeight = "normal" | "bold"
+export type FontStyle = "normal" | "italic"
 
 export interface ElementStyle {
   strokeColor: string
@@ -48,6 +53,9 @@ export interface ElementStyle {
   textAlign: "left" | "center" | "right"
   strokeStyle: "solid" | "dashed" | "dotted"
   borderRadius: number
+  fontWeight: FontWeight
+  fontStyle: FontStyle
+  textColor: string
 }
 
 // Connection point on a shape (for arrows)
@@ -77,6 +85,8 @@ export interface BoardElement {
   controlPointOffset?: Point // for curved arrows (bezier control point offset from midpoint)
   bidirectional?: boolean // draw arrowhead at both ends
   label?: string // text label displayed at arrow midpoint
+  // Image-specific properties
+  imageData?: string // base64 data URI for image elements
 }
 
 // ── Camera ──────────────────────────────────────────────────────
@@ -160,6 +170,9 @@ export const DEFAULT_STYLE: ElementStyle = {
   textAlign: "center",
   strokeStyle: "solid",
   borderRadius: 0,
+  fontWeight: "normal",
+  fontStyle: "normal",
+  textColor: "",
 }
 
 /** Returns a default style with colors adapted to current theme */
@@ -190,6 +203,14 @@ export const STICKY_COLORS = [
   "#F3F4F6", // gray
   "#FECACA", // red
 ]
+
+// ── Smart Guides ─────────────────────────────────────────────────
+
+export interface SmartGuide {
+  orientation: "horizontal" | "vertical"
+  position: number
+  snappedTo: number
+}
 
 export const STROKE_COLORS = [
   "#1e1e1e", "#e03131", "#2f9e44", "#1971c2",

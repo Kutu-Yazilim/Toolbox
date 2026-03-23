@@ -7,6 +7,7 @@ import type {
   ElementStyle,
   ElementType,
   ConnectionSide,
+  SmartGuide,
 } from "@/types/board"
 import {
   DEFAULT_STYLE,
@@ -15,6 +16,24 @@ import {
   getThemeTextColor,
   getThemeCanvasBg,
 } from "@/types/board"
+
+// ── Font Family Map ──────────────────────────────────────────────
+
+const FONT_FAMILY_MAP: Record<string, string> = {
+  "sans-serif": "Inter, system-ui, sans-serif",
+  "serif": "Georgia, serif",
+  "monospace": "monospace",
+  "cursive": "Caveat, cursive",
+}
+
+function buildFontString(style: ElementStyle): string {
+  const family = FONT_FAMILY_MAP[style.fontFamily] || style.fontFamily
+  return `${style.fontStyle || "normal"} ${style.fontWeight || "normal"} ${style.fontSize}px ${family}`
+}
+
+// ── Image Cache ──────────────────────────────────────────────────
+
+const imageCache = new Map<string, HTMLImageElement>()
 
 // ── ID Generation ───────────────────────────────────────────────
 
@@ -124,6 +143,13 @@ export function createElement(
       return { ...base, points: [{ x, y }], style: { ...baseStyle, fillColor: "transparent" } }
     case "draw":
       return { ...base, points: [{ x, y }], style: { ...baseStyle, fillColor: "transparent" } }
+    case "image":
+      return {
+        ...base,
+        width: 200,
+        height: 200,
+        style: { ...baseStyle, fillColor: "transparent", strokeColor: "transparent" },
+      }
     default:
       return base
   }
@@ -232,9 +258,9 @@ export function pointInElement(px: number, py: number, el: BoardElement, toleran
       return dx + dy <= 1 && dxInner + dyInner >= 1
     }
     default: {
-      // Rectangle, text, sticky - bounding box check
+      // Rectangle, text, sticky, image - bounding box check
       const t = tolerance
-      if (el.style.fillColor !== "transparent" || el.type === "text" || el.type === "sticky") {
+      if (el.style.fillColor !== "transparent" || el.type === "text" || el.type === "sticky" || el.type === "image") {
         return (
           testX >= bounds.x - t &&
           testX <= bounds.x + bounds.width + t &&
@@ -464,7 +490,7 @@ export function getConnectionPointAtMouse(
     const el = elements[i]
     if (excludeIds.includes(el.id)) continue
     // Only connect to shapes (not lines/arrows/draw/text)
-    if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text") continue
+    if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text" || el.type === "image") continue
     const cps = getConnectionPoints(el)
     for (const cp of cps) {
       const d = Math.sqrt((px - cp.point.x) ** 2 + (py - cp.point.y) ** 2)
@@ -512,7 +538,8 @@ export function renderBoard(
   selectionBox: Bounds | null,
   previewElement: BoardElement | null,
   hoveredElementId: string | null = null,
-  activeConnectionPoint: { elementId: string; side: ConnectionSide } | null = null
+  activeConnectionPoint: { elementId: string; side: ConnectionSide } | null = null,
+  smartGuides: SmartGuide[] = []
 ) {
   // Theme-aware background
   const bgColor = getThemeCanvasBg()
@@ -561,6 +588,11 @@ export function renderBoard(
     if (el && el.type !== "line" && el.type !== "arrow" && el.type !== "draw" && el.type !== "text") {
       drawConnectionPoints(ctx, el, camera, activeConnectionPoint)
     }
+  }
+
+  // Draw smart guides
+  if (smartGuides.length > 0) {
+    drawSmartGuides(ctx, smartGuides, camera, canvasWidth, canvasHeight)
   }
 
   // Draw selection box
@@ -655,6 +687,9 @@ function drawElement(ctx: CanvasRenderingContext2D, el: BoardElement, _isSelecte
     case "sticky":
       drawSticky(ctx, el)
       break
+    case "image":
+      drawImage(ctx, el)
+      break
   }
 
   ctx.setLineDash([])
@@ -695,8 +730,8 @@ function drawRectangle(ctx: CanvasRenderingContext2D, el: BoardElement) {
 
 function drawShapeText(ctx: CanvasRenderingContext2D, el: BoardElement, x: number, y: number, w: number, h: number) {
   ctx.save()
-  ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
-  ctx.fillStyle = getThemeTextColor()
+  ctx.font = buildFontString(el.style)
+  ctx.fillStyle = el.style.textColor || getThemeTextColor()
   ctx.textAlign = el.style.textAlign
   ctx.textBaseline = "top"
 
@@ -855,7 +890,7 @@ function drawArrow(ctx: CanvasRenderingContext2D, el: BoardElement) {
     }
 
     ctx.save()
-    ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
+    ctx.font = buildFontString(el.style)
     const metrics = ctx.measureText(el.label)
     const textW = metrics.width + 8
     const textH = el.style.fontSize + 6
@@ -891,9 +926,9 @@ function drawFreehand(ctx: CanvasRenderingContext2D, el: BoardElement) {
 
 function drawText(ctx: CanvasRenderingContext2D, el: BoardElement) {
   if (!el.text) return
-  ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
-  // Use theme text color if stroke is transparent (i.e. pure text elements)
-  ctx.fillStyle = el.style.strokeColor === "transparent" ? getThemeTextColor() : el.style.strokeColor
+  ctx.font = buildFontString(el.style)
+  // Use textColor if set, otherwise stroke color, otherwise theme text color
+  ctx.fillStyle = el.style.textColor || (el.style.strokeColor === "transparent" ? getThemeTextColor() : el.style.strokeColor)
   ctx.textAlign = el.style.textAlign
   ctx.textBaseline = "top"
 
@@ -960,8 +995,8 @@ function drawSticky(ctx: CanvasRenderingContext2D, el: BoardElement) {
 
   // Text
   if (el.text) {
-    ctx.font = `${el.style.fontSize}px ${el.style.fontFamily}`
-    ctx.fillStyle = "#1e1e1e"
+    ctx.font = buildFontString(el.style)
+    ctx.fillStyle = el.style.textColor || "#1e1e1e"
     ctx.textAlign = el.style.textAlign
     ctx.textBaseline = "top"
 
@@ -1252,4 +1287,382 @@ export function exportBoardToPng(
 
     resolve(canvas.toDataURL("image/png"))
   })
+}
+
+// ── Draw Image Element ───────────────────────────────────────────
+
+function drawImage(ctx: CanvasRenderingContext2D, el: BoardElement) {
+  if (!el.imageData) return
+
+  let img = imageCache.get(el.id)
+  if (!img) {
+    img = new Image()
+    img.src = el.imageData
+    imageCache.set(el.id, img)
+    // Re-render when loaded (the render loop will pick it up)
+    img.onload = () => {
+      // Image will be drawn on next render cycle
+    }
+  }
+
+  if (img.complete && img.naturalWidth > 0) {
+    const x = Math.min(el.x, el.x + el.width)
+    const y = Math.min(el.y, el.y + el.height)
+    const w = Math.abs(el.width)
+    const h = Math.abs(el.height)
+    ctx.drawImage(img, x, y, w, h)
+  }
+}
+
+// ── SVG Export ───────────────────────────────────────────────────
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
+function svgStrokeDasharray(style: ElementStyle): string {
+  if (style.strokeStyle === "dashed") return `stroke-dasharray="8 4"`
+  if (style.strokeStyle === "dotted") return `stroke-dasharray="2 4"`
+  return ""
+}
+
+function svgTransform(el: BoardElement): string {
+  if (el.rotation === 0) return ""
+  const center = getElementCenter(el)
+  const deg = (el.rotation * 180) / Math.PI
+  return `transform="rotate(${deg} ${center.x} ${center.y})"`
+}
+
+function svgFontString(style: ElementStyle): string {
+  const family = FONT_FAMILY_MAP[style.fontFamily] || style.fontFamily
+  return `font-family="${escapeXml(family)}" font-size="${style.fontSize}" font-weight="${style.fontWeight || "normal"}" font-style="${style.fontStyle || "normal"}"`
+}
+
+function elementToSvg(el: BoardElement): string {
+  const { style } = el
+  const opacity = style.opacity !== 1 ? `opacity="${style.opacity}"` : ""
+  const dash = svgStrokeDasharray(style)
+  const transform = svgTransform(el)
+  const strokeAttr = style.strokeColor !== "transparent" ? `stroke="${style.strokeColor}" stroke-width="${style.strokeWidth}"` : `stroke="none"`
+  const fillAttr = style.fillColor !== "transparent" ? `fill="${style.fillColor}"` : `fill="none"`
+
+  switch (el.type) {
+    case "rectangle": {
+      const x = Math.min(el.x, el.x + el.width)
+      const y = Math.min(el.y, el.y + el.height)
+      const w = Math.abs(el.width)
+      const h = Math.abs(el.height)
+      let svg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${style.borderRadius}" ${fillAttr} ${strokeAttr} ${dash} ${opacity} ${transform} />`
+      if (el.text) {
+        svg += svgTextBlock(el, x, y, w, h)
+      }
+      return svg
+    }
+    case "ellipse": {
+      const cx = el.x + el.width / 2
+      const cy = el.y + el.height / 2
+      const rx = Math.abs(el.width) / 2
+      const ry = Math.abs(el.height) / 2
+      let svg = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${fillAttr} ${strokeAttr} ${dash} ${opacity} ${transform} />`
+      if (el.text) {
+        const x = Math.min(el.x, el.x + el.width)
+        const y = Math.min(el.y, el.y + el.height)
+        svg += svgTextBlock(el, x, y, Math.abs(el.width), Math.abs(el.height))
+      }
+      return svg
+    }
+    case "diamond": {
+      const cx = el.x + el.width / 2
+      const cy = el.y + el.height / 2
+      const hw = Math.abs(el.width) / 2
+      const hh = Math.abs(el.height) / 2
+      const points = `${cx},${cy - hh} ${cx + hw},${cy} ${cx},${cy + hh} ${cx - hw},${cy}`
+      let svg = `<polygon points="${points}" ${fillAttr} ${strokeAttr} ${dash} ${opacity} ${transform} />`
+      if (el.text) {
+        const x = Math.min(el.x, el.x + el.width)
+        const y = Math.min(el.y, el.y + el.height)
+        svg += svgTextBlock(el, x, y, Math.abs(el.width), Math.abs(el.height))
+      }
+      return svg
+    }
+    case "line": {
+      if (el.points.length < 2) return ""
+      const pts = el.points.map((p) => `${p.x},${p.y}`).join(" ")
+      return `<polyline points="${pts}" fill="none" ${strokeAttr} ${dash} ${opacity} ${transform} stroke-linecap="round" stroke-linejoin="round" />`
+    }
+    case "arrow": {
+      if (el.points.length < 2) return ""
+      const start = el.points[0]
+      const end = el.points[el.points.length - 1]
+      const hasCurve = el.controlPointOffset && (el.controlPointOffset.x !== 0 || el.controlPointOffset.y !== 0)
+      const headLen = 12 + style.strokeWidth * 2
+
+      let pathD: string
+      let endAngle: number
+      let startAngle: number
+
+      if (hasCurve) {
+        const cpx = (start.x + end.x) / 2 + el.controlPointOffset!.x
+        const cpy = (start.y + end.y) / 2 + el.controlPointOffset!.y
+        pathD = `M ${start.x} ${start.y} Q ${cpx} ${cpy} ${end.x} ${end.y}`
+        endAngle = Math.atan2(end.y - cpy, end.x - cpx)
+        startAngle = Math.atan2(start.y - cpy, start.x - cpx)
+      } else {
+        pathD = `M ${start.x} ${start.y} L ${end.x} ${end.y}`
+        endAngle = Math.atan2(end.y - start.y, end.x - start.x)
+        startAngle = Math.atan2(start.y - end.y, start.x - end.x)
+      }
+
+      let svg = `<path d="${pathD}" fill="none" ${strokeAttr} ${dash} ${opacity} ${transform} stroke-linecap="round" stroke-linejoin="round" />`
+
+      // End arrowhead
+      const endHead = arrowheadSvg(end, endAngle, headLen, style.strokeColor)
+      svg += endHead
+
+      // Bidirectional arrowhead
+      if (el.bidirectional) {
+        svg += arrowheadSvg(start, startAngle, headLen, style.strokeColor)
+      }
+
+      return svg
+    }
+    case "draw": {
+      if (el.points.length < 2) return ""
+      let d = `M ${el.points[0].x} ${el.points[0].y}`
+      for (let i = 1; i < el.points.length - 1; i++) {
+        const xc = (el.points[i].x + el.points[i + 1].x) / 2
+        const yc = (el.points[i].y + el.points[i + 1].y) / 2
+        d += ` Q ${el.points[i].x} ${el.points[i].y} ${xc} ${yc}`
+      }
+      const last = el.points[el.points.length - 1]
+      d += ` L ${last.x} ${last.y}`
+      return `<path d="${d}" fill="none" ${strokeAttr} ${dash} ${opacity} ${transform} stroke-linecap="round" stroke-linejoin="round" />`
+    }
+    case "text": {
+      if (!el.text) return ""
+      const textColor = style.textColor || (style.strokeColor === "transparent" ? "#1e1e1e" : style.strokeColor)
+      const lines = el.text.split("\n")
+      const lineHeight = style.fontSize * 1.3
+      let anchor = "start"
+      let textX = el.x
+      if (style.textAlign === "center") { anchor = "middle"; textX = el.x + el.width / 2 }
+      else if (style.textAlign === "right") { anchor = "end"; textX = el.x + el.width }
+
+      let svg = `<text x="${textX}" y="${el.y + style.fontSize}" ${svgFontString(style)} fill="${textColor}" text-anchor="${anchor}" ${opacity} ${transform}>`
+      for (let i = 0; i < lines.length; i++) {
+        if (i === 0) {
+          svg += `<tspan x="${textX}" dy="0">${escapeXml(lines[i])}</tspan>`
+        } else {
+          svg += `<tspan x="${textX}" dy="${lineHeight}">${escapeXml(lines[i])}</tspan>`
+        }
+      }
+      svg += `</text>`
+      return svg
+    }
+    case "sticky": {
+      const r = style.borderRadius
+      const x = el.x
+      const y = el.y
+      const w = el.width
+      const h = el.height
+      let svg = `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${style.fillColor}" ${strokeAttr} ${opacity} ${transform} />`
+      if (el.text) {
+        const textColor = style.textColor || "#1e1e1e"
+        const padding = 12
+        const lineHeight = style.fontSize * 1.4
+        const lines = el.text.split("\n")
+        let anchor = "start"
+        let textX = x + padding
+        if (style.textAlign === "center") { anchor = "middle"; textX = x + w / 2 }
+        else if (style.textAlign === "right") { anchor = "end"; textX = x + w - padding }
+
+        svg += `<text x="${textX}" y="${y + padding + style.fontSize}" ${svgFontString(style)} fill="${textColor}" text-anchor="${anchor}" ${opacity} ${transform}>`
+        for (let i = 0; i < lines.length; i++) {
+          if (i === 0) {
+            svg += `<tspan x="${textX}" dy="0">${escapeXml(lines[i])}</tspan>`
+          } else {
+            svg += `<tspan x="${textX}" dy="${lineHeight}">${escapeXml(lines[i])}</tspan>`
+          }
+        }
+        svg += `</text>`
+      }
+      return svg
+    }
+    case "image": {
+      if (!el.imageData) return ""
+      const x = Math.min(el.x, el.x + el.width)
+      const y = Math.min(el.y, el.y + el.height)
+      const w = Math.abs(el.width)
+      const h = Math.abs(el.height)
+      return `<image href="${el.imageData}" x="${x}" y="${y}" width="${w}" height="${h}" ${opacity} ${transform} />`
+    }
+    default:
+      return ""
+  }
+}
+
+function arrowheadSvg(tip: Point, angle: number, headLen: number, color: string): string {
+  const p1x = tip.x - headLen * Math.cos(angle - Math.PI / 6)
+  const p1y = tip.y - headLen * Math.sin(angle - Math.PI / 6)
+  const p2x = tip.x - headLen * Math.cos(angle + Math.PI / 6)
+  const p2y = tip.y - headLen * Math.sin(angle + Math.PI / 6)
+  return `<polygon points="${tip.x},${tip.y} ${p1x},${p1y} ${p2x},${p2y}" fill="${color}" />`
+}
+
+function svgTextBlock(el: BoardElement, x: number, y: number, w: number, h: number): string {
+  const { style } = el
+  const textColor = style.textColor || "#1e1e1e"
+  const padding = 8
+  const lineHeight = style.fontSize * 1.3
+  const lines = el.text.split("\n")
+  const totalTextHeight = lines.length * lineHeight
+  const startY = y + Math.max(padding, (h - totalTextHeight) / 2) + style.fontSize
+
+  let anchor = "start"
+  let textX = x + padding
+  if (style.textAlign === "center") { anchor = "middle"; textX = x + w / 2 }
+  else if (style.textAlign === "right") { anchor = "end"; textX = x + w - padding }
+
+  const transform = svgTransform(el)
+  let svg = `<text x="${textX}" y="${startY}" ${svgFontString(style)} fill="${textColor}" text-anchor="${anchor}" ${transform}>`
+  for (let i = 0; i < lines.length; i++) {
+    if (i === 0) {
+      svg += `<tspan x="${textX}" dy="0">${escapeXml(lines[i])}</tspan>`
+    } else {
+      svg += `<tspan x="${textX}" dy="${lineHeight}">${escapeXml(lines[i])}</tspan>`
+    }
+  }
+  svg += `</text>`
+  return svg
+}
+
+export function exportBoardToSvg(elements: BoardElement[], padding = 20): string {
+  if (elements.length === 0) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+  <rect width="400" height="300" fill="#ffffff"/>
+  <text x="200" y="150" text-anchor="middle" fill="#999999" font-size="16" font-family="sans-serif">Empty board</text>
+</svg>`
+  }
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const el of elements) {
+    const b = getElementBounds(el)
+    minX = Math.min(minX, b.x)
+    minY = Math.min(minY, b.y)
+    maxX = Math.max(maxX, b.x + b.width)
+    maxY = Math.max(maxY, b.y + b.height)
+  }
+
+  const width = maxX - minX + padding * 2
+  const height = maxY - minY + padding * 2
+  const vbX = minX - padding
+  const vbY = minY - padding
+
+  let svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vbX} ${vbY} ${width} ${height}" width="${width}" height="${height}">\n`
+  svg += `  <rect x="${vbX}" y="${vbY}" width="${width}" height="${height}" fill="#ffffff"/>\n`
+
+  for (const el of elements) {
+    svg += `  ${elementToSvg(el)}\n`
+  }
+
+  svg += `</svg>`
+  return svg
+}
+
+// ── Smart Guides ─────────────────────────────────────────────────
+
+export function computeSmartGuides(
+  movingIds: string[],
+  allElements: BoardElement[],
+  camera: Camera
+): SmartGuide[] {
+  const threshold = 5 / camera.zoom
+  const guides: SmartGuide[] = []
+  const movingSet = new Set(movingIds)
+
+  // Collect edges and centers of non-moving elements
+  const staticEdges: { orientation: "horizontal" | "vertical"; value: number }[] = []
+  for (const el of allElements) {
+    if (movingSet.has(el.id)) continue
+    const b = getElementBounds(el)
+    // Vertical guide lines (x positions)
+    staticEdges.push({ orientation: "vertical", value: b.x })
+    staticEdges.push({ orientation: "vertical", value: b.x + b.width })
+    staticEdges.push({ orientation: "vertical", value: b.x + b.width / 2 })
+    // Horizontal guide lines (y positions)
+    staticEdges.push({ orientation: "horizontal", value: b.y })
+    staticEdges.push({ orientation: "horizontal", value: b.y + b.height })
+    staticEdges.push({ orientation: "horizontal", value: b.y + b.height / 2 })
+  }
+
+  // Check moving elements against static edges
+  for (const id of movingIds) {
+    const el = allElements.find((e) => e.id === id)
+    if (!el) continue
+    const b = getElementBounds(el)
+
+    const movingVerticals = [b.x, b.x + b.width, b.x + b.width / 2]
+    const movingHorizontals = [b.y, b.y + b.height, b.y + b.height / 2]
+
+    for (const edge of staticEdges) {
+      if (edge.orientation === "vertical") {
+        for (const mv of movingVerticals) {
+          if (Math.abs(mv - edge.value) < threshold) {
+            // Avoid duplicate guides
+            if (!guides.some((g) => g.orientation === "vertical" && Math.abs(g.position - edge.value) < 0.5)) {
+              guides.push({ orientation: "vertical", position: edge.value, snappedTo: edge.value })
+            }
+          }
+        }
+      } else {
+        for (const mh of movingHorizontals) {
+          if (Math.abs(mh - edge.value) < threshold) {
+            if (!guides.some((g) => g.orientation === "horizontal" && Math.abs(g.position - edge.value) < 0.5)) {
+              guides.push({ orientation: "horizontal", position: edge.value, snappedTo: edge.value })
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return guides
+}
+
+export function drawSmartGuides(
+  ctx: CanvasRenderingContext2D,
+  guides: SmartGuide[],
+  camera: Camera,
+  canvasWidth: number,
+  canvasHeight: number
+) {
+  if (guides.length === 0) return
+
+  ctx.save()
+  ctx.strokeStyle = "#3B82F6"
+  ctx.lineWidth = 1 / camera.zoom
+  ctx.setLineDash([4 / camera.zoom, 4 / camera.zoom])
+
+  const topLeft = screenToWorld(0, 0, camera)
+  const bottomRight = screenToWorld(canvasWidth, canvasHeight, camera)
+
+  for (const guide of guides) {
+    ctx.beginPath()
+    if (guide.orientation === "vertical") {
+      ctx.moveTo(guide.position, topLeft.y)
+      ctx.lineTo(guide.position, bottomRight.y)
+    } else {
+      ctx.moveTo(topLeft.x, guide.position)
+      ctx.lineTo(bottomRight.x, guide.position)
+    }
+    ctx.stroke()
+  }
+
+  ctx.setLineDash([])
+  ctx.restore()
 }

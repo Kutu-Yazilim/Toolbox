@@ -12,6 +12,7 @@ import { BoardTopBar } from "./BoardTopBar"
 import { BoardProperties } from "./BoardProperties"
 import {
   exportBoardToPng,
+  exportBoardToSvg,
   generateElementId,
   getElementBounds,
 } from "@/utils/boardEngine"
@@ -26,7 +27,7 @@ export function BoardEditor() {
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 })
   const [tool, setTool] = useState<Tool>("select")
   const [gridEnabled, setGridEnabled] = useState(true)
-  const [gridSize] = useState(20)
+  const [gridSize, setGridSize] = useState(20)
   const [defaultStyle, setDefaultStyle] = useState<ElementStyle>(getThemedDefaultStyle())
 
   // ── Clipboard (Copy/Paste) ──────────────────────────────────
@@ -226,6 +227,133 @@ export function BoardEditor() {
     [selectedIds]
   )
 
+  // ── Alignment & Distribution ───────────────────────────────────
+
+  const alignElements = useCallback(
+    (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => {
+      if (selectedIds.length < 2) return
+      const selected = elements.filter((el) => selectedIds.includes(el.id))
+      const bounds = selected.map((el) => getElementBounds(el))
+
+      setElements((prev) =>
+        prev.map((el) => {
+          const idx = selected.findIndex((s) => s.id === el.id)
+          if (idx === -1) return el
+          const b = bounds[idx]
+          const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
+
+          switch (direction) {
+            case "left": {
+              const minX = Math.min(...bounds.map((bb) => bb.x))
+              const dx = minX - b.x
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
+              return { ...el, x: el.x + dx }
+            }
+            case "center": {
+              const minX = Math.min(...bounds.map((bb) => bb.x))
+              const maxX = Math.max(...bounds.map((bb) => bb.x + bb.width))
+              const centerX = (minX + maxX) / 2
+              const dx = centerX - (b.x + b.width / 2)
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
+              return { ...el, x: el.x + dx }
+            }
+            case "right": {
+              const maxX = Math.max(...bounds.map((bb) => bb.x + bb.width))
+              const dx = maxX - (b.x + b.width)
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
+              return { ...el, x: el.x + dx }
+            }
+            case "top": {
+              const minY = Math.min(...bounds.map((bb) => bb.y))
+              const dy = minY - b.y
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
+              return { ...el, y: el.y + dy }
+            }
+            case "middle": {
+              const minY = Math.min(...bounds.map((bb) => bb.y))
+              const maxY = Math.max(...bounds.map((bb) => bb.y + bb.height))
+              const centerY = (minY + maxY) / 2
+              const dy = centerY - (b.y + b.height / 2)
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
+              return { ...el, y: el.y + dy }
+            }
+            case "bottom": {
+              const maxY = Math.max(...bounds.map((bb) => bb.y + bb.height))
+              const dy = maxY - (b.y + b.height)
+              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
+              return { ...el, y: el.y + dy }
+            }
+          }
+        })
+      )
+    },
+    [elements, selectedIds]
+  )
+
+  const distributeElements = useCallback(
+    (axis: "horizontal" | "vertical") => {
+      if (selectedIds.length < 3) return
+      const selected = elements.filter((el) => selectedIds.includes(el.id))
+      const boundsMap = new Map(selected.map((el) => [el.id, getElementBounds(el)]))
+
+      const sorted = [...selected].sort((a, b) => {
+        const ba = boundsMap.get(a.id)!
+        const bb = boundsMap.get(b.id)!
+        return axis === "horizontal" ? ba.x - bb.x : ba.y - bb.y
+      })
+
+      const first = boundsMap.get(sorted[0].id)!
+      const last = boundsMap.get(sorted[sorted.length - 1].id)!
+
+      if (axis === "horizontal") {
+        const totalWidth = sorted.reduce((sum, el) => sum + boundsMap.get(el.id)!.width, 0)
+        const totalSpace = (last.x + last.width) - first.x - totalWidth
+        const gap = totalSpace / (sorted.length - 1)
+        let currentX = first.x
+
+        const positions = new Map<string, number>()
+        for (const el of sorted) {
+          const b = boundsMap.get(el.id)!
+          positions.set(el.id, currentX - b.x)
+          currentX += b.width + gap
+        }
+
+        setElements((prev) =>
+          prev.map((el) => {
+            const dx = positions.get(el.id)
+            if (dx === undefined) return el
+            const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
+            if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
+            return { ...el, x: el.x + dx }
+          })
+        )
+      } else {
+        const totalHeight = sorted.reduce((sum, el) => sum + boundsMap.get(el.id)!.height, 0)
+        const totalSpace = (last.y + last.height) - first.y - totalHeight
+        const gap = totalSpace / (sorted.length - 1)
+        let currentY = first.y
+
+        const positions = new Map<string, number>()
+        for (const el of sorted) {
+          const b = boundsMap.get(el.id)!
+          positions.set(el.id, currentY - b.y)
+          currentY += b.height + gap
+        }
+
+        setElements((prev) =>
+          prev.map((el) => {
+            const dy = positions.get(el.id)
+            if (dy === undefined) return el
+            const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
+            if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
+            return { ...el, y: el.y + dy }
+          })
+        )
+      }
+    },
+    [elements, selectedIds]
+  )
+
   // ── Text Editing ──────────────────────────────────────────────
 
   const startEditText = useCallback(
@@ -334,7 +462,64 @@ export function BoardEditor() {
       // Paste
       if ((e.ctrlKey || e.metaKey) && e.key === "v") {
         e.preventDefault()
-        pasteClipboard()
+        // Check clipboard for image data first
+        if (navigator.clipboard && navigator.clipboard.read) {
+          navigator.clipboard.read().then((items) => {
+            for (const item of items) {
+              const imageType = item.types.find((t) => t.startsWith("image/"))
+              if (imageType) {
+                item.getType(imageType).then((blob) => {
+                  const reader = new FileReader()
+                  reader.onload = () => {
+                    const dataUrl = reader.result as string
+                    const img = new Image()
+                    img.onload = () => {
+                      let w = img.naturalWidth
+                      let h = img.naturalHeight
+                      const maxDim = 800
+                      if (w > maxDim || h > maxDim) {
+                        const scale = maxDim / Math.max(w, h)
+                        w = Math.round(w * scale)
+                        h = Math.round(h * scale)
+                      }
+                      // Place at canvas center
+                      const container = containerRef.current
+                      const rect = container?.getBoundingClientRect()
+                      const cx = rect ? (rect.width / 2 - camera.x) / camera.zoom : 0
+                      const cy = rect ? (rect.height / 2 - camera.y) / camera.zoom : 0
+
+                      const newEl: BoardElement = {
+                        id: generateElementId(),
+                        type: "image",
+                        x: cx - w / 2,
+                        y: cy - h / 2,
+                        width: w,
+                        height: h,
+                        rotation: 0,
+                        points: [],
+                        text: "",
+                        style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
+                        locked: false,
+                        imageData: dataUrl,
+                      }
+                      setElements((prev) => [...prev, newEl])
+                      setSelectedIds([newEl.id])
+                    }
+                    img.src = dataUrl
+                  }
+                  reader.readAsDataURL(blob)
+                })
+                return
+              }
+            }
+            // No image found, paste board elements
+            pasteClipboard()
+          }).catch(() => {
+            pasteClipboard()
+          })
+        } else {
+          pasteClipboard()
+        }
         return
       }
 
@@ -375,6 +560,8 @@ export function BoardEditor() {
     undo,
     redo,
     commitText,
+    camera,
+    defaultStyle,
   ])
 
   // ── File Operations ───────────────────────────────────────────
@@ -385,6 +572,17 @@ export function BoardEditor() {
     a.href = dataUrl
     a.download = "board.png"
     a.click()
+  }, [elements])
+
+  const handleExportSvg = useCallback(() => {
+    const svgString = exportBoardToSvg(elements)
+    const blob = new Blob([svgString], { type: "image/svg+xml" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "board.svg"
+    a.click()
+    URL.revokeObjectURL(url)
   }, [elements])
 
   const handleSaveKutud = useCallback(() => {
@@ -565,13 +763,16 @@ export function BoardEditor() {
       <BoardTopBar
         camera={camera}
         gridEnabled={gridEnabled}
+        gridSize={gridSize}
         canUndo={historyIndex > 0}
         canRedo={historyIndex < history.length - 1}
         onCameraChange={setCamera}
         onToggleGrid={() => setGridEnabled(!gridEnabled)}
+        onGridSizeChange={setGridSize}
         onUndo={undo}
         onRedo={redo}
         onExportPng={handleExportPng}
+        onExportSvg={handleExportSvg}
         onSaveKutud={handleSaveKutud}
         onLoadKutud={handleLoadKutud}
         onFitToScreen={handleFitToScreen}
@@ -585,6 +786,8 @@ export function BoardEditor() {
         onDuplicateElements={duplicateSelected}
         onBringToFront={bringToFront}
         onSendToBack={sendToBack}
+        onAlignElements={alignElements}
+        onDistributeElements={distributeElements}
       />
 
       {/* Text editing overlay */}

@@ -56,7 +56,7 @@ export function serializeToKutud(data: KutudData): string {
     )
     const s = el.style
     lines.push(
-      `        <style stroke="${escapeXml(s.strokeColor)}" fill="${escapeXml(s.fillColor)}" strokeWidth="${s.strokeWidth}" opacity="${s.opacity}" fontSize="${s.fontSize}" fontFamily="${escapeXml(s.fontFamily)}" textAlign="${s.textAlign}" strokeStyle="${s.strokeStyle}" borderRadius="${s.borderRadius}" />`
+      `        <style stroke="${escapeXml(s.strokeColor)}" fill="${escapeXml(s.fillColor)}" strokeWidth="${s.strokeWidth}" opacity="${s.opacity}" fontSize="${s.fontSize}" fontFamily="${escapeXml(s.fontFamily)}" textAlign="${s.textAlign}" strokeStyle="${s.strokeStyle}" borderRadius="${s.borderRadius}" fontWeight="${s.fontWeight || "normal"}" fontStyle="${s.fontStyle || "normal"}" textColor="${escapeXml(s.textColor || "")}" />`
     )
     lines.push(`        <text>${escapeXml(el.text)}</text>`)
 
@@ -134,6 +134,9 @@ export function parseKutud(xml: string): KutudData {
       textAlign: (styleNode?.getAttribute("textAlign") as ElementStyle["textAlign"]) || DEFAULT_STYLE.textAlign,
       strokeStyle: (styleNode?.getAttribute("strokeStyle") as ElementStyle["strokeStyle"]) || DEFAULT_STYLE.strokeStyle,
       borderRadius: parseFloat(styleNode?.getAttribute("borderRadius") || String(DEFAULT_STYLE.borderRadius)),
+      fontWeight: (styleNode?.getAttribute("fontWeight") as ElementStyle["fontWeight"]) || DEFAULT_STYLE.fontWeight,
+      fontStyle: (styleNode?.getAttribute("fontStyle") as ElementStyle["fontStyle"]) || DEFAULT_STYLE.fontStyle,
+      textColor: styleNode?.getAttribute("textColor") || DEFAULT_STYLE.textColor,
     }
 
     const points = Array.from(pointNodes).map((p) => ({

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { BoardElement, ElementStyle } from "@/types/board"
+import type { BoardElement, ElementStyle, FontFamily } from "@/types/board"
 import { STROKE_COLORS, FILL_COLORS, STICKY_COLORS } from "@/types/board"
 import {
   Trash2Icon,
@@ -10,7 +10,30 @@ import {
   LockIcon,
   LockOpenIcon,
   RotateCcwIcon,
+  AlignLeftIcon,
+  AlignCenterHorizontalIcon,
+  AlignRightIcon,
+  AlignStartVerticalIcon,
+  AlignCenterVerticalIcon,
+  AlignEndVerticalIcon,
+  AlignHorizontalSpaceBetweenIcon,
+  AlignVerticalSpaceBetweenIcon,
+  BoldIcon,
+  ItalicIcon,
 } from "lucide-react"
+
+const FONT_FAMILIES: { label: string; value: FontFamily }[] = [
+  { label: "Sans-serif", value: "sans-serif" },
+  { label: "Serif", value: "serif" },
+  { label: "Monospace", value: "monospace" },
+  { label: "Cursive", value: "cursive" },
+]
+
+const TEXT_COLORS = [
+  "#1e1e1e", "#e03131", "#2f9e44", "#1971c2",
+  "#f08c00", "#6741d9", "#0c8599", "#e8590c",
+  "#ffffff", "#868e96",
+]
 
 interface BoardPropertiesProps {
   selectedElements: BoardElement[]
@@ -19,6 +42,8 @@ interface BoardPropertiesProps {
   onDuplicateElements: () => void
   onBringToFront: () => void
   onSendToBack: () => void
+  onAlignElements: (direction: "left" | "center" | "right" | "top" | "middle" | "bottom") => void
+  onDistributeElements: (axis: "horizontal" | "vertical") => void
 }
 
 export function BoardProperties({
@@ -28,6 +53,8 @@ export function BoardProperties({
   onDuplicateElements,
   onBringToFront,
   onSendToBack,
+  onAlignElements,
+  onDistributeElements,
 }: BoardPropertiesProps) {
   if (selectedElements.length === 0) return null
 
@@ -276,6 +303,19 @@ export function BoardProperties({
       {hasText && (
         <>
           <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase">Font Family</label>
+            <select
+              value={style.fontFamily}
+              onChange={(e) => updateStyle({ fontFamily: e.target.value })}
+              className="h-7 rounded border border-border bg-muted px-2 text-[10px] font-medium cursor-pointer outline-none"
+            >
+              {FONT_FAMILIES.map((f) => (
+                <option key={f.value} value={f.value}>{f.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <label className="text-[10px] font-medium text-muted-foreground uppercase">Font Size</label>
             <div className="flex gap-1">
               {[12, 14, 16, 20, 24, 32].map((s) => (
@@ -291,6 +331,53 @@ export function BoardProperties({
                 >
                   {s}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase">Style</label>
+            <div className="flex gap-1">
+              <button
+                onClick={() => updateStyle({ fontWeight: style.fontWeight === "bold" ? "normal" : "bold" })}
+                className={cn(
+                  "flex-1 h-7 rounded border text-[10px] font-medium transition-colors flex items-center justify-center",
+                  style.fontWeight === "bold"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted border-border hover:bg-accent"
+                )}
+                title="Bold"
+              >
+                <BoldIcon className="size-3" />
+              </button>
+              <button
+                onClick={() => updateStyle({ fontStyle: style.fontStyle === "italic" ? "normal" : "italic" })}
+                className={cn(
+                  "flex-1 h-7 rounded border text-[10px] font-medium transition-colors flex items-center justify-center",
+                  style.fontStyle === "italic"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-muted border-border hover:bg-accent"
+                )}
+                title="Italic"
+              >
+                <ItalicIcon className="size-3" />
+              </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase">Text Color</label>
+            <div className="flex flex-wrap gap-1">
+              {TEXT_COLORS.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => updateStyle({ textColor: color })}
+                  className={cn(
+                    "w-5 h-5 rounded border-2 transition-transform hover:scale-110",
+                    (style.textColor || "#1e1e1e") === color ? "border-primary scale-110" : "border-border"
+                  )}
+                  style={{ backgroundColor: color }}
+                />
               ))}
             </div>
           </div>
@@ -315,6 +402,46 @@ export function BoardProperties({
             </div>
           </div>
         </>
+      )}
+
+      {/* Align & Distribute (show when 2+ elements selected) */}
+      {isMultiple && (
+        <div className="flex flex-col gap-1.5">
+          <label className="text-[10px] font-medium text-muted-foreground uppercase">Align</label>
+          <div className="flex gap-1">
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("left")} title="Align left">
+              <AlignLeftIcon className="size-3" />
+            </Button>
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("center")} title="Align center">
+              <AlignCenterHorizontalIcon className="size-3" />
+            </Button>
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("right")} title="Align right">
+              <AlignRightIcon className="size-3" />
+            </Button>
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("top")} title="Align top">
+              <AlignStartVerticalIcon className="size-3" />
+            </Button>
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("middle")} title="Align middle">
+              <AlignCenterVerticalIcon className="size-3" />
+            </Button>
+            <Button variant="outline" size="icon-xs" onClick={() => onAlignElements("bottom")} title="Align bottom">
+              <AlignEndVerticalIcon className="size-3" />
+            </Button>
+          </div>
+          {selectedElements.length >= 3 && (
+            <>
+              <label className="text-[10px] font-medium text-muted-foreground uppercase mt-1">Distribute</label>
+              <div className="flex gap-1">
+                <Button variant="outline" size="icon-xs" onClick={() => onDistributeElements("horizontal")} title="Distribute horizontal">
+                  <AlignHorizontalSpaceBetweenIcon className="size-3" />
+                </Button>
+                <Button variant="outline" size="icon-xs" onClick={() => onDistributeElements("vertical")} title="Distribute vertical">
+                  <AlignVerticalSpaceBetweenIcon className="size-3" />
+                </Button>
+              </div>
+            </>
+          )}
+        </div>
       )}
     </div>
   )

@@ -9,6 +9,7 @@ import type {
   ElementStyle,
   ConnectionSide,
 } from "@/types/board"
+import type { SmartGuide } from "@/types/board"
 import {
   renderBoard,
   screenToWorld,
@@ -23,6 +24,8 @@ import {
   snapToGrid,
   getConnectionPointAtMouse,
   updateArrowConnections,
+  computeSmartGuides,
+  generateElementId,
 } from "@/utils/boardEngine"
 
 interface ContextMenuState {
@@ -103,6 +106,7 @@ export function BoardCanvas({
   const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
   const [activeConnectionPoint, setActiveConnectionPoint] = useState<{ elementId: string; side: ConnectionSide } | null>(null)
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
+  const [smartGuides, setSmartGuides] = useState<SmartGuide[]>([])
   const spaceHeldRef = useRef(false)
   const interactionRef = useRef(interaction)
   interactionRef.current = interaction
@@ -147,9 +151,10 @@ export function BoardCanvas({
       selectionBox,
       previewElement,
       hoveredElementId,
-      activeConnectionPoint
+      activeConnectionPoint,
+      smartGuides
     )
-  }, [elements, camera, selectedIds, canvasSize, gridEnabled, gridSize, selectionBox, previewElement, hoveredElementId, activeConnectionPoint])
+  }, [elements, camera, selectedIds, canvasSize, gridEnabled, gridSize, selectionBox, previewElement, hoveredElementId, activeConnectionPoint, smartGuides])
 
   // ── Mouse Handlers ──────────────────────────────────────────
 
@@ -390,7 +395,7 @@ export function BoardCanvas({
         let foundHover: string | null = null
         for (let i = elements.length - 1; i >= 0; i--) {
           const el = elements[i]
-          if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text") continue
+          if (el.type === "line" || el.type === "arrow" || el.type === "draw" || el.type === "text" || el.type === "image") continue
           const bounds = getElementBounds(el)
           const margin = 20 / camera.zoom
           if (
@@ -590,6 +595,55 @@ export function BoardCanvas({
             }
             return el
           })
+
+          // Compute smart guides
+          const guides = computeSmartGuides(Array.from(movedIds), newElements, camera)
+          setSmartGuides(guides)
+
+          // Apply snap from smart guides
+          if (guides.length > 0 && !gridEnabled) {
+            const movingElIds = Array.from(movedIds)
+            for (const guide of guides) {
+              for (const mid of movingElIds) {
+                const mel = newElements.find((e) => e.id === mid)
+                if (!mel) continue
+                const mb = getElementBounds(mel)
+                if (guide.orientation === "vertical") {
+                  const edges = [mb.x, mb.x + mb.width, mb.x + mb.width / 2]
+                  for (const edge of edges) {
+                    const diff = guide.position - edge
+                    if (Math.abs(diff) < 5 / camera.zoom) {
+                      newElements = newElements.map((e) => {
+                        if (!movedIds.has(e.id)) return e
+                        if (e.points.length > 0 && (e.type === "line" || e.type === "arrow" || e.type === "draw")) {
+                          return { ...e, points: e.points.map((p) => ({ x: p.x + diff, y: p.y })) }
+                        }
+                        return { ...e, x: e.x + diff }
+                      })
+                      break
+                    }
+                  }
+                } else {
+                  const edges = [mb.y, mb.y + mb.height, mb.y + mb.height / 2]
+                  for (const edge of edges) {
+                    const diff = guide.position - edge
+                    if (Math.abs(diff) < 5 / camera.zoom) {
+                      newElements = newElements.map((e) => {
+                        if (!movedIds.has(e.id)) return e
+                        if (e.points.length > 0 && (e.type === "line" || e.type === "arrow" || e.type === "draw")) {
+                          return { ...e, points: e.points.map((p) => ({ x: p.x, y: p.y + diff })) }
+                        }
+                        return { ...e, y: e.y + diff }
+                      })
+                      break
+                    }
+                  }
+                }
+                break // Only snap first moving element
+              }
+            }
+          }
+
           onElementsChange(newElements)
           break
         }
@@ -712,6 +766,7 @@ export function BoardCanvas({
         }
       }
       setInteraction({ type: "idle" })
+      setSmartGuides([])
     },
     [elements, selectionBox, camera, onElementsChange, onSelectionChange, onToolChange, onEditText]
   )
@@ -822,11 +877,70 @@ export function BoardCanvas({
     return "crosshair"
   }
 
+  // ── Image Drag & Drop ─────────────────────────────────────────
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "copy"
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      const files = e.dataTransfer.files
+      if (files.length === 0) return
+
+      const file = files[0]
+      if (!file.type.startsWith("image/")) return
+
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        const img = new Image()
+        img.onload = () => {
+          const rect = canvasRef.current!.getBoundingClientRect()
+          const screenX = e.clientX - rect.left
+          const screenY = e.clientY - rect.top
+          const world = screenToWorld(screenX, screenY, camera)
+
+          let w = img.naturalWidth
+          let h = img.naturalHeight
+          const maxDim = 800
+          if (w > maxDim || h > maxDim) {
+            const scale = maxDim / Math.max(w, h)
+            w = Math.round(w * scale)
+            h = Math.round(h * scale)
+          }
+
+          const newEl: BoardElement = {
+            id: generateElementId(),
+            type: "image",
+            x: world.x - w / 2,
+            y: world.y - h / 2,
+            width: w,
+            height: h,
+            rotation: 0,
+            points: [],
+            text: "",
+            style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
+            locked: false,
+            imageData: dataUrl,
+          }
+          onElementsChange([...elements, newEl])
+          onSelectionChange([newEl.id])
+        }
+        img.src = dataUrl
+      }
+      reader.readAsDataURL(file)
+    },
+    [camera, elements, defaultStyle, onElementsChange, onSelectionChange]
+  )
+
   const selectedElement = selectedIds.length === 1 ? elements.find((el) => el.id === selectedIds[0]) : null
   const isLocked = selectedElement?.locked ?? false
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden" onDragOver={handleDragOver} onDrop={handleDrop}>
       <canvas
         ref={canvasRef}
         width={canvasSize.width}
