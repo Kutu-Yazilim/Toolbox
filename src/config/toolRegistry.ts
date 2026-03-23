@@ -634,6 +634,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "fun",
     path: "/fun/dice-roller",
   },
+  {
+    id: "random-number",
+    label: "Random Number",
+    description: "Generate random numbers with range control, batch mode, and distribution view",
+    icon: HashIcon,
+    categoryId: "fun",
+    path: "/fun/random-number",
+  },
   // PDF Tools
   {
     id: "jpg-to-pdf",

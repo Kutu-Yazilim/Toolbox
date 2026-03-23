@@ -450,6 +450,11 @@ const DiceRoller = React.lazy(() =>
     default: m.DiceRoller,
   })),
 )
+const RandomNumberGenerator = React.lazy(() =>
+  import("@/components/randomnumber/RandomNumberGenerator").then((m) => ({
+    default: m.RandomNumberGenerator,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -683,6 +688,7 @@ export const router = createBrowserRouter([
           { path: "wheel-of-fate", element: lazy_(WheelOfFate) },
           { path: "coin-flip", element: lazy_(CoinFlip) },
           { path: "dice-roller", element: lazy_(DiceRoller) },
+          { path: "random-number", element: lazy_(RandomNumberGenerator) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },
