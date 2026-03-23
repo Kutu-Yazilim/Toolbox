@@ -349,6 +349,11 @@ const EncryptionTool = React.lazy(() =>
     default: m.EncryptionTool,
   })),
 )
+const CertificateDecoder = React.lazy(() =>
+  import("@/components/certdecoder/CertificateDecoder").then((m) => ({
+    default: m.CertificateDecoder,
+  })),
+)
 
 // Data Tools
 const CsvViewer = React.lazy(() =>
@@ -578,6 +583,7 @@ export const router = createBrowserRouter([
           { index: true, element: <CategoryLandingPage /> },
           { path: "password-generator", element: lazy_(PasswordGenerator) },
           { path: "encryption", element: lazy_(EncryptionTool) },
+          { path: "cert-decoder", element: lazy_(CertificateDecoder) },
         ],
       },
       {

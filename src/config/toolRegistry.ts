@@ -51,6 +51,7 @@ import {
   GitBranchIcon,
   CameraIcon,
   LockKeyholeIcon,
+  ShieldCheckIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -465,6 +466,14 @@ export const TOOLS: ToolEntry[] = [
     icon: LockKeyholeIcon,
     categoryId: "security",
     path: "/security/encryption",
+  },
+  {
+    id: "cert-decoder",
+    label: "Cert Decoder",
+    description: "Parse and inspect X.509 PEM certificates with decoded field details",
+    icon: ShieldCheckIcon,
+    categoryId: "security",
+    path: "/security/cert-decoder",
   },
   // Data Tools
   {
