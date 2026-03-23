@@ -48,6 +48,7 @@ import {
   BoxSelectIcon,
   PencilRulerIcon,
   Settings2Icon,
+  GitBranchIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -205,6 +206,14 @@ export const TOOLS: ToolEntry[] = [
     icon: Settings2Icon,
     categoryId: "dev-tools",
     path: "/dev-tools/env-editor",
+  },
+  {
+    id: "git-builder",
+    label: "Git Builder",
+    description: "Build git commands visually with flags, options, and common recipes",
+    icon: GitBranchIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/git-builder",
   },
   // Converters
   {

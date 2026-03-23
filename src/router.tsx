@@ -154,6 +154,11 @@ const EnvEditor = React.lazy(() =>
     default: m.EnvEditor,
   })),
 )
+const GitCommandBuilder = React.lazy(() =>
+  import("@/components/gitbuilder/GitCommandBuilder").then((m) => ({
+    default: m.GitCommandBuilder,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -457,6 +462,7 @@ export const router = createBrowserRouter([
           { path: "http-status", element: lazy_(HttpStatusCodes) },
           { path: "chmod", element: lazy_(ChmodCalculator) },
           { path: "env-editor", element: lazy_(EnvEditor) },
+          { path: "git-builder", element: lazy_(GitCommandBuilder) },
         ],
       },
       {
