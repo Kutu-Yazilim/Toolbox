@@ -58,6 +58,7 @@ import {
   CropIcon,
   ArrowLeftRightIcon,
   PipetteIcon,
+  FrameIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -580,6 +581,14 @@ export const TOOLS: ToolEntry[] = [
     icon: PipetteIcon,
     categoryId: "image-tools",
     path: "/image-tools/color-picker",
+  },
+  {
+    id: "placeholder-image",
+    label: "Placeholder",
+    description: "Generate placeholder images with custom dimensions, colors, and text",
+    icon: FrameIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/placeholder",
   },
   // Fun
   {

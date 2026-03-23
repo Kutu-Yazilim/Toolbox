@@ -418,6 +418,11 @@ const ImageColorPicker = React.lazy(() =>
     default: m.ImageColorPicker,
   })),
 )
+const PlaceholderImage = React.lazy(() =>
+  import("@/components/placeholder/PlaceholderImage").then((m) => ({
+    default: m.PlaceholderImage,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -649,6 +654,7 @@ export const router = createBrowserRouter([
           { path: "compress", element: lazy_(ImageCompressor) },
           { path: "format", element: lazy_(ImageFormatConverter) },
           { path: "color-picker", element: lazy_(ImageColorPicker) },
+          { path: "placeholder", element: lazy_(PlaceholderImage) },
         ],
       },
       {
