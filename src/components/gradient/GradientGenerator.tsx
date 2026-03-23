@@ -39,14 +39,14 @@ const GRADIENT_TYPE_LABELS: Record<GradientType, string> = {
 }
 
 const RADIAL_POSITIONS: { value: RadialPosition; label: string }[] = [
-  { value: "center", label: "Center" },
-  { value: "top", label: "Top" },
-  { value: "bottom", label: "Bottom" },
-  { value: "left", label: "Left" },
-  { value: "right", label: "Right" },
   { value: "top-left", label: "Top Left" },
+  { value: "top", label: "Top" },
   { value: "top-right", label: "Top Right" },
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
   { value: "bottom-left", label: "Bottom Left" },
+  { value: "bottom", label: "Bottom" },
   { value: "bottom-right", label: "Bottom Right" },
 ]
 
