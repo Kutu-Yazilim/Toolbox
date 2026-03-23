@@ -228,6 +228,14 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "converters",
     path: "/converters/unit-converter",
   },
+  {
+    id: "color-format",
+    label: "Color Format",
+    description: "Convert colors between HEX, RGB, HSL, HSB, and CMYK with live preview",
+    icon: PaletteIcon,
+    categoryId: "converters",
+    path: "/converters/color-format",
+  },
   // Generators
   {
     id: "qr-code",
