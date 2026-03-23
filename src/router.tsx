@@ -408,6 +408,11 @@ const ImageCompressor = React.lazy(() =>
     default: m.ImageCompressor,
   })),
 )
+const ImageFormatConverter = React.lazy(() =>
+  import("@/components/formatconverter/ImageFormatConverter").then((m) => ({
+    default: m.ImageFormatConverter,
+  })),
+)
 
 // Fun
 const WheelOfFate = React.lazy(() =>
@@ -637,6 +642,7 @@ export const router = createBrowserRouter([
           { path: "resize", element: lazy_(ImageResizer) },
           { path: "crop", element: lazy_(ImageCropper) },
           { path: "compress", element: lazy_(ImageCompressor) },
+          { path: "format", element: lazy_(ImageFormatConverter) },
         ],
       },
       {

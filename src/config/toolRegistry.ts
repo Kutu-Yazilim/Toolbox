@@ -56,6 +56,7 @@ import {
   TimerIcon,
   Maximize2Icon,
   CropIcon,
+  ArrowLeftRightIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -562,6 +563,14 @@ export const TOOLS: ToolEntry[] = [
     icon: ArchiveIcon,
     categoryId: "image-tools",
     path: "/image-tools/compress",
+  },
+  {
+    id: "image-format",
+    label: "Format Convert",
+    description: "Convert images between PNG, JPEG, WebP, and AVIF formats",
+    icon: ArrowLeftRightIcon,
+    categoryId: "image-tools",
+    path: "/image-tools/format",
   },
   // Fun
   {
