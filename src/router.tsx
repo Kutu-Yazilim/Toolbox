@@ -455,6 +455,11 @@ const RandomNumberGenerator = React.lazy(() =>
     default: m.RandomNumberGenerator,
   })),
 )
+const TeamShuffler = React.lazy(() =>
+  import("@/components/teamshuffler/TeamShuffler").then((m) => ({
+    default: m.TeamShuffler,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -689,6 +694,7 @@ export const router = createBrowserRouter([
           { path: "coin-flip", element: lazy_(CoinFlip) },
           { path: "dice-roller", element: lazy_(DiceRoller) },
           { path: "random-number", element: lazy_(RandomNumberGenerator) },
+          { path: "team-shuffler", element: lazy_(TeamShuffler) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

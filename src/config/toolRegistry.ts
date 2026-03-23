@@ -62,6 +62,7 @@ import {
   Code2Icon,
   SparklesIcon,
   DicesIcon,
+  UsersRoundIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -641,6 +642,14 @@ export const TOOLS: ToolEntry[] = [
     icon: HashIcon,
     categoryId: "fun",
     path: "/fun/random-number",
+  },
+  {
+    id: "team-shuffler",
+    label: "Team Shuffler",
+    description: "Split a list of names into random teams with one click",
+    icon: UsersRoundIcon,
+    categoryId: "fun",
+    path: "/fun/team-shuffler",
   },
   // PDF Tools
   {
