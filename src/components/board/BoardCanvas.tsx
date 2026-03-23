@@ -646,14 +646,15 @@ export function BoardCanvas({
   }
 
   return (
-    <div ref={containerRef} className="flex-1 relative overflow-hidden">
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
       <canvas
         ref={canvasRef}
         width={canvasSize.width}
         height={canvasSize.height}
         style={{
-          width: canvasSize.width,
-          height: canvasSize.height,
+          display: "block",
+          width: "100%",
+          height: "100%",
           cursor: getCursor(),
         }}
         onMouseDown={handleMouseDown}
