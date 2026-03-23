@@ -480,6 +480,11 @@ const RockPaperScissors = React.lazy(() =>
     default: m.RockPaperScissors,
   })),
 )
+const WouldYouRather = React.lazy(() =>
+  import("@/components/wouldyourather/WouldYouRather").then((m) => ({
+    default: m.WouldYouRather,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -719,6 +724,7 @@ export const router = createBrowserRouter([
           { path: "random-picker", element: lazy_(RandomPicker) },
           { path: "magic-8-ball", element: lazy_(Magic8Ball) },
           { path: "rock-paper-scissors", element: lazy_(RockPaperScissors) },
+          { path: "would-you-rather", element: lazy_(WouldYouRather) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },

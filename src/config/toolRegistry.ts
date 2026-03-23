@@ -66,6 +66,7 @@ import {
   TrophyIcon,
   TargetIcon,
   Gamepad2Icon,
+  ScaleIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -685,6 +686,14 @@ export const TOOLS: ToolEntry[] = [
     icon: Gamepad2Icon,
     categoryId: "fun",
     path: "/fun/rock-paper-scissors",
+  },
+  {
+    id: "would-you-rather",
+    label: "Would You Rather",
+    description: "Vote on 'Would You Rather' dilemmas and see the results",
+    icon: ScaleIcon,
+    categoryId: "fun",
+    path: "/fun/would-you-rather",
   },
   // PDF Tools
   {
