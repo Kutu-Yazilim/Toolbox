@@ -254,6 +254,16 @@ const WhatsMyIp = React.lazy(() =>
     default: m.WhatsMyIp,
   })),
 )
+const SslCertificateChecker = React.lazy(() =>
+  import("@/components/sslchecker/SslCertificateChecker").then((m) => ({
+    default: m.SslCertificateChecker,
+  })),
+)
+const HttpHeadersInspector = React.lazy(() =>
+  import("@/components/headersinspector/HttpHeadersInspector").then((m) => ({
+    default: m.HttpHeadersInspector,
+  })),
+)
 
 // PDF
 const ImageToPdf = React.lazy(() =>
@@ -512,6 +522,8 @@ export const router = createBrowserRouter([
           { index: true, element: <CategoryLandingPage /> },
           { path: "dns-lookup", element: lazy_(DnsLookup) },
           { path: "whats-my-ip", element: lazy_(WhatsMyIp) },
+          { path: "ssl-checker", element: lazy_(SslCertificateChecker) },
+          { path: "headers-inspector", element: lazy_(HttpHeadersInspector) },
         ],
       },
       {

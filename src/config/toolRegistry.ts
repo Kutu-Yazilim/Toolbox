@@ -405,6 +405,22 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "network",
     path: "/network/whats-my-ip",
   },
+  {
+    id: "ssl-checker",
+    label: "SSL Checker",
+    description: "Inspect SSL/TLS certificate details, chain, and validity for any domain",
+    icon: ShieldIcon,
+    categoryId: "network",
+    path: "/network/ssl-checker",
+  },
+  {
+    id: "headers-inspector",
+    label: "Headers Inspector",
+    description: "Inspect HTTP response headers and analyze security header configuration",
+    icon: GlobeIcon,
+    categoryId: "network",
+    path: "/network/headers-inspector",
+  },
   // Security
   {
     id: "password-generator",
