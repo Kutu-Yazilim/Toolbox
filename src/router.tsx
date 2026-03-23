@@ -344,6 +344,11 @@ const PasswordGenerator = React.lazy(() =>
     default: m.PasswordGenerator,
   })),
 )
+const EncryptionTool = React.lazy(() =>
+  import("@/components/encryption/EncryptionTool").then((m) => ({
+    default: m.EncryptionTool,
+  })),
+)
 
 // Data Tools
 const CsvViewer = React.lazy(() =>
@@ -572,6 +577,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <CategoryLandingPage /> },
           { path: "password-generator", element: lazy_(PasswordGenerator) },
+          { path: "encryption", element: lazy_(EncryptionTool) },
         ],
       },
       {

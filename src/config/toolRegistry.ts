@@ -50,6 +50,7 @@ import {
   Settings2Icon,
   GitBranchIcon,
   CameraIcon,
+  LockKeyholeIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -456,6 +457,14 @@ export const TOOLS: ToolEntry[] = [
     icon: LockIcon,
     categoryId: "security",
     path: "/security/password-generator",
+  },
+  {
+    id: "encryption",
+    label: "Encryption",
+    description: "Encrypt and decrypt text with AES-256-GCM using a passphrase",
+    icon: LockKeyholeIcon,
+    categoryId: "security",
+    path: "/security/encryption",
   },
   // Data Tools
   {
