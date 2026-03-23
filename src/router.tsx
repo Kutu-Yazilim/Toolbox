@@ -224,6 +224,13 @@ const BoxShadowGenerator = React.lazy(() =>
   })),
 )
 
+// Icon Editor
+const SvgIconEditor = React.lazy(() =>
+  import("@/components/iconeditor/SvgIconEditor").then((m) => ({
+    default: m.SvgIconEditor,
+  })),
+)
+
 // Timeline
 const PriorityTimeline = React.lazy(() =>
   import("@/components/timeline/PriorityTimeline").then((m) => ({
@@ -485,6 +492,7 @@ export const router = createBrowserRouter([
           { path: "mockup", element: lazy_(MockupEditor) },
           { path: "gradient", element: lazy_(GradientGenerator) },
           { path: "box-shadow", element: lazy_(BoxShadowGenerator) },
+          { path: "icon-editor", element: lazy_(SvgIconEditor) },
           {
             path: "timeline",
             element: <TimelineLayout />,

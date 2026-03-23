@@ -46,6 +46,7 @@ import {
   BarChart3Icon,
   PaintbrushIcon,
   BoxSelectIcon,
+  PencilRulerIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -378,6 +379,14 @@ export const TOOLS: ToolEntry[] = [
     icon: BoxSelectIcon,
     categoryId: "design",
     path: "/design/box-shadow",
+  },
+  {
+    id: "icon-editor",
+    label: "Icon Editor",
+    description: "Browse, customize, and export Lucide icons as SVG, PNG, React, or Flutter code",
+    icon: PencilRulerIcon,
+    categoryId: "design",
+    path: "/design/icon-editor",
   },
   // Network
   {
