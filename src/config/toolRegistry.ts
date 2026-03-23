@@ -39,6 +39,7 @@ import {
   RulerIcon,
   ShieldIcon,
   LockIcon,
+  TerminalIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -178,6 +179,14 @@ export const TOOLS: ToolEntry[] = [
     icon: GlobeIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/http-status",
+  },
+  {
+    id: "chmod",
+    label: "Chmod Calculator",
+    description: "Calculate Unix file permissions with numeric and symbolic notation",
+    icon: TerminalIcon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/chmod",
   },
   // Converters
   {

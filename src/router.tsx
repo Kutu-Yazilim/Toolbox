@@ -144,6 +144,11 @@ const HttpStatusCodes = React.lazy(() =>
     default: m.HttpStatusCodes,
   })),
 )
+const ChmodCalculator = React.lazy(() =>
+  import("@/components/chmod/ChmodCalculator").then((m) => ({
+    default: m.ChmodCalculator,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -387,6 +392,7 @@ export const router = createBrowserRouter([
           { path: "json-to-types", element: lazy_(JsonToTypes) },
           { path: "cron", element: lazy_(CronBuilder) },
           { path: "http-status", element: lazy_(HttpStatusCodes) },
+          { path: "chmod", element: lazy_(ChmodCalculator) },
         ],
       },
       {
