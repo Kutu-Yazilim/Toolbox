@@ -61,6 +61,7 @@ import {
   FrameIcon,
   Code2Icon,
   SparklesIcon,
+  DicesIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -624,6 +625,14 @@ export const TOOLS: ToolEntry[] = [
     icon: CoinsIcon,
     categoryId: "fun",
     path: "/fun/coin-flip",
+  },
+  {
+    id: "dice-roller",
+    label: "Dice Roller",
+    description: "Roll virtual dice with d4-d100 types, modifiers, and roll history",
+    icon: DicesIcon,
+    categoryId: "fun",
+    path: "/fun/dice-roller",
   },
   // PDF Tools
   {

@@ -445,6 +445,11 @@ const CoinFlip = React.lazy(() =>
     default: m.CoinFlip,
   })),
 )
+const DiceRoller = React.lazy(() =>
+  import("@/components/diceroller/DiceRoller").then((m) => ({
+    default: m.DiceRoller,
+  })),
+)
 
 // ---------------------------------------------------------------------------
 // Wrapper helpers
@@ -677,6 +682,7 @@ export const router = createBrowserRouter([
           { index: true, element: <CategoryLandingPage /> },
           { path: "wheel-of-fate", element: lazy_(WheelOfFate) },
           { path: "coin-flip", element: lazy_(CoinFlip) },
+          { path: "dice-roller", element: lazy_(DiceRoller) },
         ],
       },
       { path: "*", element: <NotFoundPage /> },
