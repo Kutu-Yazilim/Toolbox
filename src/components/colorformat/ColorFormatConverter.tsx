@@ -208,11 +208,11 @@ export function ColorFormatConverter() {
   return (
     <div className="flex h-full flex-col">
       {/* Top section */}
-      <div className="flex-shrink-0 border-b border-zinc-800 p-4">
+      <div className="flex-shrink-0 border-b border-border p-4">
         <div className="flex items-center gap-4">
           {/* Color swatch */}
           <div
-            className="h-12 w-12 flex-shrink-0 rounded-lg border border-zinc-700"
+            className="h-12 w-12 flex-shrink-0 rounded-lg border border-border"
             style={{
               backgroundColor: hexForPreview ?? "transparent",
             }}
@@ -223,7 +223,7 @@ export function ColorFormatConverter() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="e.g. #3B82F6, rgb(59,130,246), hsl(217,91%,60%)"
-            className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
+            className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder-muted-foreground outline-none focus:border-muted-foreground"
           />
         </div>
         {/* Error message */}
@@ -237,7 +237,7 @@ export function ColorFormatConverter() {
       {/* Bottom section */}
       <div className="flex-1 overflow-y-auto p-4">
         {!hasInput && (
-          <p className="text-sm text-zinc-500">
+          <p className="text-sm text-muted-foreground">
             Enter a color to see all formats
           </p>
         )}
@@ -246,20 +246,20 @@ export function ColorFormatConverter() {
             {formats.map((f, idx) => (
               <div
                 key={f.label}
-                className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-border bg-background/50 px-4 py-3"
               >
                 <div>
-                  <p className="text-xs font-medium text-zinc-500">
+                  <p className="text-xs font-medium text-muted-foreground">
                     {f.label}
                   </p>
-                  <p className="mt-0.5 font-mono text-sm text-zinc-100">
+                  <p className="mt-0.5 font-mono text-sm text-foreground">
                     {f.value}
                   </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-zinc-400 hover:text-zinc-100"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
                   onClick={() => handleCopy(f.value, idx)}
                 >
                   {copiedIdx === idx ? (

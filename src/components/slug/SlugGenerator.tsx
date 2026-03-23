@@ -84,14 +84,14 @@ export function SlugGenerator() {
     <div className="flex h-full flex-col gap-3 p-4">
       {/* ── Top bar ─────────────────────────────────────────────────── */}
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1 rounded-md border border-zinc-700 p-0.5">
+        <div className="flex items-center gap-1 rounded-md border border-border p-0.5">
           <button
             onClick={() => setSeparator("-")}
             className={cn(
               "rounded px-3 py-1 text-sm font-medium transition-colors",
               separator === "-"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-200",
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             hyphen (-)
@@ -101,8 +101,8 @@ export function SlugGenerator() {
             className={cn(
               "rounded px-3 py-1 text-sm font-medium transition-colors",
               separator === "_"
-                ? "bg-zinc-700 text-zinc-100"
-                : "text-zinc-400 hover:text-zinc-200",
+                ? "bg-muted text-foreground"
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             underscore (_)
@@ -133,7 +133,7 @@ export function SlugGenerator() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Type or paste text here..."
           spellCheck={false}
-          className="w-full resize-none rounded-md border border-zinc-700 bg-zinc-900 p-3 font-sans text-sm text-zinc-100 placeholder-zinc-500 outline-none focus:border-zinc-500"
+          className="w-full resize-none rounded-md border border-border bg-background p-3 font-sans text-sm text-foreground placeholder-muted-foreground outline-none focus:border-muted-foreground"
         />
 
         <div
@@ -145,8 +145,8 @@ export function SlugGenerator() {
             sel?.addRange(range)
           }}
           className={cn(
-            "cursor-text overflow-auto rounded-md border border-zinc-700 bg-zinc-900 p-3 font-mono text-sm break-all select-all",
-            slug ? "text-zinc-100" : "text-zinc-500",
+            "cursor-text overflow-auto rounded-md border border-border bg-background p-3 font-mono text-sm break-all select-all",
+            slug ? "text-foreground" : "text-muted-foreground",
           )}
         >
           {slug || "slug-will-appear-here"}

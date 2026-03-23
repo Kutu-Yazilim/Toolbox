@@ -97,7 +97,7 @@ export function ChmodCalculator() {
   return (
     <div className="flex h-full flex-col gap-4 p-4">
       {/* ── Info bar ───────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2 text-sm text-zinc-400">
+      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
         <InfoIcon className="h-4 w-4 shrink-0" />
         Toggle permissions below or pick a preset
       </div>
@@ -107,13 +107,13 @@ export function ChmodCalculator() {
         <table className="w-full border-collapse">
           <thead>
             <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Role
               </th>
               {PERMS.map((perm) => (
                 <th
                   key={perm}
-                  className="px-3 py-2 text-center text-xs font-medium text-zinc-500 uppercase tracking-wider"
+                  className="px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider"
                 >
                   {perm}
                 </th>
@@ -122,8 +122,8 @@ export function ChmodCalculator() {
           </thead>
           <tbody>
             {ROLES.map((role, ri) => (
-              <tr key={role} className="border-t border-zinc-800">
-                <td className="px-3 py-2 text-sm font-medium text-zinc-300">
+              <tr key={role} className="border-t border-border">
+                <td className="px-3 py-2 text-sm font-medium text-foreground">
                   {role}
                 </td>
                 {PERMS.map((_, ci) => (
@@ -133,8 +133,8 @@ export function ChmodCalculator() {
                       className={cn(
                         "inline-flex h-10 w-14 items-center justify-center rounded-md font-mono text-sm font-semibold transition-colors",
                         matrix[ri][ci]
-                          ? "bg-blue-600 text-white hover:bg-blue-500"
-                          : "bg-zinc-800 text-zinc-500 hover:bg-zinc-700",
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80",
                       )}
                     >
                       {matrix[ri][ci] ? PERM_CHARS[ci] : "-"}
@@ -171,7 +171,7 @@ export function ChmodCalculator() {
 
       {/* ── Presets section ─────────────────────────────────────────── */}
       <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
           Common Presets
         </span>
         <div className="flex flex-wrap gap-2">
@@ -184,8 +184,8 @@ export function ChmodCalculator() {
                 className={cn(
                   "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
                   active
-                    ? "border-blue-500 bg-blue-600/20 text-blue-400"
-                    : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-zinc-300",
+                    ? "border-primary ring-primary bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground hover:border-muted-foreground hover:text-foreground",
                 )}
               >
                 <span className="font-mono">{preset.numeric}</span>
@@ -215,11 +215,11 @@ function OutputRow({
   onCopy: () => void
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-zinc-700 bg-zinc-800/50 px-3 py-2">
-      <span className="w-20 shrink-0 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+    <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 px-3 py-2">
+      <span className="w-20 shrink-0 text-xs font-medium text-muted-foreground uppercase tracking-wider">
         {label}
       </span>
-      <span className="flex-1 font-mono text-sm text-zinc-100">{value}</span>
+      <span className="flex-1 font-mono text-sm text-foreground">{value}</span>
       <Button variant="ghost" size="sm" onClick={onCopy} className="h-7 w-7 p-0">
         {copied ? (
           <CheckIcon className="h-3.5 w-3.5 text-green-400" />
