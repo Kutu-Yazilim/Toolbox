@@ -133,7 +133,7 @@ export function SqlPlayground() {
   useEffect(() => {
     let cancelled = false
     initSqlJs({
-      locateFile: (file: string) => `https://sql.js.org/dist/${file}`,
+      locateFile: () => `/sql-wasm.wasm`,
     })
       .then((SQL) => {
         if (cancelled) return
