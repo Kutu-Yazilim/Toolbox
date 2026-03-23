@@ -47,6 +47,7 @@ import {
   PaintbrushIcon,
   BoxSelectIcon,
   PencilRulerIcon,
+  Settings2Icon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -196,6 +197,14 @@ export const TOOLS: ToolEntry[] = [
     icon: TerminalIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/chmod",
+  },
+  {
+    id: "env-editor",
+    label: ".env Editor",
+    description: "View, edit, compare, and export .env files with masked values",
+    icon: Settings2Icon,
+    categoryId: "dev-tools",
+    path: "/dev-tools/env-editor",
   },
   // Converters
   {

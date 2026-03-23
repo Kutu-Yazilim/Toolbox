@@ -149,6 +149,11 @@ const ChmodCalculator = React.lazy(() =>
     default: m.ChmodCalculator,
   })),
 )
+const EnvEditor = React.lazy(() =>
+  import("@/components/enveditor/EnvEditor").then((m) => ({
+    default: m.EnvEditor,
+  })),
+)
 
 // Generators
 const QrGenerator = React.lazy(() =>
@@ -451,6 +456,7 @@ export const router = createBrowserRouter([
           { path: "cron", element: lazy_(CronBuilder) },
           { path: "http-status", element: lazy_(HttpStatusCodes) },
           { path: "chmod", element: lazy_(ChmodCalculator) },
+          { path: "env-editor", element: lazy_(EnvEditor) },
         ],
       },
       {
