@@ -141,6 +141,11 @@ const UuidGenerator = React.lazy(() =>
     default: m.UuidGenerator,
   })),
 )
+const LoremIpsumGenerator = React.lazy(() =>
+  import("@/components/lorem/LoremIpsumGenerator").then((m) => ({
+    default: m.LoremIpsumGenerator,
+  })),
+)
 
 // Design
 const ColorPicker = React.lazy(() =>
@@ -369,6 +374,7 @@ export const router = createBrowserRouter([
           { index: true, element: <CategoryLandingPage /> },
           { path: "qr-code", element: lazy_(QrGenerator) },
           { path: "uuid", element: lazy_(UuidGenerator) },
+          { path: "lorem-ipsum", element: lazy_(LoremIpsumGenerator) },
         ],
       },
       {

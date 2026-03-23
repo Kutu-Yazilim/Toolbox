@@ -225,6 +225,14 @@ export const TOOLS: ToolEntry[] = [
     path: "/generators/uuid",
   },
   {
+    id: "lorem-ipsum",
+    label: "Lorem Ipsum",
+    description: "Generate placeholder text as paragraphs, sentences, or words",
+    icon: TextIcon,
+    categoryId: "generators",
+    path: "/generators/lorem-ipsum",
+  },
+  {
     id: "jwt",
     label: "JWT",
     description: "Decode existing JWTs or forge new tokens with custom headers and payloads",
