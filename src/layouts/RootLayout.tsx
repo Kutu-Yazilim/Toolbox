@@ -3,6 +3,7 @@ import { Outlet, useLocation } from "react-router"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileNav } from "@/components/layout/MobileNav"
 import { PageMeta } from "@/components/common/PageMeta"
+import { Breadcrumbs } from "@/components/common/Breadcrumbs"
 import { CommandPalette } from "@/components/common/CommandPalette"
 import { useRecentTools } from "@/hooks/useRecentTools"
 import { TOOLS } from "@/config/toolRegistry"
@@ -38,6 +39,7 @@ export function RootLayout() {
       <AppSidebar />
       <main className="flex-1 overflow-auto">
         <MobileNav />
+        <Breadcrumbs />
         <Suspense
           fallback={
             <div className="flex h-full items-center justify-center">

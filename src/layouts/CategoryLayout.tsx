@@ -1,5 +1,15 @@
-import { Outlet } from "react-router"
+import { Outlet, useLocation } from "react-router"
+import { RelatedTools } from "@/components/common/RelatedTools"
+import { TOOLS } from "@/config/toolRegistry"
 
 export function CategoryLayout() {
-  return <Outlet />
+  const { pathname } = useLocation()
+  const isToolPage = TOOLS.some((t) => t.path === pathname)
+
+  return (
+    <>
+      <Outlet />
+      {isToolPage && <RelatedTools />}
+    </>
+  )
 }
