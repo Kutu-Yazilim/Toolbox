@@ -1,4 +1,5 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
+import { loader } from "@monaco-editor/react"
 import {
   CopyIcon,
   CheckIcon,
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils"
 type LanguageId =
   | "javascript"
   | "typescript"
+  | "dart"
   | "python"
   | "go"
   | "rust"
@@ -51,6 +53,7 @@ type BackgroundPreset = {
 const LANGUAGES: { id: LanguageId; label: string }[] = [
   { id: "javascript", label: "JavaScript" },
   { id: "typescript", label: "TypeScript" },
+  { id: "dart", label: "Dart" },
   { id: "python", label: "Python" },
   { id: "go", label: "Go" },
   { id: "rust", label: "Rust" },
@@ -152,11 +155,31 @@ export function CodeScreenshot() {
   const [showChrome, setShowChrome] = useState(true)
   const [windowTitle, setWindowTitle] = useState("untitled")
 
+  // Syntax highlighting state
+  const [colorizedHtml, setColorizedHtml] = useState("")
+
   // Export state
   const [copied, setCopied] = useState<CopiedState>(null)
   const [exporting, setExporting] = useState(false)
 
   const bgPreset = BACKGROUND_PRESETS.find((p) => p.id === selectedBg)!
+
+  // Colorize code using Monaco's tokenizer for syntax highlighting
+  useEffect(() => {
+    if (!code.trim()) {
+      setColorizedHtml("")
+      return
+    }
+    let cancelled = false
+    loader.init().then((monaco) => {
+      return monaco.editor.colorize(code, language, { tabSize: 2 })
+    }).then((html) => {
+      if (!cancelled) setColorizedHtml(html)
+    }).catch(() => {
+      if (!cancelled) setColorizedHtml("")
+    })
+    return () => { cancelled = true }
+  }, [code, language])
 
   const handlePaste = useCallback(async () => {
     try {
@@ -464,8 +487,8 @@ export function CodeScreenshot() {
               </div>
             )}
 
-            {/* Code block */}
-            <pre
+            {/* Code block with syntax highlighting */}
+            <div
               style={{
                 backgroundColor: "#1e1e1e",
                 fontSize: `${fontSize}px`,
@@ -476,20 +499,16 @@ export function CodeScreenshot() {
                   ? `0 0 ${borderRadius}px ${borderRadius}px`
                   : `${borderRadius}px`,
                 overflowX: "auto",
+                fontFamily:
+                  "'Fira Code', 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
+                color: "#d4d4d4",
                 whiteSpace: "pre-wrap",
                 wordBreak: "break-word",
               }}
-            >
-              <code
-                style={{
-                  fontFamily:
-                    "'Fira Code', 'JetBrains Mono', 'SF Mono', 'Cascadia Code', Menlo, Monaco, 'Courier New', monospace",
-                  color: "#d4d4d4",
-                }}
-              >
-                {code || " "}
-              </code>
-            </pre>
+              dangerouslySetInnerHTML={{
+                __html: colorizedHtml || (code || " ").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"),
+              }}
+            />
           </div>
         </div>
       </div>
