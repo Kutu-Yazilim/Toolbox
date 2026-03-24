@@ -6,13 +6,16 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   HomeIcon,
+  StarIcon,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/hooks/useTheme"
+import { useFavorites } from "@/hooks/useFavorites"
 import { cn } from "@/lib/utils"
 import {
   CATEGORIES,
+  TOOLS,
   getToolsByCategory,
   type CategoryId,
 } from "@/config/toolRegistry"
@@ -72,6 +75,7 @@ const navLinkClasses = (isActive: boolean, collapsed: boolean) =>
 
 export function AppSidebar() {
   const { isDark, toggleTheme } = useTheme()
+  const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
   const location = useLocation()
   const [collapsed, setCollapsed] = useState(() => {
     const stored = localStorage.getItem("sidebar-collapsed")
@@ -105,6 +109,10 @@ export function AppSidebar() {
   const toggleCategory = useCallback((id: string) => {
     setCategoryOpen((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
+
+  const favoriteTools = favoriteIds
+    .map((id) => TOOLS.find((t) => t.id === id))
+    .filter(Boolean)
 
   return (
     <aside
@@ -153,6 +161,64 @@ export function AppSidebar() {
 
           {/* Divider */}
           <div className="h-px bg-sidebar-border my-1.5 mx-1" />
+
+          {/* Favorites section */}
+          {favoriteTools.length > 0 && !collapsed && (
+            <>
+              <div className="px-3 py-1.5 text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider">
+                Favorites
+              </div>
+              {favoriteTools.map((tool) => {
+                if (!tool) return null
+                const ToolIcon = tool.icon
+                return (
+                  <SidebarTooltip key={tool.id} label={tool.label} show={collapsed}>
+                    <div className="group/fav relative">
+                      <NavLink
+                        to={tool.path}
+                        className={({ isActive }) =>
+                          cn(
+                            "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                            "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                            "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                            isActive &&
+                              "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                          )
+                        }
+                      >
+                        <ToolIcon className="size-[16px] flex-shrink-0" />
+                        <span className="truncate flex-1">{tool.label}</span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            toggleFavorite(tool.id)
+                          }}
+                          className="shrink-0"
+                        >
+                          <StarIcon className="size-3.5 fill-yellow-500 text-yellow-500" />
+                        </button>
+                      </NavLink>
+                    </div>
+                  </SidebarTooltip>
+                )
+              })}
+              <div className="h-px bg-sidebar-border my-1.5 mx-1" />
+            </>
+          )}
+
+          {/* Favorites collapsed - show star icon */}
+          {favoriteTools.length > 0 && collapsed && (
+            <>
+              <SidebarTooltip label="Favorites" show={collapsed}>
+                <div className="flex items-center justify-center py-2.5">
+                  <StarIcon className="size-[18px] fill-yellow-500 text-yellow-500" />
+                </div>
+              </SidebarTooltip>
+              <div className="h-px bg-sidebar-border my-1.5 mx-1" />
+            </>
+          )}
 
           {/* Categories */}
           {CATEGORIES.map((category) => {
@@ -217,21 +283,46 @@ export function AppSidebar() {
                   <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
                     {tools.map(({ id, label, icon: ToolIcon, path }) => (
                       <SidebarTooltip key={id} label={label} show={collapsed}>
-                        <NavLink
-                          to={path}
-                          className={({ isActive }) =>
-                            cn(
-                              "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
-                              "text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                              "hover:bg-sidebar-accent/50 transition-colors duration-150",
-                              isActive &&
-                                "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                            )
-                          }
-                        >
-                          <ToolIcon className="size-[16px] flex-shrink-0" />
-                          <span className="truncate">{label}</span>
-                        </NavLink>
+                        <div className="group/fav relative">
+                          <NavLink
+                            to={path}
+                            className={({ isActive }) =>
+                              cn(
+                                "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                                "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                                "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                                isActive &&
+                                  "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                              )
+                            }
+                          >
+                            <ToolIcon className="size-[16px] flex-shrink-0" />
+                            <span className="truncate flex-1">{label}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                toggleFavorite(id)
+                              }}
+                              className={cn(
+                                "shrink-0 transition-opacity",
+                                isFavorite(id)
+                                  ? "opacity-100"
+                                  : "opacity-0 group-hover/fav:opacity-100"
+                              )}
+                            >
+                              <StarIcon
+                                className={cn(
+                                  "size-3.5",
+                                  isFavorite(id)
+                                    ? "fill-yellow-500 text-yellow-500"
+                                    : "text-sidebar-foreground/40 hover:text-yellow-500"
+                                )}
+                              />
+                            </button>
+                          </NavLink>
+                        </div>
                       </SidebarTooltip>
                     ))}
                   </div>

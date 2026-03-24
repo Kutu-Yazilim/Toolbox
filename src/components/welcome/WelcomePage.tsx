@@ -1,15 +1,17 @@
 import { useState, useMemo, useEffect, useRef } from "react"
 import { Link } from "react-router"
-import { SearchIcon } from "lucide-react"
+import { SearchIcon, StarIcon } from "lucide-react"
 import { TOOLS, CATEGORIES, type CategoryId } from "@/config/toolRegistry"
+import { useFavorites } from "@/hooks/useFavorites"
 import { cn } from "@/lib/utils"
+
+type FilterTab = CategoryId | "all" | "favorites"
 
 export function WelcomePage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [activeCategory, setActiveCategory] = useState<CategoryId | "all">(
-    "all"
-  )
+  const [activeCategory, setActiveCategory] = useState<FilterTab>("all")
   const searchRef = useRef<HTMLInputElement>(null)
+  const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -27,14 +29,17 @@ export function WelcomePage() {
     const query = searchQuery.toLowerCase()
     return TOOLS.filter((tool) => {
       const matchesCategory =
-        activeCategory === "all" || tool.categoryId === activeCategory
+        activeCategory === "all" ||
+        (activeCategory === "favorites"
+          ? favoriteIds.includes(tool.id)
+          : tool.categoryId === activeCategory)
       const matchesSearch =
         !query ||
         tool.label.toLowerCase().includes(query) ||
         tool.description.toLowerCase().includes(query)
       return matchesCategory && matchesSearch
     })
-  }, [searchQuery, activeCategory])
+  }, [searchQuery, activeCategory, favoriteIds])
 
   return (
     <div className="h-full overflow-y-auto">
@@ -76,6 +81,20 @@ export function WelcomePage() {
 
         {/* Category tabs */}
         <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-none">
+          {favoriteIds.length > 0 && (
+            <button
+              onClick={() => setActiveCategory("favorites")}
+              className={cn(
+                "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                activeCategory === "favorites"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <StarIcon className="size-3 fill-current" />
+              Favorites ({favoriteIds.length})
+            </button>
+          )}
           <button
             onClick={() => setActiveCategory("all")}
             className={cn(
@@ -111,26 +130,46 @@ export function WelcomePage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {filteredTools.map((tool) => (
-              <Link
-                key={tool.id}
-                to={tool.path}
-                className={cn(
-                  "rounded-lg border border-border p-3",
-                  "flex items-start gap-3",
-                  "hover:border-primary/50 transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                )}
-              >
-                <tool.icon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-foreground">
-                    {tool.label}
+              <div key={tool.id} className="relative group/card">
+                <Link
+                  to={tool.path}
+                  className={cn(
+                    "rounded-lg border border-border p-3",
+                    "flex items-start gap-3",
+                    "hover:border-primary/50 transition-colors",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  )}
+                >
+                  <tool.icon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
+                  <div className="min-w-0 pr-5">
+                    <div className="text-sm font-medium text-foreground">
+                      {tool.label}
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {tool.description}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {tool.description}
-                  </p>
-                </div>
-              </Link>
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => toggleFavorite(tool.id)}
+                  className={cn(
+                    "absolute top-2.5 right-2.5 p-1 rounded transition-opacity",
+                    isFavorite(tool.id)
+                      ? "opacity-100"
+                      : "opacity-0 group-hover/card:opacity-100"
+                  )}
+                >
+                  <StarIcon
+                    className={cn(
+                      "size-4",
+                      isFavorite(tool.id)
+                        ? "fill-yellow-500 text-yellow-500"
+                        : "text-muted-foreground hover:text-yellow-500"
+                    )}
+                  />
+                </button>
+              </div>
             ))}
           </div>
         )}
