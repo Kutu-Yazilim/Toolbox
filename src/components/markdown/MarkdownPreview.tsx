@@ -4,6 +4,7 @@ import {
     CopyIcon,
     CheckIcon,
     CodeIcon,
+    DownloadIcon,
     LinkIcon,
     UnlinkIcon,
 } from "lucide-react"
@@ -280,6 +281,16 @@ export function MarkdownPreview() {
         setTimeout(() => setCopiedMd(false), 2000)
     }
 
+    const handleDownloadMd = () => {
+        const blob = new Blob([markdown], { type: "text/markdown" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "document.md"
+        a.click()
+        URL.revokeObjectURL(url)
+    }
+
     const handleCopyHtml = async () => {
         if (previewRef.current) {
             await navigator.clipboard.writeText(previewRef.current.innerHTML)
@@ -302,6 +313,9 @@ export function MarkdownPreview() {
                         <div className="flex items-center gap-1">
                             <Button variant="ghost" size="xs" onClick={handleCopyMarkdown} title="Copy Markdown">
                                 {copiedMd ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
+                            </Button>
+                            <Button variant="ghost" size="xs" onClick={handleDownloadMd} title="Download .md file">
+                                <DownloadIcon className="h-3 w-3" />
                             </Button>
                         </div>
                     </div>
