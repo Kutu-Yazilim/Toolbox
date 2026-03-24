@@ -1,11 +1,13 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
     CopyIcon,
     CheckIcon,
     CodeIcon,
+    LinkIcon,
+    UnlinkIcon,
 } from "lucide-react"
-import Editor from "@monaco-editor/react"
+import Editor, { type OnMount } from "@monaco-editor/react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -208,11 +210,69 @@ export function MarkdownPreview() {
     const [markdown, setMarkdown] = useState(DEFAULT_MARKDOWN)
     const [copiedMd, setCopiedMd] = useState(false)
     const [copiedHtml, setCopiedHtml] = useState(false)
+    const [syncScroll, setSyncScroll] = useState(true)
     const previewRef = useRef<HTMLDivElement>(null)
+    const previewScrollRef = useRef<HTMLDivElement>(null)
+    const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
+    const isSyncingRef = useRef(false)
 
     const handleEditorChange = useCallback((value: string | undefined) => {
         setMarkdown(value || "")
     }, [])
+
+    const handleEditorMount: OnMount = useCallback((editor) => {
+        editorRef.current = editor
+
+        // Sync: editor scroll → preview scroll
+        editor.onDidScrollChange((e) => {
+            if (!syncScroll || isSyncingRef.current) return
+            const previewEl = previewScrollRef.current
+            if (!previewEl) return
+
+            const editorModel = editor.getModel()
+            if (!editorModel) return
+
+            const scrollTop = e.scrollTop
+            const layoutHeight = editor.getLayoutInfo().height
+            const scrollHeight = e.scrollHeight - layoutHeight
+            if (scrollHeight <= 0) return
+
+            const ratio = scrollTop / scrollHeight
+            const previewScrollHeight = previewEl.scrollHeight - previewEl.clientHeight
+            if (previewScrollHeight <= 0) return
+
+            isSyncingRef.current = true
+            previewEl.scrollTop = ratio * previewScrollHeight
+            requestAnimationFrame(() => { isSyncingRef.current = false })
+        })
+    }, [syncScroll])
+
+    // Sync: preview scroll → editor scroll
+    useEffect(() => {
+        const previewEl = previewScrollRef.current
+        if (!previewEl) return
+
+        const handlePreviewScroll = () => {
+            if (!syncScroll || isSyncingRef.current) return
+            const editor = editorRef.current
+            if (!editor) return
+
+            const scrollTop = previewEl.scrollTop
+            const scrollHeight = previewEl.scrollHeight - previewEl.clientHeight
+            if (scrollHeight <= 0) return
+
+            const ratio = scrollTop / scrollHeight
+            const editorScrollHeight = editor.getScrollHeight() - (editor.getLayoutInfo().height || 0)
+            if (editorScrollHeight <= 0) return
+
+            isSyncingRef.current = true
+            editor.setScrollTop(ratio * editorScrollHeight)
+            requestAnimationFrame(() => { isSyncingRef.current = false })
+        }
+
+        previewEl.addEventListener("scroll", handlePreviewScroll)
+        return () => previewEl.removeEventListener("scroll", handlePreviewScroll)
+    }, [syncScroll])
 
     const handleCopyMarkdown = async () => {
         await navigator.clipboard.writeText(markdown)
@@ -253,6 +313,7 @@ export function MarkdownPreview() {
                             defaultLanguage="markdown"
                             value={markdown}
                             onChange={handleEditorChange}
+                            onMount={handleEditorMount}
                             theme="vs-dark"
                             options={MONACO_OPTIONS}
                         />
@@ -267,6 +328,15 @@ export function MarkdownPreview() {
                             Preview
                         </span>
                         <div className="flex items-center gap-1">
+                            <Button
+                                variant="ghost"
+                                size="xs"
+                                onClick={() => setSyncScroll(!syncScroll)}
+                                title={syncScroll ? "Disable scroll sync" : "Enable scroll sync"}
+                                className={syncScroll ? "text-primary" : "text-muted-foreground"}
+                            >
+                                {syncScroll ? <LinkIcon className="h-3 w-3" /> : <UnlinkIcon className="h-3 w-3" />}
+                            </Button>
                             <Button variant="ghost" size="xs" onClick={handleCopyHtml} title="Copy HTML">
                                 {copiedHtml ? (
                                     <CheckIcon className="h-3 w-3" />
@@ -278,7 +348,7 @@ export function MarkdownPreview() {
                     </div>
 
                     {/* Rendered preview */}
-                    <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+                    <div ref={previewScrollRef} className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
                         <div ref={previewRef} className="max-w-none">
                             <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                 {markdown}
