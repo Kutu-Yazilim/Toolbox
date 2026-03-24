@@ -1,12 +1,47 @@
-import { useState } from "react"
-import { DiffEditor } from "@monaco-editor/react"
+import { useState, useRef, useCallback } from "react"
+import { DiffEditor, type DiffEditorProps } from "@monaco-editor/react"
 import { Button } from "@/components/ui/button"
-import { ColumnsIcon, RowsIcon } from "lucide-react"
+import { ColumnsIcon, RowsIcon, BookOpenIcon } from "lucide-react"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import type { editor } from "monaco-editor"
+
+const EXAMPLE_ORIGINAL = `function greet(name) {
+  console.log("Hello, " + name);
+  return name;
+}
+
+const users = ["Alice", "Bob", "Charlie"];
+for (let i = 0; i < users.length; i++) {
+  greet(users[i]);
+}`
+
+const EXAMPLE_MODIFIED = `function greet(name: string): string {
+  console.log(\`Hello, \${name}!\`);
+  return name.trim();
+}
+
+const users: string[] = ["Alice", "Bob", "Charlie", "Diana"];
+for (const user of users) {
+  greet(user);
+}`
 
 export function TextDiff() {
   const isMobile = useIsMobile()
   const [sideBySide, setSideBySide] = useState(!isMobile)
+  const editorRef = useRef<editor.IStandaloneDiffEditor | null>(null)
+
+  const handleEditorDidMount: DiffEditorProps["onMount"] = useCallback((editor: editor.IStandaloneDiffEditor) => {
+    editorRef.current = editor
+  }, [])
+
+  const handleLoadExample = useCallback(() => {
+    if (editorRef.current) {
+      const originalEditor = editorRef.current.getOriginalEditor()
+      const modifiedEditor = editorRef.current.getModifiedEditor()
+      originalEditor.setValue(EXAMPLE_ORIGINAL)
+      modifiedEditor.setValue(EXAMPLE_MODIFIED)
+    }
+  }, [])
 
   return (
     <div className="h-full flex flex-col min-h-0">
@@ -18,6 +53,16 @@ export function TextDiff() {
           </span>
         </div>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleLoadExample}
+            title="Load example"
+          >
+            <BookOpenIcon className="h-3 w-3" />
+            <span className="text-[10px]">Example</span>
+          </Button>
+          <div className="w-px h-4 bg-border mx-0.5" />
           <Button
             variant="ghost"
             size="xs"
@@ -47,6 +92,7 @@ export function TextDiff() {
           height="100%"
           language="plaintext"
           theme="vs-dark"
+          onMount={handleEditorDidMount}
           options={{
             minimap: { enabled: false },
             fontSize: 13,

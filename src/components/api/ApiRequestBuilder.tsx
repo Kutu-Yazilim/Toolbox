@@ -55,7 +55,7 @@ const METHOD_COLORS_MUTED: Record<string, string> = {
     PATCH: "text-orange-400",
     DELETE: "text-red-500",
     HEAD: "text-purple-400",
-    OPTIONS: "text-gray-400",
+    OPTIONS: "text-muted-foreground",
 }
 
 const MONACO_OPTIONS = {

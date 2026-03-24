@@ -228,7 +228,7 @@ export function ColorFormatConverter() {
         </div>
         {/* Error message */}
         {hasInput && !parsed && (
-          <p className="mt-2 text-sm text-red-400">
+          <p className="mt-2 text-sm text-destructive">
             Unable to parse color. Supported formats: HEX, RGB, HSL.
           </p>
         )}

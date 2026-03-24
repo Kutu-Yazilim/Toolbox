@@ -143,7 +143,7 @@ export function TreeCreator() {
                         <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
                     </div>
                     <pre className="flex-1 px-3 py-2 text-sm font-mono text-foreground overflow-auto whitespace-pre min-h-0">
-                        {output || "Your tree structure will appear here..."}
+                        {output || <span className="text-muted-foreground">Your tree structure will appear here...</span>}
                     </pre>
                 </div>
             </div>

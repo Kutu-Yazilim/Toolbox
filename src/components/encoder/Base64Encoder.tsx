@@ -6,8 +6,11 @@ import {
     AlertCircleIcon,
     ArrowDownIcon,
     ArrowUpIcon,
+    BookOpenIcon,
 } from "lucide-react"
 import { base64Encode, base64Decode } from "@/utils/encoderUtils"
+
+const EXAMPLE_INPUT = `{"name":"Alice","email":"alice@example.com","roles":["admin","user"]}`
 
 export function Base64Encoder() {
     const [input, setInput] = useState("")
@@ -75,6 +78,11 @@ export function Base64Encoder() {
                 </Button>
                 <Button variant="ghost" size="xs" onClick={handleSwap} title="Swap input/output">
                     <span className="text-[10px]">Swap</span>
+                </Button>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <Button variant="ghost" size="xs" onClick={() => { setInput(EXAMPLE_INPUT); setOutput(""); setError(null) }} title="Load example">
+                    <BookOpenIcon className="h-3 w-3" />
+                    <span className="text-[10px]">Example</span>
                 </Button>
                 {error && (
                     <span className="text-destructive text-xs flex items-center gap-1 ml-2">

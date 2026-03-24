@@ -1,10 +1,33 @@
 import { useState, useCallback, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import { CopyIcon, CheckIcon, AlertCircleIcon, Trash2Icon } from "lucide-react"
+import { CopyIcon, CheckIcon, AlertCircleIcon, Trash2Icon, BookOpenIcon } from "lucide-react"
 import Editor from "@monaco-editor/react"
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml"
 
 type SourceSide = "yaml" | "json"
+
+const EXAMPLE_YAML = `server:
+  host: localhost
+  port: 8080
+  ssl: true
+
+database:
+  driver: postgres
+  host: db.example.com
+  port: 5432
+  name: myapp
+  credentials:
+    username: admin
+    password: secret
+
+logging:
+  level: info
+  outputs:
+    - console
+    - file
+  file:
+    path: /var/log/app.log
+    maxSize: 10MB`
 
 export function YamlJsonConverter() {
   const [yamlValue, setYamlValue] = useState("")
@@ -130,6 +153,11 @@ export function YamlJsonConverter() {
             className="font-mono text-[10px] w-8"
           >
             {indent}sp
+          </Button>
+          <div className="w-px h-4 bg-border mx-0.5" />
+          <Button variant="ghost" size="xs" onClick={() => handleYamlChange(EXAMPLE_YAML)} title="Load example">
+            <BookOpenIcon className="h-3 w-3" />
+            <span className="text-[10px]">Example</span>
           </Button>
           <div className="w-px h-4 bg-border mx-0.5" />
           <Button variant="ghost" size="xs" onClick={handleClear} title="Clear both">

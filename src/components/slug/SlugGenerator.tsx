@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
-import { CopyIcon, CheckIcon } from "lucide-react"
+import { CopyIcon, CheckIcon, BookOpenIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -66,6 +66,8 @@ function toSlug(text: string, separator: Separator): string {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+const EXAMPLE_INPUT = "How to Build a REST API with Express.js & TypeScript (2024 Guide)"
+
 export function SlugGenerator() {
   const [input, setInput] = useState("")
   const [separator, setSeparator] = useState<Separator>("-")
@@ -110,6 +112,16 @@ export function SlugGenerator() {
         </div>
 
         <div className="flex-1" />
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setInput(EXAMPLE_INPUT)}
+          title="Load example"
+        >
+          <BookOpenIcon className="mr-1.5 h-3.5 w-3.5" />
+          Example
+        </Button>
 
         <Button
           variant="secondary"

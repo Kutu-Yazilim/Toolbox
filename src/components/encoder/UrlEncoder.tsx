@@ -6,8 +6,11 @@ import {
     AlertCircleIcon,
     ArrowDownIcon,
     ArrowUpIcon,
+    BookOpenIcon,
 } from "lucide-react"
 import { urlEncode, urlDecode } from "@/utils/encoderUtils"
+
+const EXAMPLE_INPUT = `https://example.com/search?q=hello world&lang=en&filter=name="test"&redirect=https://other.com/path`
 
 export function UrlEncoder() {
     const [input, setInput] = useState("")
@@ -100,6 +103,11 @@ export function UrlEncoder() {
                 </Button>
                 <Button variant="ghost" size="xs" onClick={handleSwap} title="Swap input/output">
                     <span className="text-[10px]">Swap</span>
+                </Button>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <Button variant="ghost" size="xs" onClick={() => { setInput(EXAMPLE_INPUT); setOutput(""); setError(null) }} title="Load example">
+                    <BookOpenIcon className="h-3 w-3" />
+                    <span className="text-[10px]">Example</span>
                 </Button>
                 {error && (
                     <span className="text-destructive text-xs flex items-center gap-1 ml-2">
