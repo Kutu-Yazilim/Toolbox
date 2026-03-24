@@ -2,10 +2,12 @@ import { Suspense } from "react"
 import { Outlet } from "react-router"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileNav } from "@/components/layout/MobileNav"
+import { PageMeta } from "@/components/common/PageMeta"
 
 export function RootLayout() {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+      <PageMeta />
       <AppSidebar />
       <main className="flex-1 overflow-auto">
         <MobileNav />
