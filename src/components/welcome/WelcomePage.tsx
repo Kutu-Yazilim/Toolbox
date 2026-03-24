@@ -80,25 +80,25 @@ export function WelcomePage() {
         </div>
 
         {/* Category tabs */}
-        <div className="flex gap-2 overflow-x-auto pb-3 mb-4 scrollbar-none">
+        <div className="flex flex-wrap justify-center gap-2 mb-4">
           {favoriteIds.length > 0 && (
             <button
               onClick={() => setActiveCategory("favorites")}
               className={cn(
-                "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5",
+                "rounded-lg px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5",
                 activeCategory === "favorites"
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
               )}
             >
-              <StarIcon className="size-3 fill-current" />
+              <StarIcon className="size-3.5 fill-current" />
               Favorites ({favoriteIds.length})
             </button>
           )}
           <button
             onClick={() => setActiveCategory("all")}
             className={cn(
-              "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+              "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
               activeCategory === "all"
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground hover:text-foreground"
@@ -111,7 +111,7 @@ export function WelcomePage() {
               key={cat.id}
               onClick={() => setActiveCategory(cat.id)}
               className={cn(
-                "shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
                 activeCategory === cat.id
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
