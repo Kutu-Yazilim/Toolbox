@@ -4,7 +4,7 @@ const SUFFIX = "ToolBox by Kutu Yazilim"
 const DEFAULT_TITLE = `${SUFFIX} — 83+ Free Online Tools`
 const BASE_URL = "https://toolbox.kutuyazilim.org"
 
-export function usePageMeta(title?: string, description?: string) {
+export function usePageMeta(title?: string, description?: string, keywords?: string[]) {
   useEffect(() => {
     document.title = title ? `${title} - ${SUFFIX}` : DEFAULT_TITLE
 
@@ -17,10 +17,25 @@ export function usePageMeta(title?: string, description?: string) {
     const ogDesc = document.querySelector('meta[property="og:description"]')
     if (ogDesc && description) ogDesc.setAttribute("content", description)
 
+    // Keywords
+    let metaKeywords = document.querySelector('meta[name="keywords"]')
+    if (keywords?.length) {
+      if (!metaKeywords) {
+        metaKeywords = document.createElement("meta")
+        metaKeywords.setAttribute("name", "keywords")
+        document.head.appendChild(metaKeywords)
+      }
+      metaKeywords.setAttribute("content", keywords.join(", "))
+    } else if (metaKeywords) {
+      metaKeywords.remove()
+    }
+
     return () => {
       document.title = DEFAULT_TITLE
+      const kw = document.querySelector('meta[name="keywords"]')
+      if (kw) kw.remove()
     }
-  }, [title, description])
+  }, [title, description, keywords])
 }
 
 export function useCanonicalUrl(path: string) {

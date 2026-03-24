@@ -13,6 +13,7 @@ export function PageMeta() {
   usePageMeta(
     tool?.label ?? category?.label,
     tool?.description ?? (category ? `${category.label} tools` : undefined),
+    tool?.keywords,
   )
 
   useCanonicalUrl(pathname === "/" ? "" : pathname)
@@ -33,6 +34,7 @@ export function PageMeta() {
           "@type": "Organization",
           name: "Kutu Yazilim",
         },
+        ...(tool.keywords?.length ? { keywords: tool.keywords.join(", ") } : {}),
       }
       const breadcrumbList = {
         "@context": "https://schema.org",

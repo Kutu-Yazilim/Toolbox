@@ -103,6 +103,7 @@ export type ToolEntry = {
   categoryId: CategoryId
   path: string
   subRoutes?: SubRoute[]
+  keywords?: string[]
 }
 
 export const CATEGORIES: ToolCategory[] = [
@@ -127,6 +128,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TreesIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/tree",
+    keywords: ["ascii tree", "tree generator", "folder structure", "directory tree", "text tree", "file tree"],
   },
   {
     id: "db-model",
@@ -135,6 +137,7 @@ export const TOOLS: ToolEntry[] = [
     icon: DatabaseIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/db-model",
+    keywords: ["database diagram", "er diagram", "dbml editor", "schema designer", "entity relationship", "database modeling"],
   },
   {
     id: "json",
@@ -147,6 +150,7 @@ export const TOOLS: ToolEntry[] = [
       { id: "editor", label: "Editor", isDefault: true },
       { id: "diff", label: "Diff" },
     ],
+    keywords: ["json formatter", "json validator", "json beautifier", "json editor", "json pretty print", "json diff"],
   },
   {
     id: "regex",
@@ -155,6 +159,7 @@ export const TOOLS: ToolEntry[] = [
     icon: RegexIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/regex",
+    keywords: ["regex tester", "regular expression", "regex debugger", "regex playground", "regex match", "regex pattern"],
   },
   {
     id: "api",
@@ -163,6 +168,7 @@ export const TOOLS: ToolEntry[] = [
     icon: GlobeIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/api",
+    keywords: ["api tester", "rest client", "http request builder", "api client", "postman alternative", "api playground"],
   },
   {
     id: "markdown",
@@ -171,6 +177,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileTextIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/markdown",
+    keywords: ["markdown editor", "markdown preview", "markdown renderer", "md editor", "markdown live preview"],
   },
   {
     id: "sql-formatter",
@@ -179,6 +186,7 @@ export const TOOLS: ToolEntry[] = [
     icon: DatabaseIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/sql-formatter",
+    keywords: ["sql formatter", "sql beautifier", "sql pretty print", "sql minifier", "format sql query", "sql indent"],
   },
   {
     id: "text-diff",
@@ -187,6 +195,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileTextIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/text-diff",
+    keywords: ["text diff", "text compare", "diff checker", "compare text", "side by side diff", "find differences"],
   },
   {
     id: "json-to-types",
@@ -195,6 +204,7 @@ export const TOOLS: ToolEntry[] = [
     icon: BracesIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/json-to-types",
+    keywords: ["json to typescript", "json to dart", "json to types", "json to interface", "json to class", "type generator"],
   },
   {
     id: "cron",
@@ -203,6 +213,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ClockIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/cron",
+    keywords: ["cron expression builder", "cron generator", "crontab editor", "cron schedule", "cron syntax", "cron job helper"],
   },
   {
     id: "http-status",
@@ -211,6 +222,7 @@ export const TOOLS: ToolEntry[] = [
     icon: GlobeIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/http-status",
+    keywords: ["http status codes", "status code reference", "http response codes", "http error codes", "rest status codes"],
   },
   {
     id: "chmod",
@@ -219,6 +231,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TerminalIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/chmod",
+    keywords: ["chmod calculator", "file permissions", "unix permissions", "chmod command", "permission calculator", "linux permissions"],
   },
   {
     id: "env-editor",
@@ -227,6 +240,7 @@ export const TOOLS: ToolEntry[] = [
     icon: Settings2Icon,
     categoryId: "dev-tools",
     path: "/dev-tools/env-editor",
+    keywords: ["env editor", "dotenv editor", "environment variables", "env file viewer", "env compare", "env manager"],
   },
   {
     id: "git-builder",
@@ -235,6 +249,7 @@ export const TOOLS: ToolEntry[] = [
     icon: GitBranchIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/git-builder",
+    keywords: ["git command builder", "git cheat sheet", "git command generator", "git helper", "git reference", "git recipes"],
   },
   {
     id: "code-screenshot",
@@ -243,6 +258,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CameraIcon,
     categoryId: "dev-tools",
     path: "/dev-tools/code-screenshot",
+    keywords: ["code screenshot", "code to image", "carbon alternative", "code snippet image", "code beautifier", "source code image"],
   },
   // Converters
   {
@@ -256,6 +272,7 @@ export const TOOLS: ToolEntry[] = [
       { id: "base64", label: "Base64", isDefault: true },
       { id: "url", label: "URL" },
     ],
+    keywords: ["base64 encode", "base64 decode", "url encode", "url decode", "base64 converter", "text to base64"],
   },
   {
     id: "timestamp",
@@ -264,6 +281,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ClockIcon,
     categoryId: "converters",
     path: "/converters/timestamp",
+    keywords: ["unix timestamp converter", "epoch converter", "timestamp to date", "date to timestamp", "epoch time"],
   },
   {
     id: "base64-to-file",
@@ -272,6 +290,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileOutputIcon,
     categoryId: "converters",
     path: "/converters/base64-to-file",
+    keywords: ["base64 to file", "base64 to image", "base64 decoder", "base64 file converter", "decode base64 file"],
   },
   {
     id: "yaml-json",
@@ -280,6 +299,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileTextIcon,
     categoryId: "converters",
     path: "/converters/yaml-json",
+    keywords: ["yaml to json", "json to yaml", "yaml converter", "yaml parser", "yaml validator", "yaml json converter"],
   },
   {
     id: "number-base",
@@ -288,6 +308,7 @@ export const TOOLS: ToolEntry[] = [
     icon: BinaryIcon,
     categoryId: "converters",
     path: "/converters/number-base",
+    keywords: ["binary converter", "hex converter", "decimal to binary", "number base converter", "octal converter", "hex to decimal"],
   },
   {
     id: "unit-converter",
@@ -296,6 +317,7 @@ export const TOOLS: ToolEntry[] = [
     icon: RulerIcon,
     categoryId: "converters",
     path: "/converters/unit-converter",
+    keywords: ["unit converter", "length converter", "weight converter", "temperature converter", "data size converter", "measurement converter"],
   },
   {
     id: "color-format",
@@ -304,6 +326,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PaletteIcon,
     categoryId: "converters",
     path: "/converters/color-format",
+    keywords: ["color converter", "hex to rgb", "rgb to hsl", "color format converter", "hex to hsl", "cmyk converter"],
   },
   // Generators
   {
@@ -313,6 +336,7 @@ export const TOOLS: ToolEntry[] = [
     icon: QrCodeIcon,
     categoryId: "generators",
     path: "/generators/qr-code",
+    keywords: ["qr code generator", "qr code maker", "create qr code", "custom qr code", "qr code creator"],
   },
   {
     id: "uuid",
@@ -321,6 +345,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FingerprintIcon,
     categoryId: "generators",
     path: "/generators/uuid",
+    keywords: ["uuid generator", "guid generator", "uuid v4", "random uuid", "unique id generator", "uuid v7"],
   },
   {
     id: "lorem-ipsum",
@@ -329,6 +354,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TextIcon,
     categoryId: "generators",
     path: "/generators/lorem-ipsum",
+    keywords: ["lorem ipsum generator", "placeholder text", "dummy text", "filler text", "lipsum generator", "sample text"],
   },
   {
     id: "jwt",
@@ -341,6 +367,7 @@ export const TOOLS: ToolEntry[] = [
       { id: "decode", label: "Decode", isDefault: true },
       { id: "forge", label: "Forge" },
     ],
+    keywords: ["jwt decoder", "jwt debugger", "jwt token decoder", "json web token", "jwt parser", "jwt generator"],
   },
   {
     id: "fake-data",
@@ -349,6 +376,7 @@ export const TOOLS: ToolEntry[] = [
     icon: UsersIcon,
     categoryId: "generators",
     path: "/generators/fake-data",
+    keywords: ["fake data generator", "mock data", "test data generator", "faker", "random data", "sample data generator"],
   },
   {
     id: "hash",
@@ -357,6 +385,7 @@ export const TOOLS: ToolEntry[] = [
     icon: HashIcon,
     categoryId: "generators",
     path: "/generators/hash",
+    keywords: ["hash generator", "md5 hash", "sha256 hash", "sha512 generator", "file hash calculator", "checksum generator"],
   },
   {
     id: "slug",
@@ -365,6 +394,7 @@ export const TOOLS: ToolEntry[] = [
     icon: LinkIcon,
     categoryId: "generators",
     path: "/generators/slug",
+    keywords: ["slug generator", "url slug", "slugify text", "seo url generator", "url friendly string", "permalink generator"],
   },
   // Design
   {
@@ -374,6 +404,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PaletteIcon,
     categoryId: "design",
     path: "/design/colors",
+    keywords: ["color palette generator", "color scheme", "color harmony", "palette explorer", "color combinations", "color picker"],
   },
   {
     id: "board",
@@ -382,6 +413,7 @@ export const TOOLS: ToolEntry[] = [
     icon: LayoutDashboardIcon,
     categoryId: "design",
     path: "/design/board",
+    keywords: ["whiteboard", "drawing board", "canvas editor", "freeform drawing", "sketch board", "digital whiteboard"],
   },
   {
     id: "shapemaker",
@@ -390,6 +422,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PenToolIcon,
     categoryId: "design",
     path: "/design/shapemaker",
+    keywords: ["shape editor", "custom painter", "flutter shape", "svg path editor", "vector shape maker", "dart custom painter"],
   },
   {
     id: "mockup",
@@ -398,6 +431,7 @@ export const TOOLS: ToolEntry[] = [
     icon: MonitorSmartphoneIcon,
     categoryId: "design",
     path: "/design/mockup",
+    keywords: ["device mockup", "screenshot mockup", "phone mockup", "app mockup generator", "device frame", "mockup creator"],
   },
   {
     id: "timeline",
@@ -410,6 +444,7 @@ export const TOOLS: ToolEntry[] = [
       { id: "priority", label: "Priority & Workload", isDefault: true },
       { id: "date", label: "Date-Based" },
     ],
+    keywords: ["timeline creator", "project timeline", "gantt chart", "timeline generator", "roadmap builder", "task timeline"],
   },
   {
     id: "gradient",
@@ -418,6 +453,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PaintbrushIcon,
     categoryId: "design",
     path: "/design/gradient",
+    keywords: ["css gradient generator", "gradient maker", "linear gradient", "radial gradient", "flutter gradient", "gradient creator"],
   },
   {
     id: "box-shadow",
@@ -426,6 +462,7 @@ export const TOOLS: ToolEntry[] = [
     icon: BoxSelectIcon,
     categoryId: "design",
     path: "/design/box-shadow",
+    keywords: ["css box shadow generator", "box shadow maker", "shadow generator", "css shadow", "flutter box shadow", "drop shadow"],
   },
   {
     id: "icon-editor",
@@ -434,6 +471,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PencilRulerIcon,
     categoryId: "design",
     path: "/design/icon-editor",
+    keywords: ["icon editor", "lucide icons", "svg icon editor", "icon customizer", "icon export", "icon browser"],
   },
   // Network
   {
@@ -443,6 +481,7 @@ export const TOOLS: ToolEntry[] = [
     icon: NetworkIcon,
     categoryId: "network",
     path: "/network/dns-lookup",
+    keywords: ["dns lookup", "dns checker", "domain lookup", "dns records", "dns query", "nameserver lookup"],
   },
   {
     id: "whats-my-ip",
@@ -451,6 +490,7 @@ export const TOOLS: ToolEntry[] = [
     icon: NetworkIcon,
     categoryId: "network",
     path: "/network/whats-my-ip",
+    keywords: ["what is my ip", "my ip address", "ip lookup", "ip geolocation", "public ip", "ip checker"],
   },
   {
     id: "ssl-checker",
@@ -459,6 +499,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ShieldIcon,
     categoryId: "network",
     path: "/network/ssl-checker",
+    keywords: ["ssl checker", "ssl certificate checker", "tls checker", "certificate validator", "ssl test", "https checker"],
   },
   {
     id: "headers-inspector",
@@ -467,6 +508,7 @@ export const TOOLS: ToolEntry[] = [
     icon: GlobeIcon,
     categoryId: "network",
     path: "/network/headers-inspector",
+    keywords: ["http headers", "response headers", "security headers", "header checker", "http header inspector", "header analyzer"],
   },
   // Security
   {
@@ -476,6 +518,7 @@ export const TOOLS: ToolEntry[] = [
     icon: LockIcon,
     categoryId: "security",
     path: "/security/password-generator",
+    keywords: ["password generator", "strong password", "random password", "passphrase generator", "secure password", "password creator"],
   },
   {
     id: "encryption",
@@ -484,6 +527,7 @@ export const TOOLS: ToolEntry[] = [
     icon: LockKeyholeIcon,
     categoryId: "security",
     path: "/security/encryption",
+    keywords: ["text encryption", "aes encryption", "encrypt text", "decrypt text", "aes 256 encrypt", "text encryptor"],
   },
   {
     id: "cert-decoder",
@@ -492,6 +536,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ShieldCheckIcon,
     categoryId: "security",
     path: "/security/cert-decoder",
+    keywords: ["certificate decoder", "pem decoder", "x509 parser", "ssl certificate parser", "cert viewer", "certificate inspector"],
   },
   {
     id: "totp",
@@ -500,6 +545,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TimerIcon,
     categoryId: "security",
     path: "/security/totp",
+    keywords: ["totp generator", "authenticator code", "2fa generator", "otp generator", "two factor authentication", "time based otp"],
   },
   {
     id: "csp-builder",
@@ -508,6 +554,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ShieldAlertIcon,
     categoryId: "security",
     path: "/security/csp-builder",
+    keywords: ["csp generator", "content security policy", "csp builder", "csp header generator", "security policy builder", "csp validator"],
   },
   // Data Tools
   {
@@ -517,6 +564,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileSpreadsheetIcon,
     categoryId: "data-tools",
     path: "/data-tools/csv-viewer",
+    keywords: ["csv viewer", "csv editor", "csv reader", "tsv viewer", "spreadsheet viewer", "csv table"],
   },
   {
     id: "json-path",
@@ -525,6 +573,7 @@ export const TOOLS: ToolEntry[] = [
     icon: SearchIcon,
     categoryId: "data-tools",
     path: "/data-tools/json-path",
+    keywords: ["jsonpath tester", "json path finder", "json query", "jsonpath expression", "json explorer", "json tree viewer"],
   },
   {
     id: "data-transformer",
@@ -533,6 +582,7 @@ export const TOOLS: ToolEntry[] = [
     icon: WandIcon,
     categoryId: "data-tools",
     path: "/data-tools/data-transformer",
+    keywords: ["data transformer", "json transformer", "csv transformer", "data filter", "data manipulation", "data pipeline"],
   },
   {
     id: "sql-playground",
@@ -541,6 +591,7 @@ export const TOOLS: ToolEntry[] = [
     icon: DatabaseIcon,
     categoryId: "data-tools",
     path: "/data-tools/sql-playground",
+    keywords: ["sql playground", "sql editor", "sqlite browser", "run sql query", "sql sandbox", "sql fiddle"],
   },
   {
     id: "chart-builder",
@@ -549,6 +600,7 @@ export const TOOLS: ToolEntry[] = [
     icon: BarChart3Icon,
     categoryId: "data-tools",
     path: "/data-tools/chart-builder",
+    keywords: ["chart builder", "chart maker", "data visualization", "bar chart generator", "pie chart maker", "graph creator"],
   },
   // Image Tools
   {
@@ -558,6 +610,7 @@ export const TOOLS: ToolEntry[] = [
     icon: Maximize2Icon,
     categoryId: "image-tools",
     path: "/image-tools/resize",
+    keywords: ["image resizer", "resize image", "bulk image resize", "photo resizer", "image dimensions", "scale image"],
   },
   {
     id: "image-crop",
@@ -566,6 +619,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CropIcon,
     categoryId: "image-tools",
     path: "/image-tools/crop",
+    keywords: ["image cropper", "crop image", "photo cropper", "image trim", "crop aspect ratio", "picture cropper"],
   },
   {
     id: "image-compress",
@@ -574,6 +628,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ArchiveIcon,
     categoryId: "image-tools",
     path: "/image-tools/compress",
+    keywords: ["image compressor", "compress image", "reduce image size", "image optimizer", "photo compressor", "image size reducer"],
   },
   {
     id: "image-format",
@@ -582,6 +637,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ArrowLeftRightIcon,
     categoryId: "image-tools",
     path: "/image-tools/format",
+    keywords: ["image format converter", "png to jpg", "jpg to webp", "image converter", "webp converter", "avif converter"],
   },
   {
     id: "color-from-image",
@@ -590,6 +646,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PipetteIcon,
     categoryId: "image-tools",
     path: "/image-tools/color-picker",
+    keywords: ["color picker from image", "image color extractor", "eyedropper tool", "pick color from photo", "image color picker"],
   },
   {
     id: "placeholder-image",
@@ -598,6 +655,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FrameIcon,
     categoryId: "image-tools",
     path: "/image-tools/placeholder",
+    keywords: ["placeholder image generator", "dummy image", "placeholder graphic", "test image generator", "filler image"],
   },
   {
     id: "image-to-base64",
@@ -606,6 +664,7 @@ export const TOOLS: ToolEntry[] = [
     icon: Code2Icon,
     categoryId: "image-tools",
     path: "/image-tools/to-base64",
+    keywords: ["image to base64", "image to data uri", "base64 image encoder", "image to string", "inline image encoder"],
   },
   {
     id: "favicon",
@@ -614,6 +673,7 @@ export const TOOLS: ToolEntry[] = [
     icon: SparklesIcon,
     categoryId: "image-tools",
     path: "/image-tools/favicon",
+    keywords: ["favicon generator", "favicon creator", "favicon maker", "ico generator", "website icon generator", "favicon from image"],
   },
   // Fun
   {
@@ -623,6 +683,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CircleDotIcon,
     categoryId: "fun",
     path: "/fun/wheel-of-fate",
+    keywords: ["spin the wheel", "random wheel", "wheel spinner", "picker wheel", "wheel of fortune", "random selector wheel"],
   },
   {
     id: "coin-flip",
@@ -631,6 +692,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CoinsIcon,
     categoryId: "fun",
     path: "/fun/coin-flip",
+    keywords: ["coin flip", "flip a coin", "coin toss", "heads or tails", "virtual coin flip", "coin flipper"],
   },
   {
     id: "dice-roller",
@@ -639,6 +701,7 @@ export const TOOLS: ToolEntry[] = [
     icon: DicesIcon,
     categoryId: "fun",
     path: "/fun/dice-roller",
+    keywords: ["dice roller", "roll dice", "virtual dice", "d20 roller", "dnd dice", "rpg dice roller"],
   },
   {
     id: "random-number",
@@ -647,6 +710,7 @@ export const TOOLS: ToolEntry[] = [
     icon: HashIcon,
     categoryId: "fun",
     path: "/fun/random-number",
+    keywords: ["random number generator", "rng", "number generator", "random integer", "random number picker"],
   },
   {
     id: "team-shuffler",
@@ -655,6 +719,7 @@ export const TOOLS: ToolEntry[] = [
     icon: UsersRoundIcon,
     categoryId: "fun",
     path: "/fun/team-shuffler",
+    keywords: ["team generator", "random team maker", "team shuffler", "group randomizer", "split into teams", "team picker"],
   },
   {
     id: "bracket",
@@ -663,6 +728,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TrophyIcon,
     categoryId: "fun",
     path: "/fun/bracket",
+    keywords: ["tournament bracket", "bracket generator", "bracket maker", "elimination bracket", "tournament creator", "bracket builder"],
   },
   {
     id: "random-picker",
@@ -671,6 +737,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TargetIcon,
     categoryId: "fun",
     path: "/fun/random-picker",
+    keywords: ["random picker", "random chooser", "pick random item", "random selector", "name picker", "random draw"],
   },
   {
     id: "magic-8-ball",
@@ -679,6 +746,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CircleDotIcon,
     categoryId: "fun",
     path: "/fun/magic-8-ball",
+    keywords: ["magic 8 ball", "ask the 8 ball", "yes or no oracle", "magic eight ball", "fortune teller"],
   },
   {
     id: "rock-paper-scissors",
@@ -687,6 +755,7 @@ export const TOOLS: ToolEntry[] = [
     icon: Gamepad2Icon,
     categoryId: "fun",
     path: "/fun/rock-paper-scissors",
+    keywords: ["rock paper scissors", "rps game", "rock paper scissors game", "hand game", "roshambo"],
   },
   {
     id: "would-you-rather",
@@ -695,6 +764,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ScaleIcon,
     categoryId: "fun",
     path: "/fun/would-you-rather",
+    keywords: ["would you rather", "would you rather questions", "this or that", "dilemma game", "choice game"],
   },
   {
     id: "decision-maker",
@@ -703,6 +773,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ZapIcon,
     categoryId: "fun",
     path: "/fun/decision-maker",
+    keywords: ["decision maker", "yes or no generator", "random decision", "should i", "decision helper", "yes no picker"],
   },
   // PDF Tools
   {
@@ -712,6 +783,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ImageIcon,
     categoryId: "pdf",
     path: "/pdf/jpg-to-pdf",
+    keywords: ["jpg to pdf", "jpeg to pdf", "image to pdf", "convert jpg to pdf", "photo to pdf"],
   },
   {
     id: "png-to-pdf",
@@ -720,6 +792,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ImagePlusIcon,
     categoryId: "pdf",
     path: "/pdf/png-to-pdf",
+    keywords: ["png to pdf", "convert png to pdf", "image to pdf", "png image to pdf", "picture to pdf"],
   },
   {
     id: "pdf-merge",
@@ -728,6 +801,7 @@ export const TOOLS: ToolEntry[] = [
     icon: MergeIcon,
     categoryId: "pdf",
     path: "/pdf/pdf-merge",
+    keywords: ["merge pdf", "combine pdf", "join pdf", "pdf merger", "concatenate pdf", "merge pdf files"],
   },
   {
     id: "pdf-split",
@@ -736,6 +810,7 @@ export const TOOLS: ToolEntry[] = [
     icon: SplitIcon,
     categoryId: "pdf",
     path: "/pdf/pdf-split",
+    keywords: ["split pdf", "extract pdf pages", "pdf splitter", "separate pdf pages", "pdf page extractor"],
   },
   {
     id: "pdf-reorder",
@@ -744,6 +819,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ArrowUpDownIcon,
     categoryId: "pdf",
     path: "/pdf/pdf-reorder",
+    keywords: ["reorder pdf pages", "rearrange pdf", "sort pdf pages", "pdf page order", "organize pdf pages"],
   },
   {
     id: "pdf-compress",
@@ -752,6 +828,7 @@ export const TOOLS: ToolEntry[] = [
     icon: ArchiveIcon,
     categoryId: "pdf",
     path: "/pdf/pdf-compress",
+    keywords: ["compress pdf", "reduce pdf size", "pdf compressor", "shrink pdf", "optimize pdf", "smaller pdf"],
   },
   {
     id: "pdf-watermark",
@@ -760,6 +837,7 @@ export const TOOLS: ToolEntry[] = [
     icon: DropletIcon,
     categoryId: "pdf",
     path: "/pdf/pdf-watermark",
+    keywords: ["pdf watermark", "add watermark to pdf", "stamp pdf", "pdf watermark maker", "text watermark pdf"],
   },
   {
     id: "docx-to-pdf",
@@ -768,6 +846,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileTextIcon,
     categoryId: "pdf",
     path: "/pdf/docx-to-pdf",
+    keywords: ["docx to pdf", "word to pdf", "convert word to pdf", "doc to pdf", "word document to pdf"],
   },
   {
     id: "pptx-to-pdf",
@@ -776,6 +855,7 @@ export const TOOLS: ToolEntry[] = [
     icon: PresentationIcon,
     categoryId: "pdf",
     path: "/pdf/pptx-to-pdf",
+    keywords: ["pptx to pdf", "powerpoint to pdf", "convert ppt to pdf", "presentation to pdf", "slides to pdf"],
   },
   {
     id: "xlsx-to-pdf",
@@ -784,6 +864,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileSpreadsheetIcon,
     categoryId: "pdf",
     path: "/pdf/xlsx-to-pdf",
+    keywords: ["xlsx to pdf", "excel to pdf", "convert excel to pdf", "spreadsheet to pdf", "xls to pdf"],
   },
   {
     id: "csv-to-pdf",
@@ -792,6 +873,7 @@ export const TOOLS: ToolEntry[] = [
     icon: FileSpreadsheetIcon,
     categoryId: "pdf",
     path: "/pdf/csv-to-pdf",
+    keywords: ["csv to pdf", "convert csv to pdf", "csv table to pdf", "spreadsheet to pdf", "data to pdf"],
   },
   {
     id: "html-to-pdf",
@@ -800,6 +882,7 @@ export const TOOLS: ToolEntry[] = [
     icon: CodeIcon,
     categoryId: "pdf",
     path: "/pdf/html-to-pdf",
+    keywords: ["html to pdf", "convert html to pdf", "webpage to pdf", "web page to pdf", "html converter"],
   },
   {
     id: "markdown-to-pdf",
@@ -808,6 +891,7 @@ export const TOOLS: ToolEntry[] = [
     icon: TextIcon,
     categoryId: "pdf",
     path: "/pdf/markdown-to-pdf",
+    keywords: ["markdown to pdf", "convert markdown to pdf", "md to pdf", "markdown export pdf", "markdown pdf converter"],
   },
 ]
 
