@@ -1,6 +1,7 @@
 import { useMemo } from "react"
 import { useLocation } from "react-router"
 import { TOOLS, CATEGORIES, getToolsByCategory } from "@/config/toolRegistry"
+import { getBlogPostBySlug } from "@/data/blogPosts"
 import { usePageMeta, useCanonicalUrl, useJsonLd } from "@/hooks/usePageMeta"
 
 const BASE_URL = "https://toolbox.kutuyazilim.org"
@@ -10,15 +11,51 @@ export function PageMeta() {
   const tool = TOOLS.find((t) => t.path === pathname)
   const category = CATEGORIES.find((c) => c.path === pathname)
 
-  usePageMeta(
-    tool?.label ?? category?.label,
-    tool?.description ?? (category ? `${category.label} tools` : undefined),
-    tool?.keywords,
-  )
+  const isBlogList = pathname === "/blog"
+  const blogSlug = pathname.startsWith("/blog/")
+    ? pathname.replace("/blog/", "")
+    : undefined
+  const blogPost = blogSlug ? getBlogPostBySlug(blogSlug) : undefined
+
+  const metaTitle = isBlogList
+    ? "Blog - ToolBox by Kutu Yazilim"
+    : blogPost
+      ? `${blogPost.title} - ToolBox Blog`
+      : tool?.label ?? category?.label
+
+  const metaDescription = blogPost
+    ? blogPost.description
+    : tool?.description ?? (category ? `${category.label} tools` : undefined)
+
+  const metaKeywords = blogPost?.keywords ?? tool?.keywords
+
+  usePageMeta(metaTitle, metaDescription, metaKeywords)
 
   useCanonicalUrl(pathname === "/" ? "" : pathname)
 
   const jsonLdData = useMemo(() => {
+    if (blogPost) {
+      return [
+        {
+          "@context": "https://schema.org",
+          "@type": "Article",
+          headline: blogPost.title,
+          description: blogPost.description,
+          datePublished: blogPost.publishedAt,
+          url: `${BASE_URL}/blog/${blogPost.slug}`,
+          author: {
+            "@type": "Organization",
+            name: "Kutu Yazilim",
+          },
+          publisher: {
+            "@type": "Organization",
+            name: "Kutu Yazilim",
+          },
+          ...(blogPost.keywords.length ? { keywords: blogPost.keywords.join(", ") } : {}),
+        },
+      ]
+    }
+
     if (tool) {
       const toolCategory = CATEGORIES.find((c) => c.id === tool.categoryId)
       const softwareApp = {
@@ -86,7 +123,7 @@ export function PageMeta() {
     }
 
     return null
-  }, [tool, category, pathname])
+  }, [blogPost, tool, category, pathname])
 
   useJsonLd(jsonLdData)
 

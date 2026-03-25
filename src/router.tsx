@@ -27,6 +27,17 @@ const WelcomePage = React.lazy(() =>
   })),
 )
 
+const BlogListPage = React.lazy(() =>
+  import("@/components/blog/BlogListPage").then((m) => ({
+    default: m.BlogListPage,
+  })),
+)
+const BlogPostPage = React.lazy(() =>
+  import("@/components/blog/BlogPostPage").then((m) => ({
+    default: m.BlogPostPage,
+  })),
+)
+
 // JSON
 const JsonEditor = React.lazy(() =>
   import("@/components/json/JsonEditor").then((m) => ({
@@ -537,6 +548,14 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: lazy_(WelcomePage),
+      },
+      {
+        path: "blog",
+        element: lazy_(BlogListPage),
+      },
+      {
+        path: "blog/:slug",
+        element: lazy_(BlogPostPage),
       },
       {
         path: "dev-tools",

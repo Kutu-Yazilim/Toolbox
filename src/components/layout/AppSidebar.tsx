@@ -6,6 +6,7 @@ import {
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   HomeIcon,
+  BookOpenIcon,
   StarIcon,
   SearchIcon,
   XIcon,
@@ -229,6 +230,18 @@ export function AppSidebar() {
             >
               <HomeIcon className="size-[18px] flex-shrink-0" />
               {!collapsed && <span className="truncate">Home</span>}
+            </NavLink>
+          </SidebarTooltip>
+
+          {/* Blog */}
+          <SidebarTooltip label="Blog" show={collapsed}>
+            <NavLink
+              to="/blog"
+              end
+              className={({ isActive }) => navLinkClasses(isActive, collapsed)}
+            >
+              <BookOpenIcon className="size-[18px] flex-shrink-0" />
+              {!collapsed && <span className="truncate">Blog</span>}
             </NavLink>
           </SidebarTooltip>
 
