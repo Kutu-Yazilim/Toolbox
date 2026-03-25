@@ -177,9 +177,17 @@ export function WelcomePage() {
         )}
 
         {/* Footer */}
-        <div className="text-center py-8">
+        <div className="text-center py-8 space-y-2">
           <p className="text-xs text-muted-foreground">
-            ToolBox by Kutu Yazılım
+            ToolBox by{" "}
+            <a href="https://kutuyazilim.org" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors underline underline-offset-2">
+              Kutu Yazılım
+            </a>
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            <a href="https://utkuaturen.com" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground transition-colors">
+              Utku A. Türen
+            </a>
           </p>
         </div>
       </div>
