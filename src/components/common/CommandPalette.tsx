@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation"
 import { SearchIcon } from "lucide-react"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/i18n/LocaleContext"
+import { getToolLabel } from "@/i18n/toolTranslations"
 
 type CommandPaletteProps = {
   isOpen: boolean
@@ -15,10 +17,6 @@ type CommandPaletteProps = {
 
 const MAX_RESULTS = 10
 
-function getCategoryLabel(categoryId: string): string {
-  return CATEGORIES.find((c) => c.id === categoryId)?.label ?? categoryId
-}
-
 export function CommandPalette({
   isOpen,
   onClose,
@@ -26,6 +24,7 @@ export function CommandPalette({
   onSelect,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState("")
+  const { locale, t } = useLocale()
   const [highlightIndex, setHighlightIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -116,7 +115,7 @@ export function CommandPalette({
           <input
             ref={inputRef}
             type="text"
-            placeholder="Search tools..."
+            placeholder={t.commandPalette.placeholder}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
@@ -130,12 +129,12 @@ export function CommandPalette({
         <div ref={listRef} className="max-h-80 overflow-y-auto p-1.5">
           {showRecentHeader && (
             <div className="px-3 py-1.5 text-xs font-medium text-muted-foreground">
-              Recent
+              {t.commandPalette.recent}
             </div>
           )}
           {results.length === 0 && (
             <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-              No tools found.
+              {t.commandPalette.noResults}
             </div>
           )}
           {results.map((tool, index) => {
@@ -156,10 +155,10 @@ export function CommandPalette({
               >
                 <ToolIcon className="size-4 text-muted-foreground shrink-0" />
                 <span className="flex-1 truncate font-medium">
-                  {tool.label}
+                  {getToolLabel(tool, locale)}
                 </span>
                 <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5 shrink-0">
-                  {getCategoryLabel(tool.categoryId)}
+                  {t.categories[tool.categoryId as keyof typeof t.categories] ?? tool.categoryId}
                 </span>
               </button>
             )

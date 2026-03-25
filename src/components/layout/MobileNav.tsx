@@ -19,21 +19,24 @@ import {
   getToolsByCategory,
   type CategoryId,
 } from "@/config/toolRegistry"
+import { useLocale } from "@/i18n/LocaleContext"
+import { getToolLabel } from "@/i18n/toolTranslations"
 
 export function MobileNav() {
   const { isDark, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
+  const { locale, t } = useLocale()
 
   const activeItem = useMemo(() => {
     const tool = TOOLS.find((t) => pathname.startsWith(t.path))
-    if (tool) return { label: tool.label, icon: tool.icon }
+    if (tool) return { label: getToolLabel(tool, locale), icon: tool.icon }
     const category = CATEGORIES.find((c) =>
       pathname.startsWith(c.path)
     )
-    if (category) return { label: category.label, icon: category.icon }
-    return { label: "Home", icon: HomeIcon }
-  }, [pathname])
+    if (category) return { label: t.categories[category.id as keyof typeof t.categories] ?? category.label, icon: category.icon }
+    return { label: t.common.home, icon: HomeIcon }
+  }, [pathname, locale, t])
 
   useEffect(() => {
     if (!open) return
@@ -110,7 +113,7 @@ export function MobileNav() {
                   )}
                 >
                   <HomeIcon className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-xs font-medium truncate">Home</span>
+                  <span className="text-xs font-medium truncate">{t.common.home}</span>
                 </Link>
               </div>
 
@@ -121,24 +124,24 @@ export function MobileNav() {
                   <div key={category.id} className="mb-3">
                     <div className="px-4 pt-2 pb-1.5">
                       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                        {category.label}
+                        {t.categories[category.id as keyof typeof t.categories] ?? category.label}
                       </p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {tools.map(({ id, label, icon: Icon, path }) => (
+                      {tools.map((tool) => (
                         <Link
-                          key={id}
-                          href={path}
+                          key={tool.id}
+                          href={tool.path}
                           onClick={() => setOpen(false)}
                           className={cn(
                             "flex items-center gap-2 h-auto px-3 py-2.5 justify-start rounded-lg border border-border bg-card/40",
-                            pathname.startsWith(path) &&
+                            pathname.startsWith(tool.path) &&
                               "bg-primary text-primary-foreground border-primary"
                           )}
                         >
-                          <Icon className="h-4 w-4 flex-shrink-0" />
+                          <tool.icon className="h-4 w-4 flex-shrink-0" />
                           <span className="text-xs font-medium truncate">
-                            {label}
+                            {getToolLabel(tool, locale)}
                           </span>
                         </Link>
                       ))}

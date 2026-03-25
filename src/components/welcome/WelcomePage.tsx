@@ -6,6 +6,8 @@ import { SearchIcon, StarIcon } from "lucide-react"
 import { TOOLS, CATEGORIES, type CategoryId } from "@/config/toolRegistry"
 import { useFavorites } from "@/hooks/useFavorites"
 import { cn } from "@/lib/utils"
+import { useLocale } from "@/i18n/LocaleContext"
+import { getToolLabel, getToolDescription } from "@/i18n/toolTranslations"
 
 type FilterTab = CategoryId | "all" | "favorites"
 
@@ -14,6 +16,7 @@ export function WelcomePage() {
   const [activeCategory, setActiveCategory] = useState<FilterTab>("all")
   const searchRef = useRef<HTMLInputElement>(null)
   const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
+  const { locale, t } = useLocale()
 
   useEffect(() => {
     searchRef.current?.focus()
@@ -62,14 +65,14 @@ export function WelcomePage() {
             </div>
           </div>
           <p className="text-lg text-muted-foreground">
-            {TOOLS.length}+ free tools. Zero sign-ups. Runs in your browser.
+            {TOOLS.length}+ {t.landing.tagline}
           </p>
           <div className="relative w-full max-w-md">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <input
               ref={searchRef}
               type="text"
-              placeholder="Search tools..."
+              placeholder={t.landing.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
@@ -94,7 +97,7 @@ export function WelcomePage() {
               )}
             >
               <StarIcon className="size-3.5 fill-current" />
-              Favorites ({favoriteIds.length})
+              {t.common.favorites} ({favoriteIds.length})
             </button>
           )}
           <button
@@ -106,7 +109,7 @@ export function WelcomePage() {
                 : "bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
-            All ({toolCountByCategory.all})
+            {t.landing.all} ({toolCountByCategory.all})
           </button>
           {CATEGORIES.map((cat) => (
             <button
@@ -119,7 +122,7 @@ export function WelcomePage() {
                   : "bg-muted text-muted-foreground hover:text-foreground"
               )}
             >
-              {cat.label} ({toolCountByCategory[cat.id]})
+              {t.categories[cat.id as keyof typeof t.categories] ?? cat.label} ({toolCountByCategory[cat.id]})
             </button>
           ))}
         </div>
@@ -127,7 +130,7 @@ export function WelcomePage() {
         {/* Tool grid */}
         {filteredTools.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            No tools found.
+            {t.common.noResults}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -145,10 +148,10 @@ export function WelcomePage() {
                   <tool.icon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="min-w-0 pr-5">
                     <div className="text-sm font-medium text-foreground">
-                      {tool.label}
+                      {getToolLabel(tool, locale)}
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">
-                      {tool.description}
+                      {getToolDescription(tool, locale)}
                     </p>
                   </div>
                 </Link>
@@ -179,7 +182,7 @@ export function WelcomePage() {
         {/* Footer */}
         <div className="text-center py-8 space-y-2">
           <p className="text-xs text-muted-foreground">
-            ToolBox by{" "}
+            {t.landing.footer}{" "}
             <a href="https://kutuyazilim.org" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors underline underline-offset-2">
               Kutu Yazılım
             </a>

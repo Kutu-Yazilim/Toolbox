@@ -8,6 +8,7 @@ import { Breadcrumbs } from "@/components/common/Breadcrumbs"
 import { CommandPalette } from "@/components/common/CommandPalette"
 import { useRecentTools } from "@/hooks/useRecentTools"
 import { TOOLS } from "@/config/toolRegistry"
+import { LocaleProvider } from "@/i18n/LocaleContext"
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -35,27 +36,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const closePalette = useCallback(() => setPaletteOpen(false), [])
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <AppSidebar />
-      <main className="flex-1 overflow-auto">
-        <MobileNav />
-        <Breadcrumbs />
-        <Suspense
-          fallback={
-            <div className="flex h-full items-center justify-center">
-              <div className="text-muted-foreground text-sm">Loading...</div>
-            </div>
-          }
-        >
-          {children}
-        </Suspense>
-      </main>
-      <CommandPalette
-        isOpen={paletteOpen}
-        onClose={closePalette}
-        recentToolIds={recentToolIds}
-        onSelect={addRecent}
-      />
-    </div>
+    <LocaleProvider>
+      <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+        <AppSidebar />
+        <main className="flex-1 overflow-auto">
+          <MobileNav />
+          <Breadcrumbs />
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <div className="text-muted-foreground text-sm">Loading...</div>
+              </div>
+            }
+          >
+            {children}
+          </Suspense>
+        </main>
+        <CommandPalette
+          isOpen={paletteOpen}
+          onClose={closePalette}
+          recentToolIds={recentToolIds}
+          onSelect={addRecent}
+        />
+      </div>
+    </LocaleProvider>
   )
 }

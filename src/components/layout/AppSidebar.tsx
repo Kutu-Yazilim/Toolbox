@@ -12,6 +12,7 @@ import {
   StarIcon,
   SearchIcon,
   XIcon,
+  LanguagesIcon,
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -25,6 +26,8 @@ import {
   getToolsByCategory,
   type CategoryId,
 } from "@/config/toolRegistry"
+import { useLocale } from "@/i18n/LocaleContext"
+import { getToolLabel } from "@/i18n/toolTranslations"
 
 const SIDEBAR_CATEGORIES_KEY = "sidebar-categories"
 
@@ -83,6 +86,7 @@ const navLinkClasses = (isActive: boolean, collapsed: boolean) =>
 export function AppSidebar() {
   const { isDark, toggleTheme } = useTheme()
   const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
+  const { locale, setLocale, t } = useLocale()
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window === "undefined") return true
@@ -124,9 +128,12 @@ export function AppSidebar() {
     if (!searchQuery.trim()) return null
     const q = searchQuery.toLowerCase()
     return TOOLS.filter(
-      (t) => t.label.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+      (tool) =>
+        tool.label.toLowerCase().includes(q) ||
+        tool.description.toLowerCase().includes(q) ||
+        getToolLabel(tool, locale).toLowerCase().includes(q)
     )
-  }, [searchQuery])
+  }, [searchQuery, locale])
 
   const favoriteTools = favoriteIds
     .map((id) => TOOLS.find((t) => t.id === id))
@@ -171,7 +178,7 @@ export function AppSidebar() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tools..."
+              placeholder={t.common.search}
               className="w-full h-8 pl-8 pr-7 rounded-md border border-sidebar-border bg-sidebar text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:border-sidebar-ring"
             />
             {searchQuery && (
@@ -193,11 +200,11 @@ export function AppSidebar() {
           {filteredTools !== null ? (
             <>
               <div className="px-3 py-1.5 text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider">
-                Results ({filteredTools.length})
+                {t.common.results} ({filteredTools.length})
               </div>
               {filteredTools.length === 0 ? (
                 <div className="px-3 py-4 text-xs text-sidebar-foreground/40 text-center">
-                  No tools found
+                  {t.common.noResults}
                 </div>
               ) : (
                 filteredTools.map((tool) => {
@@ -217,7 +224,7 @@ export function AppSidebar() {
                       )}
                     >
                       <ToolIcon className="size-[16px] flex-shrink-0" />
-                      <span className="truncate">{tool.label}</span>
+                      <span className="truncate">{getToolLabel(tool, locale)}</span>
                     </Link>
                   )
                 })
@@ -226,24 +233,24 @@ export function AppSidebar() {
           ) : (
           <>
           {/* Home */}
-          <SidebarTooltip label="Home" show={collapsed}>
+          <SidebarTooltip label={t.common.home} show={collapsed}>
             <Link
               href="/"
               className={navLinkClasses(pathname === "/", collapsed)}
             >
               <HomeIcon className="size-[18px] flex-shrink-0" />
-              {!collapsed && <span className="truncate">Home</span>}
+              {!collapsed && <span className="truncate">{t.common.home}</span>}
             </Link>
           </SidebarTooltip>
 
           {/* Blog */}
-          <SidebarTooltip label="Blog" show={collapsed}>
+          <SidebarTooltip label={t.common.blog} show={collapsed}>
             <Link
               href="/blog"
               className={navLinkClasses(pathname === "/blog", collapsed)}
             >
               <BookOpenIcon className="size-[18px] flex-shrink-0" />
-              {!collapsed && <span className="truncate">Blog</span>}
+              {!collapsed && <span className="truncate">{t.common.blog}</span>}
             </Link>
           </SidebarTooltip>
 
@@ -254,14 +261,14 @@ export function AppSidebar() {
           {favoriteTools.length > 0 && !collapsed && (
             <>
               <div className="px-3 py-1.5 text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider">
-                Favorites
+                {t.common.favorites}
               </div>
               {favoriteTools.map((tool) => {
                 if (!tool) return null
                 const ToolIcon = tool.icon
                 const isActive = pathname.startsWith(tool.path)
                 return (
-                  <SidebarTooltip key={tool.id} label={tool.label} show={collapsed}>
+                  <SidebarTooltip key={tool.id} label={getToolLabel(tool, locale)} show={collapsed}>
                     <div className="group/fav relative">
                       <Link
                         href={tool.path}
@@ -274,7 +281,7 @@ export function AppSidebar() {
                         )}
                       >
                         <ToolIcon className="size-[16px] flex-shrink-0" />
-                        <span className="truncate flex-1">{tool.label}</span>
+                        <span className="truncate flex-1">{getToolLabel(tool, locale)}</span>
                         <button
                           type="button"
                           onClick={(e) => {
@@ -298,7 +305,7 @@ export function AppSidebar() {
           {/* Favorites collapsed - show star icon */}
           {favoriteTools.length > 0 && collapsed && (
             <>
-              <SidebarTooltip label="Favorites" show={collapsed}>
+              <SidebarTooltip label={t.common.favorites} show={collapsed}>
                 <div className="flex items-center justify-center py-2.5">
                   <StarIcon className="size-[18px] fill-yellow-500 text-yellow-500" />
                 </div>
@@ -317,7 +324,7 @@ export function AppSidebar() {
             return (
               <div key={category.id}>
                 {/* Category header */}
-                <SidebarTooltip label={category.label} show={collapsed}>
+                <SidebarTooltip label={t.categories[category.id as keyof typeof t.categories] ?? category.label} show={collapsed}>
                   <div
                     className={cn(
                       "w-full flex items-center rounded-lg text-sm font-medium",
@@ -343,7 +350,7 @@ export function AppSidebar() {
                           className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
                         >
                           <CategoryIcon className="size-[18px] flex-shrink-0" />
-                          <span className="truncate">{category.label}</span>
+                          <span className="truncate">{t.categories[category.id as keyof typeof t.categories] ?? category.label}</span>
                         </Link>
                         <button
                           type="button"
@@ -365,10 +372,12 @@ export function AppSidebar() {
                 {/* Tool links */}
                 {!collapsed && isOpen && (
                   <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
-                    {tools.map(({ id, label, icon: ToolIcon, path }) => {
+                    {tools.map((tool) => {
+                      const { id, icon: ToolIcon, path } = tool
+                      const translatedLabel = getToolLabel(tool, locale)
                       const isToolActive = pathname.startsWith(path)
                       return (
-                        <SidebarTooltip key={id} label={label} show={collapsed}>
+                        <SidebarTooltip key={id} label={translatedLabel} show={collapsed}>
                           <div className="group/fav relative">
                             <Link
                               href={path}
@@ -381,7 +390,7 @@ export function AppSidebar() {
                               )}
                             >
                               <ToolIcon className="size-[16px] flex-shrink-0" />
-                              <span className="truncate flex-1">{label}</span>
+                              <span className="truncate flex-1">{translatedLabel}</span>
                               <button
                                 type="button"
                                 onClick={(e) => {
@@ -422,7 +431,28 @@ export function AppSidebar() {
 
       {/* Bottom controls */}
       <div className="border-t border-sidebar-border p-1.5 flex flex-col gap-0.5 flex-shrink-0">
-        <SidebarTooltip label={isDark ? "Light mode" : "Dark mode"} show={collapsed}>
+        <SidebarTooltip label={locale === "tr" ? "EN" : "TR"} show={collapsed}>
+          <Button
+            variant="ghost"
+            size={collapsed ? "icon" : "default"}
+            onClick={() => setLocale(locale === "en" ? "tr" : "en")}
+            className={cn(
+              "w-full text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-lg",
+              collapsed
+                ? "justify-center"
+                : "justify-start gap-3 px-3"
+            )}
+          >
+            <LanguagesIcon className="size-[18px] flex-shrink-0" />
+            {!collapsed && (
+              <span className="text-sm">
+                {locale === "en" ? "TR" : "EN"}
+              </span>
+            )}
+          </Button>
+        </SidebarTooltip>
+
+        <SidebarTooltip label={isDark ? t.common.lightMode : t.common.darkMode} show={collapsed}>
           <Button
             variant="ghost"
             size={collapsed ? "icon" : "default"}
@@ -441,13 +471,13 @@ export function AppSidebar() {
             )}
             {!collapsed && (
               <span className="text-sm">
-                {isDark ? "Light mode" : "Dark mode"}
+                {isDark ? t.common.lightMode : t.common.darkMode}
               </span>
             )}
           </Button>
         </SidebarTooltip>
 
-        <SidebarTooltip label={collapsed ? "Expand sidebar" : "Collapse"} show={collapsed}>
+        <SidebarTooltip label={collapsed ? t.common.expand : t.common.collapse} show={collapsed}>
           <Button
             variant="ghost"
             size={collapsed ? "icon" : "default"}
@@ -464,7 +494,7 @@ export function AppSidebar() {
             ) : (
               <PanelLeftCloseIcon className="size-[18px] flex-shrink-0" />
             )}
-            {!collapsed && <span className="text-sm">Collapse</span>}
+            {!collapsed && <span className="text-sm">{t.common.collapse}</span>}
           </Button>
         </SidebarTooltip>
       </div>
