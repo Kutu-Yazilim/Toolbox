@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   ChevronRightIcon,
   MoonIcon,
@@ -7,6 +7,8 @@ import {
   PanelLeftOpenIcon,
   HomeIcon,
   StarIcon,
+  SearchIcon,
+  XIcon,
 } from "lucide-react"
 import { NavLink, useLocation } from "react-router"
 import { Button } from "@/components/ui/button"
@@ -110,6 +112,16 @@ export function AppSidebar() {
     setCategoryOpen((prev) => ({ ...prev, [id]: !prev[id] }))
   }, [])
 
+  const [searchQuery, setSearchQuery] = useState("")
+
+  const filteredTools = useMemo(() => {
+    if (!searchQuery.trim()) return null
+    const q = searchQuery.toLowerCase()
+    return TOOLS.filter(
+      (t) => t.label.toLowerCase().includes(q) || t.description.toLowerCase().includes(q)
+    )
+  }, [searchQuery])
+
   const favoriteTools = favoriteIds
     .map((id) => TOOLS.find((t) => t.id === id))
     .filter(Boolean)
@@ -144,9 +156,70 @@ export function AppSidebar() {
         </span>
       </div>
 
+      {/* Search */}
+      {!collapsed && (
+        <div className="px-2 pt-2 flex-shrink-0">
+          <div className="relative">
+            <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-sidebar-foreground/40" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search tools..."
+              className="w-full h-8 pl-8 pr-7 rounded-md border border-sidebar-border bg-sidebar text-sm text-sidebar-foreground placeholder:text-sidebar-foreground/40 focus:outline-none focus:border-sidebar-ring"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-sidebar-foreground/40 hover:text-sidebar-foreground"
+              >
+                <XIcon className="size-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-1.5">
         <div className="flex flex-col gap-0.5 w-full">
+          {/* Search results */}
+          {filteredTools !== null ? (
+            <>
+              <div className="px-3 py-1.5 text-xs font-medium text-sidebar-foreground/40 uppercase tracking-wider">
+                Results ({filteredTools.length})
+              </div>
+              {filteredTools.length === 0 ? (
+                <div className="px-3 py-4 text-xs text-sidebar-foreground/40 text-center">
+                  No tools found
+                </div>
+              ) : (
+                filteredTools.map((tool) => {
+                  const ToolIcon = tool.icon
+                  return (
+                    <NavLink
+                      key={tool.id}
+                      to={tool.path}
+                      onClick={() => setSearchQuery("")}
+                      className={({ isActive }) =>
+                        cn(
+                          "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                          "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                          "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                          isActive &&
+                            "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                        )
+                      }
+                    >
+                      <ToolIcon className="size-[16px] flex-shrink-0" />
+                      <span className="truncate">{tool.label}</span>
+                    </NavLink>
+                  )
+                })
+              )}
+            </>
+          ) : (
+          <>
           {/* Home */}
           <SidebarTooltip label="Home" show={collapsed}>
             <NavLink
@@ -330,6 +403,8 @@ export function AppSidebar() {
               </div>
             )
           })}
+          </>
+          )}
         </div>
       </nav>
 
