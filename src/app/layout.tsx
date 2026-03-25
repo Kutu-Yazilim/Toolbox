@@ -26,6 +26,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-N19BRM30S9" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag('js',new Date());gtag('config','G-N19BRM30S9');`,
+          }}
+        />
         <link rel="icon" type="image/svg+xml" href="/LogoOnlyCircularSVG.svg" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#A88A6F" />
