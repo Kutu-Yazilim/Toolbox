@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/LogoOnlyCircularSVG.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#A88A6F" />
+    <link rel="apple-touch-icon" href="/LogoOnlyCircularSVG.svg" />
     <title>ToolBox by Kutu Yazilim</title>
 
     <!-- SEO meta tags -->
@@ -52,5 +55,10 @@
         </ul>
       </div>
     </noscript>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("/sw.js")
+      }
+    </script>
   </body>
 </html>
