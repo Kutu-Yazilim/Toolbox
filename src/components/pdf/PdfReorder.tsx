@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback } from "react"
 import { ArrowDownUpIcon, Trash2Icon, RotateCwIcon } from "lucide-react"
 import type { PdfProcessingState } from "@/types/pdf"

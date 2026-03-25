@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useMemo } from "react"
 import type { Layer, CodeGenOptions } from "@/types/shapemaker"
 import { generateFlutterCode } from "@/utils/shapemakerCodegen"

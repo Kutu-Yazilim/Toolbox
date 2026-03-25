@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useMemo, type KeyboardEvent } from "react"
 import { Button } from "@/components/ui/button"
 import {

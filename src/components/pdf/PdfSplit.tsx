@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback } from "react"
 import JSZip from "jszip"
 import type { PdfProcessingState, SplitConfig, SplitMode } from "@/types/pdf"

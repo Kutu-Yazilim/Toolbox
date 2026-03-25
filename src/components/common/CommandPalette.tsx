@@ -1,5 +1,7 @@
+"use client"
+
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router"
+import { useRouter } from "next/navigation"
 import { SearchIcon } from "lucide-react"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
 import { cn } from "@/lib/utils"
@@ -27,7 +29,7 @@ export function CommandPalette({
   const [highlightIndex, setHighlightIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
+  const router = useRouter()
 
   const results = useMemo(() => {
     if (!query.trim()) {
@@ -68,10 +70,10 @@ export function CommandPalette({
   const selectTool = useCallback(
     (toolId: string, path: string) => {
       onSelect(toolId)
-      navigate(path)
+      router.push(path)
       onClose()
     },
-    [navigate, onClose, onSelect]
+    [router, onClose, onSelect]
   )
 
   const handleKeyDown = useCallback(

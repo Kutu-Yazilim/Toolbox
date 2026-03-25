@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useRef, useCallback } from "react"
 import { UploadIcon, XIcon, FileIcon } from "lucide-react"
 import { cn } from "@/lib/utils"

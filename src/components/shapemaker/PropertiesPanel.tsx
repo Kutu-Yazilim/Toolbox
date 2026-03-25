@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react"
 import type { PaintStyle, ShapePath, BoundingBox, InteractionState } from "@/types/shapemaker"
 import { computeBoundingBox } from "@/utils/shapemakerTransform"

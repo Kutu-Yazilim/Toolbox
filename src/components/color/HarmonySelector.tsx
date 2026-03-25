@@ -1,3 +1,5 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import type { ColorHarmony } from "@/types/color"
 import { ShuffleIcon } from "lucide-react"

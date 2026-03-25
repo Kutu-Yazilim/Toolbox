@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useRef, useCallback } from "react"
 import { DiffEditor, type DiffEditorProps } from "@monaco-editor/react"
 import { Button } from "@/components/ui/button"

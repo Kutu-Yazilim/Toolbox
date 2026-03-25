@@ -1,23 +1,24 @@
+"use client"
+
 import { Suspense, useState, useEffect, useCallback } from "react"
-import { Outlet, useLocation } from "react-router"
+import { usePathname } from "next/navigation"
 import { AppSidebar } from "@/components/layout/AppSidebar"
 import { MobileNav } from "@/components/layout/MobileNav"
-import { PageMeta } from "@/components/common/PageMeta"
 import { Breadcrumbs } from "@/components/common/Breadcrumbs"
 import { CommandPalette } from "@/components/common/CommandPalette"
 import { useRecentTools } from "@/hooks/useRecentTools"
 import { TOOLS } from "@/config/toolRegistry"
 
-export function RootLayout() {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [recentToolIds, addRecent] = useRecentTools()
-  const location = useLocation()
+  const pathname = usePathname()
 
   // Track recent tools on route change
   useEffect(() => {
-    const tool = TOOLS.find((t) => location.pathname.startsWith(t.path))
+    const tool = TOOLS.find((t) => pathname.startsWith(t.path))
     if (tool) addRecent(tool.id)
-  }, [location.pathname, addRecent])
+  }, [pathname, addRecent])
 
   // Global Cmd+K / Ctrl+K listener
   useEffect(() => {
@@ -35,7 +36,6 @@ export function RootLayout() {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <PageMeta />
       <AppSidebar />
       <main className="flex-1 overflow-auto">
         <MobileNav />
@@ -47,7 +47,7 @@ export function RootLayout() {
             </div>
           }
         >
-          <Outlet />
+          {children}
         </Suspense>
       </main>
       <CommandPalette

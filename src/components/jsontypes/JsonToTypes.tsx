@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { CopyIcon, CheckIcon, AlertCircleIcon } from "lucide-react"

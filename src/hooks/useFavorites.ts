@@ -3,6 +3,7 @@ import { useState, useCallback } from "react"
 const STORAGE_KEY = "favorite-tools"
 
 function loadFavorites(): string[] {
+  if (typeof window === "undefined") return []
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     return stored ? (JSON.parse(stored) as string[]) : []

@@ -1,3 +1,5 @@
+"use client"
+
 import { DownloadIcon, ImageIcon, TrashIcon, RotateCcwIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"

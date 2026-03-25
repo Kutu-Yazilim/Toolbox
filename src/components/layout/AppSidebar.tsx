@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   ChevronRightIcon,
@@ -11,7 +13,8 @@ import {
   SearchIcon,
   XIcon,
 } from "lucide-react"
-import { NavLink, useLocation } from "react-router"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/hooks/useTheme"
 import { useFavorites } from "@/hooks/useFavorites"
@@ -26,6 +29,7 @@ import {
 const SIDEBAR_CATEGORIES_KEY = "sidebar-categories"
 
 function loadCategoryState(): Record<string, boolean> {
+  if (typeof window === "undefined") return {}
   try {
     const stored = localStorage.getItem(SIDEBAR_CATEGORIES_KEY)
     return stored ? (JSON.parse(stored) as Record<string, boolean>) : {}
@@ -79,8 +83,9 @@ const navLinkClasses = (isActive: boolean, collapsed: boolean) =>
 export function AppSidebar() {
   const { isDark, toggleTheme } = useTheme()
   const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
-  const location = useLocation()
+  const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return true
     const stored = localStorage.getItem("sidebar-collapsed")
     return stored !== null ? stored === "true" : true
   })
@@ -99,7 +104,7 @@ export function AppSidebar() {
   // Auto-expand category that contains the active route
   useEffect(() => {
     for (const cat of CATEGORIES) {
-      if (location.pathname.startsWith(cat.path)) {
+      if (pathname.startsWith(cat.path)) {
         setCategoryOpen((prev) => {
           if (prev[cat.id]) return prev
           return { ...prev, [cat.id]: true }
@@ -107,7 +112,7 @@ export function AppSidebar() {
         break
       }
     }
-  }, [location.pathname])
+  }, [pathname])
 
   const toggleCategory = useCallback((id: string) => {
     setCategoryOpen((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -197,24 +202,23 @@ export function AppSidebar() {
               ) : (
                 filteredTools.map((tool) => {
                   const ToolIcon = tool.icon
+                  const isActive = pathname.startsWith(tool.path)
                   return (
-                    <NavLink
+                    <Link
                       key={tool.id}
-                      to={tool.path}
+                      href={tool.path}
                       onClick={() => setSearchQuery("")}
-                      className={({ isActive }) =>
-                        cn(
-                          "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
-                          "text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                          "hover:bg-sidebar-accent/50 transition-colors duration-150",
-                          isActive &&
-                            "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                        )
-                      }
+                      className={cn(
+                        "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                        "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                        "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                        isActive &&
+                          "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                      )}
                     >
                       <ToolIcon className="size-[16px] flex-shrink-0" />
                       <span className="truncate">{tool.label}</span>
-                    </NavLink>
+                    </Link>
                   )
                 })
               )}
@@ -223,26 +227,24 @@ export function AppSidebar() {
           <>
           {/* Home */}
           <SidebarTooltip label="Home" show={collapsed}>
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) => navLinkClasses(isActive, collapsed)}
+            <Link
+              href="/"
+              className={navLinkClasses(pathname === "/", collapsed)}
             >
               <HomeIcon className="size-[18px] flex-shrink-0" />
               {!collapsed && <span className="truncate">Home</span>}
-            </NavLink>
+            </Link>
           </SidebarTooltip>
 
           {/* Blog */}
           <SidebarTooltip label="Blog" show={collapsed}>
-            <NavLink
-              to="/blog"
-              end
-              className={({ isActive }) => navLinkClasses(isActive, collapsed)}
+            <Link
+              href="/blog"
+              className={navLinkClasses(pathname === "/blog", collapsed)}
             >
               <BookOpenIcon className="size-[18px] flex-shrink-0" />
               {!collapsed && <span className="truncate">Blog</span>}
-            </NavLink>
+            </Link>
           </SidebarTooltip>
 
           {/* Divider */}
@@ -257,20 +259,19 @@ export function AppSidebar() {
               {favoriteTools.map((tool) => {
                 if (!tool) return null
                 const ToolIcon = tool.icon
+                const isActive = pathname.startsWith(tool.path)
                 return (
                   <SidebarTooltip key={tool.id} label={tool.label} show={collapsed}>
                     <div className="group/fav relative">
-                      <NavLink
-                        to={tool.path}
-                        className={({ isActive }) =>
-                          cn(
-                            "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
-                            "text-sidebar-foreground/60 hover:text-sidebar-foreground",
-                            "hover:bg-sidebar-accent/50 transition-colors duration-150",
-                            isActive &&
-                              "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                          )
-                        }
+                      <Link
+                        href={tool.path}
+                        className={cn(
+                          "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
+                          "text-sidebar-foreground/60 hover:text-sidebar-foreground",
+                          "hover:bg-sidebar-accent/50 transition-colors duration-150",
+                          isActive &&
+                            "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                        )}
                       >
                         <ToolIcon className="size-[16px] flex-shrink-0" />
                         <span className="truncate flex-1">{tool.label}</span>
@@ -285,7 +286,7 @@ export function AppSidebar() {
                         >
                           <StarIcon className="size-3.5 fill-yellow-500 text-yellow-500" />
                         </button>
-                      </NavLink>
+                      </Link>
                     </div>
                   </SidebarTooltip>
                 )
@@ -311,6 +312,7 @@ export function AppSidebar() {
             const tools = getToolsByCategory(category.id as CategoryId)
             const isOpen = categoryOpen[category.id] ?? false
             const CategoryIcon = category.icon
+            const isCategoryActive = pathname === category.path
 
             return (
               <div key={category.id}>
@@ -325,28 +327,24 @@ export function AppSidebar() {
                     )}
                   >
                     {collapsed ? (
-                      <NavLink
-                        to={category.path}
-                        end
-                        className={({ isActive }) =>
-                          cn(
-                            "flex items-center justify-center w-full py-2.5",
-                            isActive && "text-sidebar-accent-foreground"
-                          )
-                        }
+                      <Link
+                        href={category.path}
+                        className={cn(
+                          "flex items-center justify-center w-full py-2.5",
+                          isCategoryActive && "text-sidebar-accent-foreground"
+                        )}
                       >
                         <CategoryIcon className="size-[18px] flex-shrink-0" />
-                      </NavLink>
+                      </Link>
                     ) : (
                       <>
-                        <NavLink
-                          to={category.path}
-                          end
+                        <Link
+                          href={category.path}
                           className="flex-1 flex items-center gap-3 px-3 py-2.5 min-w-0"
                         >
                           <CategoryIcon className="size-[18px] flex-shrink-0" />
                           <span className="truncate">{category.label}</span>
-                        </NavLink>
+                        </Link>
                         <button
                           type="button"
                           onClick={() => toggleCategory(category.id)}
@@ -367,50 +365,51 @@ export function AppSidebar() {
                 {/* Tool links */}
                 {!collapsed && isOpen && (
                   <div className="ml-4 flex flex-col gap-0.5 mt-0.5">
-                    {tools.map(({ id, label, icon: ToolIcon, path }) => (
-                      <SidebarTooltip key={id} label={label} show={collapsed}>
-                        <div className="group/fav relative">
-                          <NavLink
-                            to={path}
-                            className={({ isActive }) =>
-                              cn(
+                    {tools.map(({ id, label, icon: ToolIcon, path }) => {
+                      const isToolActive = pathname.startsWith(path)
+                      return (
+                        <SidebarTooltip key={id} label={label} show={collapsed}>
+                          <div className="group/fav relative">
+                            <Link
+                              href={path}
+                              className={cn(
                                 "relative w-full flex items-center gap-3 rounded-lg px-3 py-2 text-sm",
                                 "text-sidebar-foreground/60 hover:text-sidebar-foreground",
                                 "hover:bg-sidebar-accent/50 transition-colors duration-150",
-                                isActive &&
+                                isToolActive &&
                                   "bg-sidebar-accent dark:bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
-                              )
-                            }
-                          >
-                            <ToolIcon className="size-[16px] flex-shrink-0" />
-                            <span className="truncate flex-1">{label}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.preventDefault()
-                                e.stopPropagation()
-                                toggleFavorite(id)
-                              }}
-                              className={cn(
-                                "shrink-0 transition-opacity",
-                                isFavorite(id)
-                                  ? "opacity-100"
-                                  : "opacity-0 group-hover/fav:opacity-100"
                               )}
                             >
-                              <StarIcon
+                              <ToolIcon className="size-[16px] flex-shrink-0" />
+                              <span className="truncate flex-1">{label}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  toggleFavorite(id)
+                                }}
                                 className={cn(
-                                  "size-3.5",
+                                  "shrink-0 transition-opacity",
                                   isFavorite(id)
-                                    ? "fill-yellow-500 text-yellow-500"
-                                    : "text-sidebar-foreground/40 hover:text-yellow-500"
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover/fav:opacity-100"
                                 )}
-                              />
-                            </button>
-                          </NavLink>
-                        </div>
-                      </SidebarTooltip>
-                    ))}
+                              >
+                                <StarIcon
+                                  className={cn(
+                                    "size-3.5",
+                                    isFavorite(id)
+                                      ? "fill-yellow-500 text-yellow-500"
+                                      : "text-sidebar-foreground/40 hover:text-yellow-500"
+                                  )}
+                                />
+                              </button>
+                            </Link>
+                          </div>
+                        </SidebarTooltip>
+                      )
+                    })}
                   </div>
                 )}
               </div>

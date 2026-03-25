@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback } from "react"
 import { InfoIcon } from "lucide-react"
 import type { PdfProcessingState } from "@/types/pdf"

@@ -1,3 +1,5 @@
+"use client"
+
 import { simulateColorBlindness, getContrastTextColor } from "@/utils/colorUtils"
 import type { PaletteColor, ColorBlindnessType } from "@/types/color"
 import { Button } from "@/components/ui/button"

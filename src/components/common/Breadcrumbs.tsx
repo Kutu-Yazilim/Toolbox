@@ -1,10 +1,13 @@
-import { Link, useLocation } from "react-router"
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { ChevronRightIcon } from "lucide-react"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
 
 export function Breadcrumbs() {
-  const { pathname } = useLocation()
-  const tool = TOOLS.find((t) => t.path === pathname)
+  const pathname = usePathname()
+  const tool = TOOLS.find((t) => pathname.startsWith(t.path))
 
   if (!tool) return null
 
@@ -16,11 +19,11 @@ export function Breadcrumbs() {
       aria-label="Breadcrumb"
       className="flex items-center gap-1 px-4 pt-2 text-xs text-muted-foreground"
     >
-      <Link to="/" className="hover:text-foreground transition-colors">
+      <Link href="/" className="hover:text-foreground transition-colors">
         ToolBox
       </Link>
       <ChevronRightIcon className="size-3" />
-      <Link to={category.path} className="hover:text-foreground transition-colors">
+      <Link href={category.path} className="hover:text-foreground transition-colors">
         {category.label}
       </Link>
       <ChevronRightIcon className="size-3" />

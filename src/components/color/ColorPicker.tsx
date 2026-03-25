@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import type { PaletteColor, ColorHarmony } from "@/types/color"
 import {
@@ -24,6 +26,7 @@ const DEFAULT_COLOR_COUNT = 5
 const MAX_HISTORY = 50
 
 function getInitialColors(): PaletteColor[] {
+  if (typeof window === "undefined") return generateRandomPalette(DEFAULT_COLOR_COUNT)
   // Check URL hash for shared palette
   const hash = window.location.hash
   if (hash.startsWith("#colors=")) {

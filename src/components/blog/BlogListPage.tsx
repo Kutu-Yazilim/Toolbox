@@ -1,5 +1,7 @@
+"use client"
+
 import { useState, useMemo } from "react"
-import { Link } from "react-router"
+import Link from "next/link"
 import { SearchIcon } from "lucide-react"
 import { BLOG_POSTS } from "@/data/blogPosts"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
@@ -56,7 +58,7 @@ export function BlogListPage() {
               return (
                 <Link
                   key={post.slug}
-                  to={`/blog/${post.slug}`}
+                  href={`/blog/${post.slug}`}
                   className="group flex flex-col rounded-lg border border-border bg-card p-4 transition-all hover:border-primary/30 hover:shadow-sm"
                 >
                   {category && (

@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import { ChevronDownIcon } from "lucide-react"
 import { getFaqsByToolId, type FaqItem } from "@/data/toolFaqs"

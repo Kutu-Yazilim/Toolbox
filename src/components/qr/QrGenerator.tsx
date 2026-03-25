@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import QRCodeStyling, { type DotType, type CornerSquareType, type Options } from "qr-code-styling"
 import { DownloadIcon, RefreshCwIcon } from "lucide-react"

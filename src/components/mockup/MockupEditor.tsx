@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useRef, useEffect, useCallback } from "react"
 import { ImageUploader } from "./ImageUploader"
 import { DevicePreview } from "./DevicePreview"

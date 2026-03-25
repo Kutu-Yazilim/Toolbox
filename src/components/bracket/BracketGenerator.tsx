@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useRef } from "react"
 import { toPng } from "html-to-image"
 import { Button } from "@/components/ui/button"

@@ -1,9 +1,12 @@
-import { Link, useLocation } from "react-router"
+"use client"
+
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { getCategoryByPath, getToolsByCategory } from "@/config/toolRegistry"
 
 export function CategoryLandingPage() {
-  const location = useLocation()
-  const category = getCategoryByPath(location.pathname)
+  const pathname = usePathname()
+  const category = getCategoryByPath(pathname)
 
   if (!category) {
     return (
@@ -28,7 +31,7 @@ export function CategoryLandingPage() {
           {tools.map((tool) => (
             <Link
               key={tool.id}
-              to={tool.path}
+              href={tool.path}
               className="group flex flex-col items-start gap-2 rounded-xl border border-border/60 bg-card p-4 text-left shadow-sm transition-all hover:border-primary/30 hover:shadow-md"
             >
               <div className="flex items-center gap-2">

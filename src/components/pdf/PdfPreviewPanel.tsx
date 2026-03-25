@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import * as pdfjsLib from "pdfjs-dist"
 import { PdfPageThumbnail } from "@/components/pdf/PdfPageThumbnail"

@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useRef } from "react"
 import mammoth from "mammoth"
 import { toPng } from "html-to-image"

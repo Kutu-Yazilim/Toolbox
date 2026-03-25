@@ -1,3 +1,5 @@
+"use client"
+
 import { useState } from "react"
 import { RotateCcwIcon, SmartphoneIcon, TabletIcon, LaptopIcon } from "lucide-react"
 import { cn } from "@/lib/utils"

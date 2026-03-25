@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useRef, useCallback, useEffect } from "react"
 import { loader } from "@monaco-editor/react"
 import {

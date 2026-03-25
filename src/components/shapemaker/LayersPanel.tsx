@@ -1,3 +1,5 @@
+"use client"
+
 import type { Layer } from "@/types/shapemaker"
 import { Button } from "@/components/ui/button"
 import {

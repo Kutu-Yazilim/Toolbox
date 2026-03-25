@@ -4,6 +4,7 @@ const STORAGE_KEY = "recent-tools"
 const MAX_RECENT = 5
 
 function loadRecent(): string[] {
+  if (typeof window === "undefined") return []
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     return stored ? (JSON.parse(stored) as string[]) : []

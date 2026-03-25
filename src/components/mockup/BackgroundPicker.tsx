@@ -1,3 +1,5 @@
+"use client"
+
 import { cn } from "@/lib/utils"
 import type { MockupBackground } from "@/types/mockup"
 

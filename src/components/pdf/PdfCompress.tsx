@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback } from "react"
 import { PDFDocument } from "pdf-lib"
 import type { PdfProcessingState, CompressionLevel } from "@/types/pdf"

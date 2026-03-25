@@ -1,14 +1,13 @@
+"use client"
+
 import { useMemo } from "react"
-import { useParams, Link } from "react-router"
+import Link from "next/link"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { Components } from "react-markdown"
 import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react"
 import { getBlogPostBySlug, BLOG_POSTS } from "@/data/blogPosts"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
-import { usePageMeta, useCanonicalUrl, useJsonLd } from "@/hooks/usePageMeta"
-
-const BASE_URL = "https://toolbox.kutuyazilim.org"
 
 const markdownComponents: Components = {
   h1: ({ children }) => (
@@ -94,8 +93,7 @@ const markdownComponents: Components = {
   hr: () => <hr className="my-4 border-border" />,
 }
 
-export function BlogPostPage() {
-  const { slug } = useParams<{ slug: string }>()
+export function BlogPostPage({ slug }: { slug: string }) {
   const post = slug ? getBlogPostBySlug(slug) : undefined
   const tool = post ? TOOLS.find((t) => t.id === post.toolId) : undefined
   const category = tool ? CATEGORIES.find((c) => c.id === tool.categoryId) : undefined
@@ -107,39 +105,6 @@ export function BlogPostPage() {
     ).slice(0, 3)
   }, [slug, tool])
 
-  usePageMeta(
-    post ? `${post.title} - ToolBox Blog` : "Post Not Found - ToolBox Blog",
-    post?.description,
-    post?.keywords,
-  )
-
-  useCanonicalUrl(post ? `/blog/${post.slug}` : "/blog")
-
-  const jsonLdData = useMemo(() => {
-    if (!post) return null
-    return [
-      {
-        "@context": "https://schema.org",
-        "@type": "Article",
-        headline: post.title,
-        description: post.description,
-        datePublished: post.publishedAt,
-        url: `${BASE_URL}/blog/${post.slug}`,
-        author: {
-          "@type": "Organization",
-          name: "Kutu Yazilim",
-        },
-        publisher: {
-          "@type": "Organization",
-          name: "Kutu Yazilim",
-        },
-        ...(post.keywords.length ? { keywords: post.keywords.join(", ") } : {}),
-      },
-    ]
-  }, [post])
-
-  useJsonLd(jsonLdData)
-
   if (!post) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
@@ -148,7 +113,7 @@ export function BlogPostPage() {
           The blog post you are looking for does not exist.
         </p>
         <Link
-          to="/blog"
+          href="/blog"
           className="text-sm font-medium text-primary hover:underline"
         >
           Back to Blog
@@ -162,7 +127,7 @@ export function BlogPostPage() {
       <div className="max-w-3xl mx-auto px-4 py-6 md:px-8">
         {/* Back link */}
         <Link
-          to="/blog"
+          href="/blog"
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeftIcon className="size-3.5" />
@@ -182,7 +147,7 @@ export function BlogPostPage() {
               </p>
             </div>
             <Link
-              to={tool.path}
+              href={tool.path}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
             >
               Try this tool
@@ -226,7 +191,7 @@ export function BlogPostPage() {
               {relatedPosts.map((rp) => (
                 <Link
                   key={rp.slug}
-                  to={`/blog/${rp.slug}`}
+                  href={`/blog/${rp.slug}`}
                   className="group rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-sm"
                 >
                   <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">

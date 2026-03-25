@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback } from "react"
 import type { PdfProcessingState } from "@/types/pdf"
 import { INITIAL_PROCESSING_STATE } from "@/types/pdf"

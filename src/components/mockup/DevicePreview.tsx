@@ -1,3 +1,5 @@
+"use client"
+
 import { useRef, useState, useEffect } from "react"
 import { DeviceFrame } from "./DeviceFrame"
 import { ScreenImage } from "./ScreenImage"

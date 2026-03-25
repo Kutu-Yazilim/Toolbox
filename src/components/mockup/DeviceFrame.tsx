@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect } from "react"
 import type { DeviceSpec, Orientation } from "@/types/mockup"
 import { getFrameImagePath } from "@/types/mockup"

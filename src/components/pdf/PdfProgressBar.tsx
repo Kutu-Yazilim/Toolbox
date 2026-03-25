@@ -1,3 +1,5 @@
+"use client"
+
 import type { PdfProcessingState } from "@/types/pdf"
 import { cn } from "@/lib/utils"
 import { LoaderIcon, CheckCircleIcon, AlertCircleIcon } from "lucide-react"

@@ -1,3 +1,5 @@
+"use client"
+
 import { useEffect, useMemo, useState } from "react"
 import {
   HomeIcon,
@@ -6,7 +8,8 @@ import {
   SunIcon,
   XIcon,
 } from "lucide-react"
-import { Link, useLocation } from "react-router"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { useTheme } from "@/hooks/useTheme"
@@ -20,17 +23,17 @@ import {
 export function MobileNav() {
   const { isDark, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
-  const location = useLocation()
+  const pathname = usePathname()
 
   const activeItem = useMemo(() => {
-    const tool = TOOLS.find((t) => location.pathname.startsWith(t.path))
+    const tool = TOOLS.find((t) => pathname.startsWith(t.path))
     if (tool) return { label: tool.label, icon: tool.icon }
     const category = CATEGORIES.find((c) =>
-      location.pathname.startsWith(c.path)
+      pathname.startsWith(c.path)
     )
     if (category) return { label: category.label, icon: category.icon }
     return { label: "Home", icon: HomeIcon }
-  }, [location.pathname])
+  }, [pathname])
 
   useEffect(() => {
     if (!open) return
@@ -98,11 +101,11 @@ export function MobileNav() {
               {/* Home */}
               <div className="px-1 pb-2">
                 <Link
-                  to="/"
+                  href="/"
                   onClick={() => setOpen(false)}
                   className={cn(
                     "flex items-center gap-2 h-auto px-3 py-2.5 rounded-lg border border-border bg-card/40",
-                    location.pathname === "/" &&
+                    pathname === "/" &&
                       "bg-primary text-primary-foreground border-primary"
                   )}
                 >
@@ -125,11 +128,11 @@ export function MobileNav() {
                       {tools.map(({ id, label, icon: Icon, path }) => (
                         <Link
                           key={id}
-                          to={path}
+                          href={path}
                           onClick={() => setOpen(false)}
                           className={cn(
                             "flex items-center gap-2 h-auto px-3 py-2.5 justify-start rounded-lg border border-border bg-card/40",
-                            location.pathname.startsWith(path) &&
+                            pathname.startsWith(path) &&
                               "bg-primary text-primary-foreground border-primary"
                           )}
                         >

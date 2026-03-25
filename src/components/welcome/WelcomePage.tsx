@@ -1,5 +1,7 @@
+"use client"
+
 import { useState, useMemo, useEffect, useRef } from "react"
-import { Link } from "react-router"
+import Link from "next/link"
 import { SearchIcon, StarIcon } from "lucide-react"
 import { TOOLS, CATEGORIES, type CategoryId } from "@/config/toolRegistry"
 import { useFavorites } from "@/hooks/useFavorites"
@@ -132,7 +134,7 @@ export function WelcomePage() {
             {filteredTools.map((tool) => (
               <div key={tool.id} className="relative group/card">
                 <Link
-                  to={tool.path}
+                  href={tool.path}
                   className={cn(
                     "rounded-lg border border-border p-3",
                     "flex items-start gap-3",

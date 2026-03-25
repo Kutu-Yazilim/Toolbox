@@ -1,5 +1,8 @@
+"use client"
+
 import { useMemo } from "react"
-import { Link, useLocation } from "react-router"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { TOOLS, CATEGORIES, getToolsByCategory } from "@/config/toolRegistry"
 
 function seededShuffle<T>(arr: T[], seed: number): T[] {
@@ -16,10 +19,10 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 const MAX_RELATED = 6
 
 export function RelatedTools() {
-  const { pathname } = useLocation()
+  const pathname = usePathname()
 
   const { tool, category, related } = useMemo(() => {
-    const currentTool = TOOLS.find((t) => t.path === pathname)
+    const currentTool = TOOLS.find((t) => pathname.startsWith(t.path))
     if (!currentTool) return { tool: null, category: null, related: [] }
 
     const cat = CATEGORIES.find((c) => c.id === currentTool.categoryId)
@@ -49,7 +52,7 @@ export function RelatedTools() {
           {related.map((t) => (
             <Link
               key={t.id}
-              to={t.path}
+              href={t.path}
               className="group flex items-start gap-2 rounded-lg border border-border/40 bg-background p-3 transition-all hover:border-primary/30 hover:shadow-sm"
             >
               <t.icon className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />

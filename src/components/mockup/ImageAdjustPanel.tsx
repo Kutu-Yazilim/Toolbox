@@ -1,3 +1,5 @@
+"use client"
+
 import { RotateCwIcon, ZoomInIcon, MoveIcon, RotateCcwIcon, CropIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { ImageTransform } from "@/types/mockup"

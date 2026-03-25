@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useRef } from "react"
 import type { PdfProcessingState, WatermarkConfig, WatermarkPosition } from "@/types/pdf"
 import { INITIAL_PROCESSING_STATE } from "@/types/pdf"

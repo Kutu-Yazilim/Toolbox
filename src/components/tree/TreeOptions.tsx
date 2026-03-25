@@ -1,3 +1,5 @@
+"use client"
+
 export interface TreeOptionsType {
     rootSymbol: string
     branchStyle: "ascii" | "unicode" | "minimal"

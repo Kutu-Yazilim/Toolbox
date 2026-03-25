@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useEffect, useRef, useCallback } from "react"
 import QRCodeStyling from "qr-code-styling"
 import { CopyIcon, CheckIcon, RefreshCwIcon, ShuffleIcon } from "lucide-react"

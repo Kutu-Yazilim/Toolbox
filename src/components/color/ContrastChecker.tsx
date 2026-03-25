@@ -1,3 +1,5 @@
+"use client"
+
 import { getContrastRatio, meetsWCAG_AA, meetsWCAG_AAA, getContrastTextColor } from "@/utils/colorUtils"
 import type { PaletteColor } from "@/types/color"
 import { Button } from "@/components/ui/button"

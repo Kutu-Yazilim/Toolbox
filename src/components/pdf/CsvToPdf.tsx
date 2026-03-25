@@ -1,3 +1,5 @@
+"use client"
+
 import { useState, useCallback, useMemo, useRef } from "react"
 import { toPng } from "html-to-image"
 import { jsPDF } from "jspdf"

@@ -31,7 +31,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: dist/*
+          source: out/*
           target: /var/www/toolbox.kutuyazilim.org
           strip_components: 1
           overwrite: true
