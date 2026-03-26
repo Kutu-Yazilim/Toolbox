@@ -6,8 +6,9 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import type { Components } from "react-markdown"
 import { ArrowLeftIcon, ExternalLinkIcon } from "lucide-react"
-import { getBlogPostBySlug, BLOG_POSTS } from "@/data/blogPosts"
+import { getBlogPostBySlug, getBlogTitle, getBlogDescription, getBlogContent, BLOG_POSTS } from "@/data/blogPosts"
 import { TOOLS, CATEGORIES } from "@/config/toolRegistry"
+import { useLocale } from "@/i18n/LocaleContext"
 
 const markdownComponents: Components = {
   h1: ({ children }) => (
@@ -94,6 +95,7 @@ const markdownComponents: Components = {
 }
 
 export function BlogPostPage({ slug }: { slug: string }) {
+  const { locale } = useLocale()
   const post = slug ? getBlogPostBySlug(slug) : undefined
   const tool = post ? TOOLS.find((t) => t.id === post.toolId) : undefined
   const category = tool ? CATEGORIES.find((c) => c.id === tool.categoryId) : undefined
@@ -108,15 +110,19 @@ export function BlogPostPage({ slug }: { slug: string }) {
   if (!post) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-4 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Post Not Found</h1>
+        <h1 className="text-2xl font-bold text-foreground">
+          {locale === "tr" ? "Yazi Bulunamadi" : "Post Not Found"}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          The blog post you are looking for does not exist.
+          {locale === "tr"
+            ? "Aradiginiz blog yazisi bulunamadi."
+            : "The blog post you are looking for does not exist."}
         </p>
         <Link
           href="/blog"
           className="text-sm font-medium text-primary hover:underline"
         >
-          Back to Blog
+          {locale === "tr" ? "Bloga Don" : "Back to Blog"}
         </Link>
       </div>
     )
@@ -131,7 +137,7 @@ export function BlogPostPage({ slug }: { slug: string }) {
           className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground mb-4"
         >
           <ArrowLeftIcon className="size-3.5" />
-          Back to Blog
+          {locale === "tr" ? "Bloga Don" : "Back to Blog"}
         </Link>
 
         {/* Tool link bar */}
@@ -150,7 +156,7 @@ export function BlogPostPage({ slug }: { slug: string }) {
               href={tool.path}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
             >
-              Try this tool
+              {locale === "tr" ? "Araci dene" : "Try this tool"}
               <ExternalLinkIcon className="size-3" />
             </Link>
           </div>
@@ -159,14 +165,14 @@ export function BlogPostPage({ slug }: { slug: string }) {
         {/* Article header */}
         <header className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-2">
-            {post.title}
+            {getBlogTitle(post, locale)}
           </h1>
-          <p className="text-sm text-muted-foreground">{post.description}</p>
+          <p className="text-sm text-muted-foreground">{getBlogDescription(post, locale)}</p>
           <time
             dateTime={post.publishedAt}
             className="block mt-2 text-xs text-muted-foreground"
           >
-            {new Date(post.publishedAt).toLocaleDateString("en-US", {
+            {new Date(post.publishedAt).toLocaleDateString(locale === "tr" ? "tr-TR" : "en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
@@ -177,7 +183,7 @@ export function BlogPostPage({ slug }: { slug: string }) {
         {/* Content */}
         <article className="prose-sm">
           <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-            {post.content}
+            {getBlogContent(post, locale)}
           </ReactMarkdown>
         </article>
 
@@ -185,7 +191,7 @@ export function BlogPostPage({ slug }: { slug: string }) {
         {relatedPosts.length > 0 && (
           <section className="mt-8 pt-6 border-t border-border">
             <h2 className="text-sm font-semibold text-muted-foreground mb-3">
-              Related Posts
+              {locale === "tr" ? "Ilgili Yazilar" : "Related Posts"}
             </h2>
             <div className="grid gap-3 sm:grid-cols-3">
               {relatedPosts.map((rp) => (
@@ -195,10 +201,10 @@ export function BlogPostPage({ slug }: { slug: string }) {
                   className="group rounded-lg border border-border bg-card p-3 transition-all hover:border-primary/30 hover:shadow-sm"
                 >
                   <h3 className="text-sm font-medium text-foreground group-hover:text-primary transition-colors line-clamp-2">
-                    {rp.title}
+                    {getBlogTitle(rp, locale)}
                   </h3>
                   <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                    {rp.description}
+                    {getBlogDescription(rp, locale)}
                   </p>
                 </Link>
               ))}

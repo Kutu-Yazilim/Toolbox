@@ -1,6 +1,8 @@
 export type FaqItem = {
   question: string
   answer: string
+  questionTr?: string
+  answerTr?: string
 }
 
 export type ToolFaq = {
@@ -748,4 +750,12 @@ export const TOOL_FAQS: ToolFaq[] = [
 
 export function getFaqsByToolId(toolId: string): FaqItem[] {
   return TOOL_FAQS.find((f) => f.toolId === toolId)?.faqs ?? []
+}
+
+export function getFaqQuestion(faq: FaqItem, locale: string): string {
+  return locale === "tr" && faq.questionTr ? faq.questionTr : faq.question
+}
+
+export function getFaqAnswer(faq: FaqItem, locale: string): string {
+  return locale === "tr" && faq.answerTr ? faq.answerTr : faq.answer
 }

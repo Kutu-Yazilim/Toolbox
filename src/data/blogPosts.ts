@@ -6,6 +6,11 @@ export type BlogPost = {
   content: string // markdown content
   keywords: string[]
   publishedAt: string // ISO date
+  // Turkish translations
+  titleTr?: string
+  descriptionTr?: string
+  contentTr?: string
+  keywordsTr?: string[]
 }
 
 export const BLOG_POSTS: BlogPost[] = [
@@ -2677,4 +2682,20 @@ export function getBlogPostBySlug(slug: string): BlogPost | undefined {
 
 export function getBlogPostByToolId(toolId: string): BlogPost | undefined {
   return BLOG_POSTS.find((p) => p.toolId === toolId)
+}
+
+export function getBlogTitle(post: BlogPost, locale: string): string {
+  return locale === "tr" && post.titleTr ? post.titleTr : post.title
+}
+
+export function getBlogDescription(post: BlogPost, locale: string): string {
+  return locale === "tr" && post.descriptionTr ? post.descriptionTr : post.description
+}
+
+export function getBlogContent(post: BlogPost, locale: string): string {
+  return locale === "tr" && post.contentTr ? post.contentTr : post.content
+}
+
+export function getBlogKeywords(post: BlogPost, locale: string): string[] {
+  return locale === "tr" && post.keywordsTr ? post.keywordsTr : post.keywords
 }

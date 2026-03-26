@@ -447,7 +447,7 @@ export function GitCommandBuilder() {
   }, [operation.flags, flagState])
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4">
+    <div className="flex flex-col gap-4 p-4">
       {/* ── Info bar ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
         <InfoIcon className="h-4 w-4 shrink-0" />
