@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useRef } from "react"
-import { toPng } from "html-to-image"
+import { useState, useCallback, useMemo } from "react"
 import { jsPDF } from "jspdf"
 import type { PdfProcessingState } from "@/types/pdf"
 import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
@@ -16,7 +15,7 @@ const ACCEPTED_EXTENSIONS = [".csv"]
 type Delimiter = "," | ";" | "\t"
 type PageSizeOption = "a4" | "letter"
 type OrientationOption = "portrait" | "landscape"
-type FontSizeOption = 8 | 10 | 12
+type FontSizeOption = 4 | 6 | 8 | 10 | 12
 
 const DELIMITER_OPTIONS: { value: Delimiter; label: string }[] = [
   { value: ",", label: "Comma" },
@@ -35,6 +34,8 @@ const ORIENTATION_OPTIONS: { value: OrientationOption; label: string }[] = [
 ]
 
 const FONT_SIZE_OPTIONS: { value: FontSizeOption; label: string }[] = [
+  { value: 4, label: "Atomic (4)" },
+  { value: 6, label: "Miniscule (6)" },
   { value: 8, label: "Small (8)" },
   { value: 10, label: "Medium (10)" },
   { value: 12, label: "Large (12)" },
@@ -147,6 +148,109 @@ function OptionGroup<T extends string | number>({
   )
 }
 
+function computeColumnWidths(
+  allRows: string[][],
+  colCount: number,
+  contentWidth: number,
+  pdf: jsPDF,
+  fontSize: number,
+  cellPadX: number
+): number[] {
+  const maxWidths: number[] = new Array(colCount).fill(0)
+
+  pdf.setFontSize(fontSize)
+  pdf.setFont("helvetica", "bold")
+  if (allRows.length > 0) {
+    for (let c = 0; c < colCount; c++) {
+      const text = allRows[0][c] ?? ""
+      maxWidths[c] = Math.max(maxWidths[c], pdf.getTextWidth(text) + cellPadX * 2)
+    }
+  }
+
+  pdf.setFont("helvetica", "normal")
+  for (let r = 1; r < allRows.length; r++) {
+    for (let c = 0; c < colCount; c++) {
+      const text = allRows[r][c] ?? ""
+      maxWidths[c] = Math.max(maxWidths[c], pdf.getTextWidth(text) + cellPadX * 2)
+    }
+  }
+
+  const minColWidth = cellPadX * 2 + pdf.getTextWidth("…")
+  for (let c = 0; c < colCount; c++) {
+    maxWidths[c] = Math.max(maxWidths[c], minColWidth)
+  }
+
+  const total = maxWidths.reduce((s, w) => s + w, 0)
+  const scale = contentWidth / total
+  return maxWidths.map((w) => w * scale)
+}
+
+function truncateText(pdf: jsPDF, text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return ""
+  if (pdf.getTextWidth(text) <= maxWidth) return text
+
+  const ellipsis = "…"
+  const ellipsisWidth = pdf.getTextWidth(ellipsis)
+  const targetWidth = maxWidth - ellipsisWidth
+  if (targetWidth <= 0) return ellipsis
+
+  let lo = 0
+  let hi = text.length
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1
+    if (pdf.getTextWidth(text.slice(0, mid)) <= targetWidth) {
+      lo = mid
+    } else {
+      hi = mid - 1
+    }
+  }
+
+  return text.slice(0, lo) + ellipsis
+}
+
+function drawTableRow(
+  pdf: jsPDF,
+  cells: string[],
+  x: number,
+  y: number,
+  colWidths: number[],
+  rowHeight: number,
+  fontSize: number,
+  cellPadX: number,
+  isHeader: boolean,
+  isOddRow: boolean
+) {
+  pdf.setFontSize(fontSize)
+  pdf.setLineWidth(0.5)
+  pdf.setDrawColor(209, 213, 219)
+
+  let cellX = x
+  for (let c = 0; c < colWidths.length; c++) {
+    const w = colWidths[c]
+
+    if (isHeader) {
+      pdf.setFillColor(229, 231, 235)
+    } else if (isOddRow) {
+      pdf.setFillColor(249, 250, 251)
+    } else {
+      pdf.setFillColor(255, 255, 255)
+    }
+    pdf.rect(cellX, y, w, rowHeight, "FD")
+
+    pdf.setFont("helvetica", isHeader ? "bold" : "normal")
+    pdf.setTextColor(17, 24, 39)
+
+    const text = cells[c] ?? ""
+    const maxTextWidth = w - cellPadX * 2
+    const display = truncateText(pdf, text, maxTextWidth)
+    pdf.text(display, cellX + cellPadX, y + rowHeight / 2, {
+      baseline: "middle",
+    })
+
+    cellX += w
+  }
+}
+
 export function CsvToPdf() {
   const [rawText, setRawText] = useState<string | null>(null)
   const [fileName, setFileName] = useState("")
@@ -157,7 +261,6 @@ export function CsvToPdf() {
   const [fontSize, setFontSize] = useState<FontSizeOption>(10)
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
-  const captureRef = useRef<HTMLDivElement>(null)
 
   const rows = useMemo(() => rawText ? parseCsv(rawText, delimiter) : [], [rawText, delimiter])
   const headerRow = hasHeader === "yes" && rows.length > 0 ? rows[0] : null
@@ -184,8 +287,25 @@ export function CsvToPdf() {
     reader.readAsText(file)
   }, [])
 
+  const handlePasteText = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value
+    setResult(null)
+    setProcessing(INITIAL_PROCESSING_STATE)
+
+    if (!text.trim()) {
+      setRawText(null)
+      return
+    }
+
+    setRawText(text)
+    if (!fileName) setFileName("pasted-csv")
+
+    const firstLine = text.split(/\r?\n/)[0] ?? ""
+    setDelimiter(detectDelimiter(firstLine))
+  }, [fileName])
+
   const handleConvert = useCallback(async () => {
-    if (!captureRef.current || rows.length === 0) return
+    if (rows.length === 0) return
 
     setProcessing({
       status: "processing",
@@ -198,61 +318,47 @@ export function CsvToPdf() {
       const dims = PAGE_DIMENSIONS[pageSize][orientation]
       const padding = 24
       const contentWidth = dims.width - padding * 2
+      const cellPadX = fontSize * 0.8
       const rowHeight = fontSize * 2.2
       const headerHeight = headerRow ? rowHeight : 0
       const availableHeight = dims.height - padding * 2 - headerHeight
       const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight))
       const pageCount = Math.ceil(dataRows.length / rowsPerPage)
+      const colCount = Math.max(...rows.map((r) => r.length))
 
       const pdf = new jsPDF({
         unit: "px",
         format: [dims.width, dims.height],
       })
 
+      const colWidths = computeColumnWidths(
+        rows,
+        colCount,
+        contentWidth,
+        pdf,
+        fontSize,
+        cellPadX
+      )
+
       for (let page = 0; page < pageCount; page++) {
-        const startIdx = page * rowsPerPage
-        const batch = dataRows.slice(startIdx, startIdx + rowsPerPage)
-
-        const batchWithHeader = headerRow ? [headerRow, ...batch] : batch
-
-        captureRef.current.innerHTML = buildTableHtml(
-          batchWithHeader,
-          headerRow !== null,
-          fontSize
-        )
-
-        captureRef.current.style.width = `${contentWidth}px`
-
-        // Force a synchronous reflow so the browser computes layout
-        // before we measure scrollHeight and capture the image.
-        void captureRef.current.offsetHeight
-
-        // Wait for fonts/images to settle
-        await new Promise((r) => setTimeout(r, 100))
-
-        // Re-read height after reflow
-        const capturedHeight = captureRef.current.scrollHeight || captureRef.current.offsetHeight
-
-        const dataUrl = await toPng(captureRef.current, {
-          width: contentWidth,
-          height: capturedHeight,
-          canvasWidth: contentWidth,
-          canvasHeight: capturedHeight,
-          backgroundColor: "#ffffff",
-        })
-
         if (page > 0) {
           pdf.addPage([dims.width, dims.height])
         }
 
-        pdf.addImage(
-          dataUrl,
-          "PNG",
-          padding,
-          padding,
-          contentWidth,
-          capturedHeight
-        )
+        let y = padding
+
+        if (headerRow) {
+          drawTableRow(pdf, headerRow, padding, y, colWidths, rowHeight, fontSize, cellPadX, true, false)
+          y += rowHeight
+        }
+
+        const startIdx = page * rowsPerPage
+        const batch = dataRows.slice(startIdx, startIdx + rowsPerPage)
+
+        for (let i = 0; i < batch.length; i++) {
+          drawTableRow(pdf, batch[i], padding, y, colWidths, rowHeight, fontSize, cellPadX, false, i % 2 === 1)
+          y += rowHeight
+        }
 
         setProcessing({
           status: "processing",
@@ -260,6 +366,9 @@ export function CsvToPdf() {
           message: `Rendering page ${page + 1} of ${pageCount}...`,
           error: null,
         })
+
+        // Yield to let the UI update the progress bar
+        await new Promise((r) => setTimeout(r, 0))
       }
 
       const blob = pdf.output("blob")
@@ -294,6 +403,24 @@ export function CsvToPdf() {
         onFiles={handleFiles}
         label="Drop a CSV file here or click to browse"
       />
+
+      <div>
+        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+          Or paste CSV text
+        </label>
+        <textarea
+          className={cn(
+            "w-full h-32 rounded-lg border border-border bg-muted/30 px-3 py-2",
+            "text-xs text-foreground placeholder:text-muted-foreground/50",
+            "resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow",
+            "font-mono"
+          )}
+          placeholder={"name,age,city\nAlice,30,New York\nBob,25,London"}
+          value={rawText ?? ""}
+          onChange={handlePasteText}
+          spellCheck={false}
+        />
+      </div>
 
       {rawText && (
         <>
@@ -405,54 +532,6 @@ export function CsvToPdf() {
           filename={`${fileName || "csv-export"}.pdf`}
         />
       )}
-
-      <div
-        ref={captureRef}
-        style={{
-          position: "absolute",
-          left: "-9999px",
-          top: 0,
-          visibility: "hidden",
-          background: "white",
-        }}
-      />
     </>
   )
-}
-
-function buildTableHtml(
-  rows: string[][],
-  firstRowIsHeader: boolean,
-  fontSize: number
-): string {
-  const headerBg = "#e5e7eb"
-  const evenBg = "#ffffff"
-  const oddBg = "#f9fafb"
-  const borderColor = "#d1d5db"
-
-  let html = `<table style="width:100%;border-collapse:collapse;font-family:sans-serif;font-size:${fontSize}px;">`
-
-  rows.forEach((row, rowIdx) => {
-    const isHeader = firstRowIsHeader && rowIdx === 0
-    const tag = isHeader ? "th" : "td"
-    const bg = isHeader ? headerBg : rowIdx % 2 === 0 ? evenBg : oddBg
-    const fontWeight = isHeader ? "bold" : "normal"
-
-    html += `<tr style="background:${bg};">`
-    row.forEach((cell) => {
-      html += `<${tag} style="border:1px solid ${borderColor};padding:${fontSize * 0.5}px ${fontSize * 0.8}px;font-weight:${fontWeight};text-align:left;color:#111827;">${escapeHtml(cell)}</${tag}>`
-    })
-    html += "</tr>"
-  })
-
-  html += "</table>"
-  return html
-}
-
-function escapeHtml(text: string): string {
-  return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
 }
