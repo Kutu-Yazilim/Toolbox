@@ -108,7 +108,7 @@ function ImageDeviceFrame({
         {/* Frame image overlay */}
         <img
           src={frameImagePath}
-          alt=""
+          alt="Device mockup frame"
           draggable={false}
           style={{
             position: "absolute",

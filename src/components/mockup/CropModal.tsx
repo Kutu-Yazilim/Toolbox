@@ -425,7 +425,7 @@ export function CropModal({
             <img
               ref={imgRef}
               src={imageSrc}
-              alt=""
+              alt="Screenshot preview for cropping"
               draggable={false}
               onLoad={handleImageLoad}
               className="w-full h-full object-contain select-none pointer-events-none"

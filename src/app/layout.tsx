@@ -10,12 +10,54 @@ export const metadata: Metadata = {
   },
   description:
     "Free online developer and creative tools. JSON formatter, UUID generator, image converter, and more. No sign-ups, runs in your browser.",
+  keywords: [
+    "free online tools", "developer tools", "json formatter", "uuid generator",
+    "image converter", "base64 encoder", "regex tester", "pdf tools",
+    "online toolbox", "web developer utilities", "kutu yazilim",
+  ],
+  authors: [{ name: "Kutu Yazilim", url: "https://kutuyazilim.org" }],
+  creator: "Kutu Yazilim",
+  publisher: "Kutu Yazilim",
+  alternates: {
+    canonical: "https://toolbox.kutuyazilim.org",
+  },
   openGraph: {
     type: "website",
+    siteName: "ToolBox by Kutu Yazilim",
     url: "https://toolbox.kutuyazilim.org",
-    images: ["/og-image.svg"],
+    title: "ToolBox by Kutu Yazilim — 83+ Free Online Tools",
+    description:
+      "Free online developer and creative tools. JSON formatter, UUID generator, image converter, and more. No sign-ups, runs in your browser.",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "ToolBox by Kutu Yazilim — 83+ Free Online Developer Tools",
+      },
+    ],
+    locale: "en_US",
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary_large_image",
+    title: "ToolBox by Kutu Yazilim — 83+ Free Online Tools",
+    description:
+      "Free online developer and creative tools. No sign-ups, runs in your browser.",
+    creator: "@kutuyazilim",
+    site: "@kutuyazilim",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  category: "technology",
 }
 
 export default function RootLayout({
