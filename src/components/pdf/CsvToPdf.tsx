@@ -61,6 +61,38 @@ const PAGE_DIMENSIONS: Record<
 }
 
 const PREVIEW_MAX_ROWS = 20
+const FONT_NAME = "LiberationSans"
+
+let fontCache: { regular: string; bold: string } | null = null
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  const chunks: string[] = []
+  for (let i = 0; i < bytes.length; i += 8192) {
+    chunks.push(String.fromCharCode(...bytes.subarray(i, i + 8192)))
+  }
+  return btoa(chunks.join(""))
+}
+
+async function loadFonts(): Promise<{ regular: string; bold: string }> {
+  if (fontCache) return fontCache
+  const [regularBuf, boldBuf] = await Promise.all([
+    fetch("/fonts/LiberationSans-Regular.ttf").then((r) => r.arrayBuffer()),
+    fetch("/fonts/LiberationSans-Bold.ttf").then((r) => r.arrayBuffer()),
+  ])
+  fontCache = {
+    regular: arrayBufferToBase64(regularBuf),
+    bold: arrayBufferToBase64(boldBuf),
+  }
+  return fontCache
+}
+
+function registerFonts(pdf: jsPDF, fonts: { regular: string; bold: string }) {
+  pdf.addFileToVFS("LiberationSans-Regular.ttf", fonts.regular)
+  pdf.addFileToVFS("LiberationSans-Bold.ttf", fonts.bold)
+  pdf.addFont("LiberationSans-Regular.ttf", FONT_NAME, "normal")
+  pdf.addFont("LiberationSans-Bold.ttf", FONT_NAME, "bold")
+}
 
 function detectDelimiter(firstLine: string): Delimiter {
   const commaCount = (firstLine.match(/,/g) ?? []).length
@@ -159,7 +191,7 @@ function computeColumnWidths(
   const maxWidths: number[] = new Array(colCount).fill(0)
 
   pdf.setFontSize(fontSize)
-  pdf.setFont("helvetica", "bold")
+  pdf.setFont(FONT_NAME, "bold")
   if (allRows.length > 0) {
     for (let c = 0; c < colCount; c++) {
       const text = allRows[0][c] ?? ""
@@ -167,7 +199,7 @@ function computeColumnWidths(
     }
   }
 
-  pdf.setFont("helvetica", "normal")
+  pdf.setFont(FONT_NAME, "normal")
   for (let r = 1; r < allRows.length; r++) {
     for (let c = 0; c < colCount; c++) {
       const text = allRows[r][c] ?? ""
@@ -237,7 +269,7 @@ function drawTableRow(
     }
     pdf.rect(cellX, y, w, rowHeight, "FD")
 
-    pdf.setFont("helvetica", isHeader ? "bold" : "normal")
+    pdf.setFont(FONT_NAME, isHeader ? "bold" : "normal")
     pdf.setTextColor(17, 24, 39)
 
     const text = cells[c] ?? ""
@@ -330,6 +362,9 @@ export function CsvToPdf() {
         unit: "px",
         format: [dims.width, dims.height],
       })
+
+      const fonts = await loadFonts()
+      registerFonts(pdf, fonts)
 
       const colWidths = computeColumnWidths(
         rows,
