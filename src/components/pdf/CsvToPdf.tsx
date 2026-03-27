@@ -46,6 +46,11 @@ const HAS_HEADER_OPTIONS: { value: "yes" | "no"; label: string }[] = [
   { value: "no", label: "No" },
 ]
 
+const ROW_NUMBERS_OPTIONS: { value: "yes" | "no"; label: string }[] = [
+  { value: "yes", label: "Yes" },
+  { value: "no", label: "No" },
+]
+
 const PAGE_DIMENSIONS: Record<
   PageSizeOption,
   Record<OrientationOption, { width: number; height: number }>
@@ -92,6 +97,61 @@ function registerFonts(pdf: jsPDF, fonts: { regular: string; bold: string }) {
   pdf.addFileToVFS("LiberationSans-Bold.ttf", fonts.bold)
   pdf.addFont("LiberationSans-Regular.ttf", FONT_NAME, "normal")
   pdf.addFont("LiberationSans-Bold.ttf", FONT_NAME, "bold")
+}
+
+let logoCache: string | null = null
+
+async function loadLogo(): Promise<string> {
+  if (logoCache) return logoCache
+  const res = await fetch("/LogoOnlyCircularSVG.svg")
+  const svgText = await res.text()
+  const blob = new Blob([svgText], { type: "image/svg+xml;charset=utf-8" })
+  const url = URL.createObjectURL(blob)
+
+  const img = new Image()
+  img.src = url
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve()
+    img.onerror = reject
+  })
+
+  const size = 64
+  const canvas = document.createElement("canvas")
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext("2d")!
+  ctx.drawImage(img, 0, 0, size, size)
+  URL.revokeObjectURL(url)
+
+  logoCache = canvas.toDataURL("image/png")
+  return logoCache
+}
+
+const FOOTER_HEIGHT = 24
+const FOOTER_TEXT = "made using toolbox.kutuyazilim.org"
+
+function drawPageFooter(
+  pdf: jsPDF,
+  logoDataUrl: string,
+  pageWidth: number,
+  pageHeight: number,
+  padding: number
+) {
+  const logoSize = 14
+  const gap = 4
+  const footerFontSize = 7
+  const centerY = pageHeight - padding - logoSize / 2
+
+  pdf.setFontSize(footerFontSize)
+  pdf.setFont(FONT_NAME, "normal")
+  pdf.setTextColor(156, 163, 175)
+  const textWidth = pdf.getTextWidth(FOOTER_TEXT)
+
+  const totalWidth = logoSize + gap + textWidth
+  const startX = (pageWidth - totalWidth) / 2
+
+  pdf.addImage(logoDataUrl, "PNG", startX, centerY - logoSize / 2, logoSize, logoSize)
+  pdf.text(FOOTER_TEXT, startX + logoSize + gap, centerY, { baseline: "middle" })
 }
 
 function detectDelimiter(firstLine: string): Delimiter {
@@ -240,6 +300,55 @@ function truncateText(pdf: jsPDF, text: string, maxWidth: number): string {
   return text.slice(0, lo) + ellipsis
 }
 
+function drawDocumentHeader(
+  pdf: jsPDF,
+  x: number,
+  y: number,
+  maxWidth: number,
+  title: string,
+  subtitle: string,
+  paragraph: string,
+  tableFontSize: number
+): number {
+  let curY = y
+
+  if (title) {
+    const titleSize = Math.max(tableFontSize * 1.8, 14)
+    pdf.setFontSize(titleSize)
+    pdf.setFont(FONT_NAME, "bold")
+    pdf.setTextColor(17, 24, 39)
+    pdf.text(title, x, curY)
+    curY += titleSize * 1.4
+  }
+
+  if (subtitle) {
+    const subtitleSize = Math.max(tableFontSize * 1.3, 11)
+    pdf.setFontSize(subtitleSize)
+    pdf.setFont(FONT_NAME, "normal")
+    pdf.setTextColor(107, 114, 128)
+    pdf.text(subtitle, x, curY)
+    curY += subtitleSize * 1.4
+  }
+
+  if (paragraph) {
+    const paraSize = Math.max(tableFontSize * 1.1, 9)
+    pdf.setFontSize(paraSize)
+    pdf.setFont(FONT_NAME, "normal")
+    pdf.setTextColor(55, 65, 81)
+    const lines = pdf.splitTextToSize(paragraph, maxWidth) as string[]
+    for (const line of lines) {
+      pdf.text(line, x, curY)
+      curY += paraSize * 1.4
+    }
+  }
+
+  if (title || subtitle || paragraph) {
+    curY += 8
+  }
+
+  return curY
+}
+
 function drawTableRow(
   pdf: jsPDF,
   cells: string[],
@@ -291,6 +400,11 @@ export function CsvToPdf() {
   const [pageSize, setPageSize] = useState<PageSizeOption>("a4")
   const [orientation, setOrientation] = useState<OrientationOption>("portrait")
   const [fontSize, setFontSize] = useState<FontSizeOption>(10)
+  const [showRowNumbers, setShowRowNumbers] = useState<"yes" | "no">("no")
+  const [title, setTitle] = useState("")
+  const [subtitle, setSubtitle] = useState("")
+  const [paragraph, setParagraph] = useState("")
+  const [outputFileName, setOutputFileName] = useState("")
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
 
@@ -352,28 +466,52 @@ export function CsvToPdf() {
       const contentWidth = dims.width - padding * 2
       const cellPadX = fontSize * 0.8
       const rowHeight = fontSize * 2.2
-      const headerHeight = headerRow ? rowHeight : 0
-      const availableHeight = dims.height - padding * 2 - headerHeight
-      const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight))
-      const pageCount = Math.ceil(dataRows.length / rowsPerPage)
-      const colCount = Math.max(...rows.map((r) => r.length))
 
       const pdf = new jsPDF({
         unit: "px",
         format: [dims.width, dims.height],
       })
 
-      const fonts = await loadFonts()
+      const [fonts, logoDataUrl] = await Promise.all([loadFonts(), loadLogo()])
       registerFonts(pdf, fonts)
 
+      // Measure document header height on a scratch pass
+      const headerBlockHeight =
+        title || subtitle || paragraph
+          ? drawDocumentHeader(pdf, padding, padding, contentWidth, title, subtitle, paragraph, fontSize) - padding
+          : 0
+      const footerReserved = FOOTER_HEIGHT
+
+      // Prepare rows with optional row-number column
+      const addRowNum = showRowNumbers === "yes"
+      const displayHeader = headerRow
+        ? addRowNum ? ["#", ...headerRow] : headerRow
+        : null
+      const displayDataRows = dataRows.map((row, idx) =>
+        addRowNum ? [String(idx + 1), ...row] : row
+      )
+      const allDisplayRows = displayHeader
+        ? [displayHeader, ...displayDataRows]
+        : displayDataRows
+
+      const colCount = Math.max(...allDisplayRows.map((r) => r.length))
       const colWidths = computeColumnWidths(
-        rows,
+        allDisplayRows,
         colCount,
         contentWidth,
         pdf,
         fontSize,
         cellPadX
       )
+
+      const tableHeaderHeight = displayHeader ? rowHeight : 0
+      const availableHeightPage1 = dims.height - padding * 2 - headerBlockHeight - tableHeaderHeight - footerReserved
+      const availableHeightRest = dims.height - padding * 2 - tableHeaderHeight - footerReserved
+      const rowsPage1 = Math.max(1, Math.floor(availableHeightPage1 / rowHeight))
+      const rowsPerPage = Math.max(1, Math.floor(availableHeightRest / rowHeight))
+      const totalDataRows = displayDataRows.length
+      const remainingAfterPage1 = Math.max(0, totalDataRows - rowsPage1)
+      const pageCount = 1 + (remainingAfterPage1 > 0 ? Math.ceil(remainingAfterPage1 / rowsPerPage) : 0)
 
       for (let page = 0; page < pageCount; page++) {
         if (page > 0) {
@@ -382,18 +520,26 @@ export function CsvToPdf() {
 
         let y = padding
 
-        if (headerRow) {
-          drawTableRow(pdf, headerRow, padding, y, colWidths, rowHeight, fontSize, cellPadX, true, false)
+        // Draw document header only on the first page
+        if (page === 0 && (title || subtitle || paragraph)) {
+          y = drawDocumentHeader(pdf, padding, y, contentWidth, title, subtitle, paragraph, fontSize)
+        }
+
+        if (displayHeader) {
+          drawTableRow(pdf, displayHeader, padding, y, colWidths, rowHeight, fontSize, cellPadX, true, false)
           y += rowHeight
         }
 
-        const startIdx = page * rowsPerPage
-        const batch = dataRows.slice(startIdx, startIdx + rowsPerPage)
+        const startIdx = page === 0 ? 0 : rowsPage1 + (page - 1) * rowsPerPage
+        const count = page === 0 ? rowsPage1 : rowsPerPage
+        const batch = displayDataRows.slice(startIdx, startIdx + count)
 
         for (let i = 0; i < batch.length; i++) {
           drawTableRow(pdf, batch[i], padding, y, colWidths, rowHeight, fontSize, cellPadX, false, i % 2 === 1)
           y += rowHeight
         }
+
+        drawPageFooter(pdf, logoDataUrl, dims.width, dims.height, padding)
 
         setProcessing({
           status: "processing",
@@ -422,7 +568,7 @@ export function CsvToPdf() {
         error: err instanceof Error ? err.message : "PDF conversion failed",
       })
     }
-  }, [rows, dataRows, headerRow, pageSize, orientation, fontSize])
+  }, [rows, dataRows, headerRow, pageSize, orientation, fontSize, showRowNumbers, title, subtitle, paragraph])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
@@ -459,6 +605,82 @@ export function CsvToPdf() {
 
       {rawText && (
         <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Title
+              </label>
+              <input
+                type="text"
+                maxLength={30}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Document title"
+                className={cn(
+                  "w-full rounded-md border border-border bg-muted/30 px-3 py-1.5",
+                  "text-xs text-foreground placeholder:text-muted-foreground/50",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                )}
+              />
+              <span className="text-[10px] text-muted-foreground/60 mt-0.5 block text-right">{title.length}/30</span>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Subtitle
+              </label>
+              <input
+                type="text"
+                maxLength={50}
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="Document subtitle"
+                className={cn(
+                  "w-full rounded-md border border-border bg-muted/30 px-3 py-1.5",
+                  "text-xs text-foreground placeholder:text-muted-foreground/50",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                )}
+              />
+              <span className="text-[10px] text-muted-foreground/60 mt-0.5 block text-right">{subtitle.length}/50</span>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                File Name
+              </label>
+              <input
+                type="text"
+                value={outputFileName}
+                onChange={(e) => setOutputFileName(e.target.value)}
+                placeholder={title
+                  ? title.toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")
+                  : fileName || "csv-export"}
+                className={cn(
+                  "w-full rounded-md border border-border bg-muted/30 px-3 py-1.5",
+                  "text-xs text-foreground placeholder:text-muted-foreground/50",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                )}
+              />
+              <span className="text-[10px] text-muted-foreground/60 mt-0.5 block text-right">.pdf</span>
+            </div>
+            <div className="sm:col-span-3">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+                Description
+              </label>
+              <textarea
+                maxLength={500}
+                value={paragraph}
+                onChange={(e) => setParagraph(e.target.value)}
+                placeholder="Optional paragraph displayed above the table"
+                rows={2}
+                className={cn(
+                  "w-full rounded-md border border-border bg-muted/30 px-3 py-1.5",
+                  "text-xs text-foreground placeholder:text-muted-foreground/50",
+                  "resize-y focus:outline-none focus:ring-2 focus:ring-primary/50 transition-shadow"
+                )}
+              />
+              <span className="text-[10px] text-muted-foreground/60 mt-0.5 block text-right">{paragraph.length}/500</span>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <OptionGroup
               label="Delimiter"
@@ -471,6 +693,12 @@ export function CsvToPdf() {
               options={HAS_HEADER_OPTIONS}
               value={hasHeader}
               onChange={setHasHeader}
+            />
+            <OptionGroup
+              label="Row Numbers"
+              options={ROW_NUMBERS_OPTIONS}
+              value={showRowNumbers}
+              onChange={setShowRowNumbers}
             />
             <OptionGroup
               label="Page Size"
@@ -564,7 +792,7 @@ export function CsvToPdf() {
       {result && (
         <PdfDownloadButton
           data={result}
-          filename={`${fileName || "csv-export"}.pdf`}
+          filename={`${outputFileName || (title ? title.toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") : "") || fileName || "csv-export"}.pdf`}
         />
       )}
     </>

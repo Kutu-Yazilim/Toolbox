@@ -1,5 +1,5 @@
-const CACHE_NAME = "toolbox-v1"
-const PRECACHE_URLS = ["/", "/index.html"]
+const CACHE_NAME = "toolbox-v2"
+const PRECACHE_URLS = ["/"]
 
 // Install: precache essential assets
 self.addEventListener("install", (event) => {
@@ -38,7 +38,13 @@ self.addEventListener("fetch", (event) => {
       .catch(() => {
         // Fallback to cache when offline
         return caches.match(event.request).then((cached) => {
-          return cached || caches.match("/index.html")
+          if (cached) return cached
+          // Only serve cached root page for navigations, never for
+          // sub-resources (JS/CSS) — otherwise HTML gets parsed as JS
+          if (event.request.mode === "navigate") {
+            return caches.match("/")
+          }
+          return undefined
         })
       })
   )
