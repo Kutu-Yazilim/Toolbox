@@ -60,6 +60,7 @@ const TOOL_COMPONENTS: Record<string, React.ComponentType> = {
   "whats-my-ip": dynamic(() => import("@/components/dnsip/WhatsMyIp").then((m) => ({ default: m.WhatsMyIp })), { ssr: false }),
   "ssl-checker": dynamic(() => import("@/components/sslchecker/SslCertificateChecker").then((m) => ({ default: m.SslCertificateChecker })), { ssr: false }),
   "headers-inspector": dynamic(() => import("@/components/headersinspector/HttpHeadersInspector").then((m) => ({ default: m.HttpHeadersInspector })), { ssr: false }),
+  "speed-test": dynamic(() => import("@/components/speedtest/SpeedTest").then((m) => ({ default: m.SpeedTest })), { ssr: false }),
 
   // PDF (jpg-to-pdf and png-to-pdf handled separately due to toolId prop)
   "pdf-merge": dynamic(() => import("@/components/pdf/PdfMerge").then((m) => ({ default: m.PdfMerge })), { ssr: false }),

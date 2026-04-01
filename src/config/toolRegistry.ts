@@ -68,6 +68,7 @@ import {
   Gamepad2Icon,
   ScaleIcon,
   ZapIcon,
+  GaugeIcon,
 } from "lucide-react"
 
 export type CategoryId =
@@ -509,6 +510,15 @@ export const TOOLS: ToolEntry[] = [
     categoryId: "network",
     path: "/network/headers-inspector",
     keywords: ["http headers", "response headers", "security headers", "header checker", "http header inspector", "header analyzer"],
+  },
+  {
+    id: "speed-test",
+    label: "Speed Test",
+    description: "Test your internet download speed, upload speed, ping, and jitter",
+    icon: GaugeIcon,
+    categoryId: "network",
+    path: "/network/speed-test",
+    keywords: ["speed test", "internet speed", "bandwidth test", "download speed", "upload speed", "ping test", "network speed", "broadband test"],
   },
   // Security
   {
