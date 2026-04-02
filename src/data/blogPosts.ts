@@ -1344,6 +1344,72 @@ The Headers Inspector fetches the HTTP response headers of any URL and analyzes 
     keywords: ["http headers", "response headers", "security headers", "header checker", "http header inspector"],
     publishedAt: "2026-03-25",
   },
+  {
+    slug: "how-internet-speed-tests-work",
+    toolId: "speed-test",
+    title: "How Internet Speed Tests Work: A Complete Guide",
+    description: "Learn how internet speed tests measure your connection, what download speed, upload speed, ping, and jitter mean, and how to get accurate results.",
+    content: `## What Is an Internet Speed Test?
+
+An internet speed test measures the performance of your network connection by sending and receiving data to a remote server. It tells you how fast your connection actually performs, which may differ from what your ISP advertises.
+
+## How to Use the Speed Test in ToolBox
+
+1. Open the **Speed Test** tool from the Network category.
+2. Click **Start Speed Test** to begin.
+3. The test runs three phases automatically: latency measurement, download test, and upload test.
+4. Watch real-time results on the gauge and live chart as the test progresses.
+5. When complete, review your results in the summary cards showing download speed, upload speed, ping, and jitter.
+
+## What Happens During a Speed Test
+
+### Phase 1: Latency Measurement
+
+The test sends a series of small requests to the server and measures the round-trip time. It drops the first measurement (which includes connection setup overhead) and averages the rest to get your **ping**. The variation between consecutive measurements gives your **jitter**.
+
+### Phase 2: Download Test
+
+The test downloads progressively larger files, starting at 100 KB and ramping up to 25 MB. Each file produces an independent speed measurement. Using multiple sizes ensures the connection has time to ramp up to full speed, and the final result uses the **90th percentile** of all measurements rather than a simple average.
+
+### Phase 3: Upload Test
+
+Similar to the download test, but in reverse. The test uploads progressively larger data blobs to the server and measures how quickly each completes. The 90th percentile of these measurements becomes your upload speed.
+
+## Understanding Your Results
+
+- **Download speed (Mbps):** How fast data arrives at your device. This affects web browsing, streaming, and file downloads. 25 Mbps handles HD streaming; 100 Mbps or more is ideal for 4K and multi-device households.
+- **Upload speed (Mbps):** How fast you can send data. Important for video calls, cloud backups, uploading files, and live streaming. Most home connections have slower upload than download speeds.
+- **Ping (ms):** The round-trip delay between your device and the server. Lower is better. Under 20 ms is excellent for gaming; under 50 ms is fine for video calls.
+- **Jitter (ms):** The variation in ping over time. High jitter causes choppy audio and video even if average ping is low. Under 5 ms is ideal.
+
+## Why Different Speed Tests Give Different Results
+
+If you run tests on multiple sites and get different numbers, that is normal. Here is why:
+
+- **Server location:** Tests use different server networks. A closer server generally produces faster results.
+- **Statistical method:** Some tests report the average speed, others the median, and some (like this tool and Cloudflare) use the 90th percentile. The 90th percentile ignores slow warm-up measurements and better reflects your connection's true capacity.
+- **Test duration and file sizes:** Shorter tests or smaller files may not give your connection enough time to reach full speed.
+- **Network conditions:** Speed varies by time of day, congestion, and how many devices share your connection.
+
+## Factors That Affect Your Internet Speed
+
+- **Wi-Fi vs Ethernet:** Wi-Fi adds latency and reduces throughput. A wired connection is always faster and more stable.
+- **Router distance and obstacles:** Walls, floors, and distance weaken Wi-Fi signal. Move closer or use a mesh network.
+- **Network congestion:** Peak hours (evenings and weekends) see more traffic from your neighbors sharing the same infrastructure.
+- **Device capabilities:** Older devices may have slower network adapters that bottleneck your connection.
+- **ISP throttling:** Some ISPs reduce speeds for certain types of traffic or after you exceed data caps.
+- **Background usage:** Other devices and applications using your network simultaneously reduce available bandwidth.
+
+## Tips for Getting Accurate Speed Test Results
+
+- Close unnecessary browser tabs and background applications before testing.
+- Use a wired Ethernet connection for the most reliable measurement.
+- Run the test at different times of day to see how your speed varies.
+- Test from multiple devices to identify whether the bottleneck is your connection or a specific device.
+- Restart your router before testing if you suspect it is underperforming.`,
+    keywords: ["internet speed test", "how speed tests work", "download vs upload speed", "what is good internet speed", "ping and jitter explained", "bandwidth test", "network speed test"],
+    publishedAt: "2026-04-02",
+  },
   // ─── Security ─────────────────────────────────────────────────
   {
     slug: "password-generator-guide",

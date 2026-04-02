@@ -385,6 +385,21 @@ export const TOOL_FAQS: ToolFaq[] = [
       { question: "Can I check any URL?", answer: "Yes, you can inspect the response headers of any publicly accessible URL." },
     ],
   },
+  {
+    toolId: "speed-test",
+    faqs: [
+      { question: "What does this speed test measure?", answer: "The test measures four key metrics: download speed (how fast you receive data), upload speed (how fast you send data), ping (the round-trip delay to the server), and jitter (the variation in that delay over time)." },
+      { question: "How accurate is this speed test?", answer: "The test uses Cloudflare's global network and computes your speed using the 90th percentile of multiple measurements, which filters out warm-up noise and gives a realistic result close to your actual connection capacity." },
+      { question: "Why are my results different from other speed test websites?", answer: "Different speed tests use different servers, measurement methods, and statistical calculations. Some use averages, others use medians or percentiles. Server proximity and network congestion at the time of testing also affect results." },
+      { question: "What is a good internet speed?", answer: "For general browsing and streaming, 25 Mbps is sufficient. For 4K streaming, 50 Mbps or more is recommended. For gaming and video calls, low ping (under 30 ms) matters more than raw download speed." },
+      { question: "What is the difference between download and upload speed?", answer: "Download speed measures how fast data arrives at your device (loading pages, streaming video). Upload speed measures how fast you can send data out (video calls, uploading files, cloud backups)." },
+      { question: "What are ping and jitter?", answer: "Ping (latency) is the time in milliseconds for a round-trip signal to reach the server and return. Jitter measures the variation between consecutive ping measurements. Low, consistent values are ideal for real-time applications like gaming and video calls." },
+      { question: "Why is my internet slower than what I am paying for?", answer: "ISP-advertised speeds are 'up to' maximums. Actual speed depends on Wi-Fi signal strength, network congestion, device capabilities, distance from your router, and the number of connected devices sharing your bandwidth." },
+      { question: "How can I improve my internet speed?", answer: "Use a wired Ethernet connection instead of Wi-Fi, move closer to your router, reduce the number of devices on your network, close background applications, and restart your router periodically." },
+      { question: "Does this test work on mobile devices?", answer: "Yes, the speed test works on any device with a modern web browser, including smartphones and tablets. Results will reflect your current connection (Wi-Fi or cellular)." },
+      { question: "How often should I test my speed?", answer: "Test whenever you notice slowdowns, after changing your network setup, or periodically (weekly) to track your connection quality over time. Testing at different times of day can reveal peak-hour congestion patterns." },
+    ],
+  },
   // ─── Security ─────────────────────────────────────────────────
   {
     toolId: "password-generator",

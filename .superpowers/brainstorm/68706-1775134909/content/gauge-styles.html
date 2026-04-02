@@ -1,0 +1,127 @@
+<h2>Gauge Design Direction</h2>
+<p class="subtitle">Inspired by speedtest.net — which style feels right for your brand?</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0a0a1a; padding: 40px; display: flex; align-items: center; justify-content: center; min-height: 280px;">
+      <!-- Neon Arc Gauge -->
+      <svg width="260" height="160" viewBox="0 0 260 160">
+        <defs>
+          <linearGradient id="arcGradA" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#ef4444"/>
+            <stop offset="30%" style="stop-color:#f59e0b"/>
+            <stop offset="60%" style="stop-color:#22c55e"/>
+            <stop offset="100%" style="stop-color:#06b6d4"/>
+          </linearGradient>
+          <filter id="glowA">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- Background track -->
+        <path d="M 30 145 A 110 110 0 0 1 230 145" fill="none" stroke="#1a1a3e" stroke-width="12" stroke-linecap="round"/>
+        <!-- Gradient arc (filled portion) -->
+        <path d="M 30 145 A 110 110 0 0 1 195 45" fill="none" stroke="url(#arcGradA)" stroke-width="12" stroke-linecap="round" filter="url(#glowA)"/>
+        <!-- Tick marks -->
+        <g stroke="#334155" stroke-width="1.5" opacity="0.5">
+          <line x1="35" y1="140" x2="45" y2="132"/>
+          <line x1="45" y1="95" x2="56" y2="98"/>
+          <line x1="75" y1="55" x2="83" y2="63"/>
+          <line x1="130" y1="35" x2="130" y2="47"/>
+          <line x1="185" y1="55" x2="177" y2="63"/>
+          <line x1="215" y1="95" x2="204" y2="98"/>
+          <line x1="225" y1="140" x2="215" y2="132"/>
+        </g>
+        <!-- Needle -->
+        <line x1="130" y1="145" x2="180" y2="60" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" filter="url(#glowA)"/>
+        <circle cx="130" cy="145" r="6" fill="#06b6d4"/>
+        <circle cx="130" cy="145" r="3" fill="#0a0a1a"/>
+        <!-- Speed value -->
+        <text x="130" y="125" text-anchor="middle" fill="#ffffff" font-size="32" font-weight="700" font-family="system-ui">247</text>
+        <text x="130" y="142" text-anchor="middle" fill="#64748b" font-size="11" font-family="system-ui">Mbps</text>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>A — Neon Arc</h3>
+      <p>Gradient arc with glow effects, thin needle, dark background. Closest to speedtest.net's modern look. Clean, techy, premium feel.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0a0a1a; padding: 40px; display: flex; align-items: center; justify-content: center; min-height: 280px;">
+      <!-- Segmented Ring Gauge -->
+      <svg width="260" height="160" viewBox="0 0 260 160">
+        <defs>
+          <filter id="glowB">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- Segmented background -->
+        <path d="M 30 145 A 110 110 0 0 1 58 72" fill="none" stroke="#1e1e3a" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 63 65 A 110 110 0 0 1 130 35" fill="none" stroke="#1e1e3a" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 136 35 A 110 110 0 0 1 200 68" fill="none" stroke="#1e1e3a" stroke-width="14" stroke-linecap="round"/>
+        <path d="M 205 74 A 110 110 0 0 1 230 145" fill="none" stroke="#1e1e3a" stroke-width="14" stroke-linecap="round"/>
+        <!-- Lit segments -->
+        <path d="M 30 145 A 110 110 0 0 1 58 72" fill="none" stroke="#ef4444" stroke-width="14" stroke-linecap="round" filter="url(#glowB)"/>
+        <path d="M 63 65 A 110 110 0 0 1 130 35" fill="none" stroke="#f59e0b" stroke-width="14" stroke-linecap="round" filter="url(#glowB)"/>
+        <path d="M 136 35 A 110 110 0 0 1 200 68" fill="none" stroke="#22c55e" stroke-width="14" stroke-linecap="round" filter="url(#glowB)"/>
+        <!-- Speed value -->
+        <text x="130" y="110" text-anchor="middle" fill="#ffffff" font-size="36" font-weight="800" font-family="system-ui">247</text>
+        <text x="130" y="130" text-anchor="middle" fill="#64748b" font-size="12" font-family="system-ui" letter-spacing="2">MBPS</text>
+        <!-- Segment labels -->
+        <text x="38" y="155" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">0</text>
+        <text x="50" y="60" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">250</text>
+        <text x="130" y="28" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">500</text>
+        <text x="210" y="60" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">750</text>
+        <text x="228" y="155" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">1000</text>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>B — Segmented Ring</h3>
+      <p>Color-coded segments (red/amber/green/cyan) with no needle — just a bold center number. Cleaner, more minimal, focuses on the reading itself.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background: #0a0a1a; padding: 40px; display: flex; align-items: center; justify-content: center; min-height: 280px;">
+      <!-- Full Ring with Animated Pointer -->
+      <svg width="260" height="160" viewBox="0 0 260 160">
+        <defs>
+          <linearGradient id="arcGradC" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#6366f1"/>
+            <stop offset="50%" style="stop-color:#06b6d4"/>
+            <stop offset="100%" style="stop-color:#22c55e"/>
+          </linearGradient>
+          <filter id="glowC">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <radialGradient id="dotGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1"/>
+            <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0"/>
+          </radialGradient>
+        </defs>
+        <!-- Outer thin ring track -->
+        <path d="M 30 145 A 110 110 0 0 1 230 145" fill="none" stroke="#1a1a3e" stroke-width="3"/>
+        <!-- Inner thick arc -->
+        <path d="M 40 143 A 100 100 0 0 1 220 143" fill="none" stroke="#111133" stroke-width="20" stroke-linecap="round"/>
+        <!-- Filled arc -->
+        <path d="M 40 143 A 100 100 0 0 1 190 50" fill="none" stroke="url(#arcGradC)" stroke-width="20" stroke-linecap="round" filter="url(#glowC)"/>
+        <!-- Pointer dot at arc end -->
+        <circle cx="190" cy="50" r="12" fill="url(#dotGlow)" opacity="0.6"/>
+        <circle cx="190" cy="50" r="5" fill="#06b6d4" filter="url(#glowC)"/>
+        <!-- Speed value -->
+        <text x="130" y="105" text-anchor="middle" fill="#ffffff" font-size="40" font-weight="200" font-family="system-ui">247</text>
+        <text x="130" y="125" text-anchor="middle" fill="#06b6d4" font-size="11" font-family="system-ui" letter-spacing="3">MBPS</text>
+        <!-- Scale markers -->
+        <text x="25" y="155" text-anchor="middle" fill="#334155" font-size="8" font-family="system-ui">0</text>
+        <text x="235" y="155" text-anchor="middle" fill="#334155" font-size="8" font-family="system-ui">1000</text>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>C — Thick Arc + Dot Pointer</h3>
+      <p>Bold gradient arc with a glowing dot at the current position instead of a needle. Ultra-thin font for the number. Futuristic, smooth feel.</p>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,100 @@
+<h2>Gauge Design — Neon Arc (Revised)</h2>
+<p class="subtitle">Fixed alignment, speed value moved below the pivot point</p>
+
+<div class="split">
+  <div class="mockup">
+    <div class="mockup-header">Before (broken)</div>
+    <div class="mockup-body" style="background: #0a0a1a; padding: 30px; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+      <svg width="260" height="160" viewBox="0 0 260 160">
+        <defs>
+          <linearGradient id="arcOld" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#ef4444"/>
+            <stop offset="30%" style="stop-color:#f59e0b"/>
+            <stop offset="60%" style="stop-color:#22c55e"/>
+            <stop offset="100%" style="stop-color:#06b6d4"/>
+          </linearGradient>
+          <filter id="glowOld">
+            <feGaussianBlur stdDeviation="3" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <path d="M 30 145 A 110 110 0 0 1 230 145" fill="none" stroke="#1a1a3e" stroke-width="12" stroke-linecap="round"/>
+        <path d="M 30 145 A 110 110 0 0 1 195 45" fill="none" stroke="url(#arcOld)" stroke-width="12" stroke-linecap="round" filter="url(#glowOld)"/>
+        <line x1="130" y1="145" x2="180" y2="60" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="130" cy="145" r="6" fill="#06b6d4"/>
+        <text x="130" y="125" text-anchor="middle" fill="#ffffff" font-size="32" font-weight="700" font-family="system-ui">247</text>
+        <text x="130" y="142" text-anchor="middle" fill="#64748b" font-size="11" font-family="system-ui">Mbps</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="mockup">
+    <div class="mockup-header">After (fixed)</div>
+    <div class="mockup-body" style="background: #0a0a1a; padding: 30px; display: flex; align-items: center; justify-content: center; min-height: 300px;">
+      <svg width="280" height="200" viewBox="0 0 280 200">
+        <defs>
+          <linearGradient id="arcNew" x1="0%" y1="100%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#ef4444"/>
+            <stop offset="35%" style="stop-color:#f59e0b"/>
+            <stop offset="65%" style="stop-color:#22c55e"/>
+            <stop offset="100%" style="stop-color:#06b6d4"/>
+          </linearGradient>
+          <filter id="glowNew">
+            <feGaussianBlur stdDeviation="3.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- Background track — semicircle centered at (140, 130) r=105 -->
+        <path d="M 35 130 A 105 105 0 0 1 245 130" fill="none" stroke="#1a1a3e" stroke-width="14" stroke-linecap="round"/>
+
+        <!-- Gradient arc — ~70% filled -->
+        <path d="M 35 130 A 105 105 0 0 1 216 52" fill="none" stroke="url(#arcNew)" stroke-width="14" stroke-linecap="round" filter="url(#glowNew)"/>
+
+        <!-- Tick marks along the arc -->
+        <g stroke="#334155" stroke-width="1" opacity="0.4">
+          <!-- 0 -->
+          <line x1="46" y1="130" x2="56" y2="130"/>
+          <!-- ~36° -->
+          <line x1="53" y1="93" x2="62" y2="97"/>
+          <!-- ~72° -->
+          <line x1="80" y1="60" x2="88" y2="66"/>
+          <!-- ~108° (top) -->
+          <line x1="140" y1="25" x2="140" y2="36"/>
+          <!-- ~144° -->
+          <line x1="200" y1="60" x2="192" y2="66"/>
+          <!-- ~180° (almost) -->
+          <line x1="227" y1="93" x2="218" y2="97"/>
+          <!-- end -->
+          <line x1="234" y1="130" x2="224" y2="130"/>
+        </g>
+
+        <!-- Scale labels -->
+        <text x="35" y="148" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">0</text>
+        <text x="140" y="18" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">500</text>
+        <text x="245" y="148" text-anchor="middle" fill="#475569" font-size="9" font-family="system-ui">1000</text>
+
+        <!-- Needle — from pivot (140, 130) pointing to ~70% position -->
+        <line x1="140" y1="130" x2="208" y2="56" stroke="#ffffff" stroke-width="2" stroke-linecap="round" filter="url(#glowNew)"/>
+
+        <!-- Pivot point -->
+        <circle cx="140" cy="130" r="7" fill="#06b6d4"/>
+        <circle cx="140" cy="130" r="3" fill="#0a0a1a"/>
+
+        <!-- Speed value — BELOW pivot, clear of needle -->
+        <text x="140" y="168" text-anchor="middle" fill="#ffffff" font-size="36" font-weight="700" font-family="system-ui">247</text>
+        <text x="140" y="186" text-anchor="middle" fill="#64748b" font-size="12" font-family="system-ui" letter-spacing="1">Mbps</text>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border: 1px solid rgba(255,255,255,0.06);">
+  <h3 style="margin: 0 0 8px 0;">Fixes applied</h3>
+  <ul style="margin: 0; padding-left: 20px; color: #94a3b8; font-size: 14px; line-height: 1.8;">
+    <li>Arc and track now share the same center point and radius — perfectly aligned</li>
+    <li>Speed value + "Mbps" label moved below the pivot — no overlap with needle</li>
+    <li>Slightly larger canvas to give breathing room below</li>
+    <li>Scale labels (0 / 500 / 1000) positioned outside the arc</li>
+  </ul>
+</div>
