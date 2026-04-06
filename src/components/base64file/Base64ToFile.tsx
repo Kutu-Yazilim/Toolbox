@@ -304,7 +304,7 @@ export function Base64ToFile() {
           {/* Preview toolbar */}
           <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Preview
+              PREVIEW
             </span>
             <div className="flex items-center gap-1">
               {parsed && (
