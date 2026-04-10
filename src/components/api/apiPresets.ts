@@ -1,6 +1,6 @@
 import { type Preset } from "@/components/shared/PresetsDrawer"
 
-export const API_REQUEST_PRESETS: Preset[] = [
+export const API_PRESETS: Preset[] = [
     {
         name: "GET JSON",
         category: "REST",
