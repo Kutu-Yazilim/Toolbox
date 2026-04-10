@@ -1,522 +1,154 @@
 "use client"
 
-import { useState, useCallback, useRef, useMemo } from "react"
+import { useState, useCallback, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
-import {
-    SendIcon,
-    CopyIcon,
-    CheckIcon,
-    AlertCircleIcon,
-    PlusIcon,
-    XIcon,
-    ChevronRightIcon,
-    ChevronDownIcon,
-    LoaderIcon,
-    BookOpenIcon,
-    SearchIcon,
-    UploadIcon,
-    PanelLeftCloseIcon,
-    PanelLeftOpenIcon,
-    TrashIcon,
-} from "lucide-react"
-import Editor from "@monaco-editor/react"
-import { parseOpenApiSpec, type ParsedOpenApiSpec, type OpenApiEndpoint } from "@/utils/openApiParser"
-import { cn } from "@/lib/utils"
+import { HistoryIcon, FolderIcon, BracesIcon, BookOpenIcon, PanelLeftOpenIcon } from "lucide-react"
+import { useTheme } from "@/hooks/useTheme"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { useShareableUrl } from "@/hooks/useShareableUrl"
 import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
-import { useTheme } from "@/hooks/useTheme"
 import { ToolToolbar } from "@/components/shared/ToolToolbar"
-import { type Preset } from "@/components/shared/PresetsDrawer"
 import { type ExportOption } from "@/components/shared/ExportMenu"
-import { API_REQUEST_PRESETS } from "./apiRequestPresets"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ParsedOpenApiSpec, type OpenApiEndpoint } from "@/utils/openApiParser"
+import {
+    type HttpMethod, type KeyValuePair, type BodyType, type AuthConfig, type ApiResponse,
+    METHODS, DEFAULT_AUTH,
+} from "./apiTypes"
+import { resolveVariables, resolveAuth, buildUrlWithParams, parseQueryParams, getUrlWithoutParams, findVariableRefs, generateCurl } from "./apiUtils"
+import { useApiStore } from "./useApiStore"
+import { API_PRESETS } from "./apiPresets"
+import { RequestPanel } from "./RequestPanel"
+import { ResponsePanel } from "./ResponsePanel"
+import { EndpointSidebar } from "./EndpointSidebar"
+import { ImportModal } from "./ImportModal"
+import { HistoryDrawer } from "./HistoryDrawer"
+import { CollectionsDrawer } from "./CollectionsDrawer"
+import { EnvDrawer } from "./EnvDrawer"
 
-type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
+// ─── Persisted state shape ──────────────────────────────────────────────────
 
-interface KeyValuePair {
-    key: string
-    value: string
-    enabled: boolean
-}
-
-interface ApiResponse {
-    status: number
-    statusText: string
-    headers: Record<string, string>
+interface PersistedRequestState {
+    method: HttpMethod
+    url: string
+    headers: KeyValuePair[]
+    queryParams: KeyValuePair[]
+    bodyType: BodyType
     body: string
-    time: number
-    size: number
+    auth: AuthConfig
 }
 
-const METHODS: HttpMethod[] = ["GET", "POST", "PUT", "PATCH", "DELETE"]
-
-const METHOD_COLORS: Record<HttpMethod, string> = {
-    GET: "bg-emerald-500 text-white",
-    POST: "bg-blue-500 text-white",
-    PUT: "bg-amber-500 text-white",
-    PATCH: "bg-orange-400 text-white",
-    DELETE: "bg-red-500 text-white",
+const DEFAULT_PERSISTED: PersistedRequestState = {
+    method: "GET",
+    url: "https://jsonplaceholder.typicode.com/posts/1",
+    headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+    queryParams: [],
+    bodyType: "none",
+    body: "",
+    auth: DEFAULT_AUTH,
 }
 
-const METHOD_COLORS_MUTED: Record<string, string> = {
-    GET: "text-emerald-500",
-    POST: "text-blue-500",
-    PUT: "text-amber-500",
-    PATCH: "text-orange-400",
-    DELETE: "text-red-500",
-    HEAD: "text-purple-400",
-    OPTIONS: "text-muted-foreground",
-}
-
-const MONACO_OPTIONS = {
-    minimap: { enabled: false },
-    fontSize: 13,
-    lineNumbers: "on" as const,
-    scrollBeyondLastLine: false,
-    wordWrap: "on" as const,
-    automaticLayout: true,
-    padding: { top: 8 },
-    renderLineHighlight: "none" as const,
-    overviewRulerLanes: 0,
-    hideCursorInOverviewRuler: true,
-    overviewRulerBorder: false,
-    scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
-}
-
-function detectLanguage(body: string): string {
-    try {
-        JSON.parse(body)
-        return "json"
-    } catch {
-        if (body.trim().startsWith("<")) return "html"
-        return "plaintext"
-    }
-}
-
-function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function StatusBadge({ status }: { status: number }) {
-    const color = status < 300
-        ? "text-emerald-500 bg-emerald-500/10"
-        : status < 400
-            ? "text-blue-400 bg-blue-400/10"
-            : status < 500
-                ? "text-amber-400 bg-amber-400/10"
-                : "text-destructive bg-destructive/10"
-
-    return (
-        <span className={`text-[11px] font-mono font-medium px-1.5 py-0.5 rounded ${color}`}>
-            {status}
-        </span>
-    )
-}
-
-// ── Import Modal ──────────────────────────────────────────────────
-
-function ImportModal({
-    onImport,
-    onClose,
-}: {
-    onImport: (spec: ParsedOpenApiSpec) => void
-    onClose: () => void
-}) {
-    const [text, setText] = useState("")
-    const [error, setError] = useState<string | null>(null)
-    const fileInputRef = useRef<HTMLInputElement>(null)
-
-    const handleImport = () => {
-        setError(null)
-        if (!text.trim()) {
-            setError("Please paste an OpenAPI spec or upload a file")
-            return
-        }
-        try {
-            const parsed = JSON.parse(text)
-            const spec = parseOpenApiSpec(parsed)
-            onImport(spec)
-        } catch (e: unknown) {
-            if (e instanceof SyntaxError) {
-                setError("Invalid JSON: " + e.message)
-            } else {
-                setError(e instanceof Error ? e.message : "Failed to parse spec")
-            }
-        }
-    }
-
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
-        if (!file) return
-        setError(null)
-        const reader = new FileReader()
-        reader.onload = () => {
-            const content = reader.result as string
-            setText(content)
-            // Auto-import on file upload
-            try {
-                const parsed = JSON.parse(content)
-                const spec = parseOpenApiSpec(parsed)
-                onImport(spec)
-            } catch (err: unknown) {
-                if (err instanceof SyntaxError) {
-                    setError("Invalid JSON: " + err.message)
-                } else {
-                    setError(err instanceof Error ? err.message : "Failed to parse spec")
-                }
-            }
-        }
-        reader.readAsText(file)
-    }
-
-    return (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-background border border-border rounded-lg shadow-xl w-full max-w-lg mx-4 flex flex-col max-h-[80%]">
-                {/* Header */}
-                <div className="flex items-center justify-between px-4 h-10 border-b border-border flex-shrink-0">
-                    <span className="text-sm font-medium text-foreground">Import OpenAPI Spec</span>
-                    <Button variant="ghost" size="xs" onClick={onClose}>
-                        <XIcon className="h-3 w-3" />
-                    </Button>
-                </div>
-
-                {/* Body */}
-                <div className="flex-1 flex flex-col gap-3 p-4 min-h-0">
-                    <textarea
-                        value={text}
-                        onChange={e => { setText(e.target.value); setError(null) }}
-                        placeholder="Paste your OpenAPI / Swagger JSON spec here..."
-                        className="flex-1 min-h-[200px] w-full px-3 py-2 text-xs font-mono bg-muted/30 border border-border rounded-md resize-none outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
-                        spellCheck={false}
-                    />
-
-                    <div className="flex items-center gap-3">
-                        <div className="flex-1 h-px bg-border" />
-                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">or</span>
-                        <div className="flex-1 h-px bg-border" />
-                    </div>
-
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".json"
-                        onChange={handleFileUpload}
-                        className="hidden"
-                    />
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full"
-                    >
-                        <UploadIcon className="h-3.5 w-3.5" />
-                        <span className="text-xs">Upload .json file</span>
-                    </Button>
-
-                    {error && (
-                        <div className="flex items-start gap-1.5 text-destructive text-xs">
-                            <AlertCircleIcon className="h-3 w-3 flex-shrink-0 mt-0.5" />
-                            <span className="break-words">{error}</span>
-                        </div>
-                    )}
-                </div>
-
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-2 px-4 h-12 border-t border-border flex-shrink-0">
-                    <Button variant="ghost" size="sm" onClick={onClose}>
-                        <span className="text-xs">Cancel</span>
-                    </Button>
-                    <Button variant="default" size="sm" onClick={handleImport} disabled={!text.trim()}>
-                        <span className="text-xs">Import</span>
-                    </Button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
-// ── Endpoint Sidebar ──────────────────────────────────────────────
-
-function EndpointSidebar({
-    spec,
-    search,
-    onSearchChange,
-    onSelect,
-    onClose,
-    onClear,
-    className,
-}: {
-    spec: ParsedOpenApiSpec
-    search: string
-    onSearchChange: (val: string) => void
-    onSelect: (endpoint: OpenApiEndpoint) => void
-    onClose: () => void
-    onClear: () => void
-    className?: string
-}) {
-    const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set())
-
-    const filteredEndpoints = useMemo(() => {
-        if (!search.trim()) return spec.endpoints
-        const q = search.toLowerCase()
-        return spec.endpoints.filter(
-            ep => ep.path.toLowerCase().includes(q)
-                || ep.summary.toLowerCase().includes(q)
-                || ep.method.toLowerCase().includes(q)
-        )
-    }, [spec.endpoints, search])
-
-    const groupedByTag = useMemo(() => {
-        const groups: Record<string, OpenApiEndpoint[]> = {}
-        for (const ep of filteredEndpoints) {
-            if (!groups[ep.tag]) groups[ep.tag] = []
-            groups[ep.tag].push(ep)
-        }
-        return groups
-    }, [filteredEndpoints])
-
-    const toggleTag = (tag: string) => {
-        setCollapsedTags(prev => {
-            const next = new Set(prev)
-            if (next.has(tag)) next.delete(tag)
-            else next.add(tag)
-            return next
-        })
-    }
-
-    return (
-        <div className={cn("flex flex-col bg-background h-full w-full md:w-[240px]", className)}>
-            {/* Sidebar header */}
-            <div className="flex items-center justify-between px-2 h-9 border-b border-border flex-shrink-0">
-                <div className="flex items-center gap-1 min-w-0">
-                    <BookOpenIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    <span className="text-[11px] font-medium text-foreground truncate">{spec.title}</span>
-                    {spec.version && (
-                        <span className="text-[9px] text-muted-foreground flex-shrink-0">v{spec.version}</span>
-                    )}
-                </div>
-                <div className="flex items-center gap-0.5 flex-shrink-0">
-                    <Button variant="ghost" size="xs" onClick={onClear} title="Remove spec">
-                        <TrashIcon className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="xs" onClick={onClose} title="Hide sidebar">
-                        <PanelLeftCloseIcon className="h-3 w-3" />
-                    </Button>
-                </div>
-            </div>
-
-            {/* Search */}
-            <div className="px-2 py-1.5 border-b border-border flex-shrink-0">
-                <div className="flex items-center gap-1.5 h-6 px-2 bg-muted/30 border border-border rounded">
-                    <SearchIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={e => onSearchChange(e.target.value)}
-                        placeholder="Search endpoints..."
-                        className="flex-1 min-w-0 text-[11px] bg-transparent outline-none text-foreground placeholder:text-muted-foreground"
-                        spellCheck={false}
-                    />
-                    {search && (
-                        <button onClick={() => onSearchChange("")} className="text-muted-foreground hover:text-foreground">
-                            <XIcon className="h-3 w-3" />
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            {/* Endpoint list */}
-            <div className="flex-1 overflow-y-auto min-h-0">
-                {Object.keys(groupedByTag).length === 0 ? (
-                    <div className="px-3 py-4 text-[11px] text-muted-foreground text-center">
-                        No endpoints found
-                    </div>
-                ) : (
-                    Object.entries(groupedByTag).map(([tag, endpoints]) => (
-                        <div key={tag}>
-                            {/* Tag header */}
-                            <button
-                                onClick={() => toggleTag(tag)}
-                                className="flex items-center gap-1 w-full px-2 py-1.5 text-left hover:bg-muted/30 transition-colors"
-                            >
-                                {collapsedTags.has(tag) ? (
-                                    <ChevronRightIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                ) : (
-                                    <ChevronDownIcon className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                )}
-                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                                    {tag}
-                                </span>
-                                <span className="text-[9px] text-muted-foreground/60 ml-auto flex-shrink-0">
-                                    {endpoints.length}
-                                </span>
-                            </button>
-
-                            {/* Endpoints under tag */}
-                            {!collapsedTags.has(tag) && endpoints.map((ep, i) => (
-                                <button
-                                    key={`${ep.method}-${ep.path}-${i}`}
-                                    onClick={() => onSelect(ep)}
-                                    className="flex items-start gap-1.5 w-full px-2 py-1.5 pl-5 text-left hover:bg-muted/40 transition-colors group"
-                                    title={ep.summary}
-                                >
-                                    <span className={`text-[9px] font-mono font-bold flex-shrink-0 mt-px ${METHOD_COLORS_MUTED[ep.method] ?? "text-muted-foreground"}`}>
-                                        {ep.method.slice(0, 3)}
-                                    </span>
-                                    <span className="text-[11px] font-mono text-foreground/80 truncate group-hover:text-foreground">
-                                        {ep.path}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                    ))
-                )}
-            </div>
-
-            {/* Footer stats */}
-            <div className="px-2 py-1 border-t border-border flex-shrink-0">
-                <span className="text-[9px] text-muted-foreground">
-                    {spec.endpoints.length} endpoint{spec.endpoints.length !== 1 ? "s" : ""}
-                    {search && ` (${filteredEndpoints.length} shown)`}
-                </span>
-            </div>
-        </div>
-    )
-}
-
-// ── Main Component ────────────────────────────────────────────────
+// ─── Component ──────────────────────────────────────────────────────────────
 
 export function ApiRequestBuilder() {
     const { isDark } = useTheme()
+    const store = useApiStore()
 
-    interface ApiStoredState {
-        method: HttpMethod
-        url: string
-        headers: KeyValuePair[]
-        body: string
-    }
+    // ── Persisted request state ─────────────────────────────────────────────
+    const [persisted, setPersisted] = useLocalStorage<PersistedRequestState>("kutu-api-builder", DEFAULT_PERSISTED)
 
-    const [stored, setStored] = useLocalStorage<ApiStoredState>("api-request-builder", {
-        method: "GET",
-        url: "https://jsonplaceholder.typicode.com/posts/1",
-        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
-        body: '{\n  "title": "Hello",\n  "body": "World",\n  "userId": 1\n}',
-    })
+    const [method, setMethodRaw] = useState<HttpMethod>(persisted.method)
+    const [url, setUrlRaw] = useState(persisted.url)
+    const [headers, setHeaders] = useState<KeyValuePair[]>(persisted.headers)
+    const [queryParams, setQueryParamsRaw] = useState<KeyValuePair[]>(persisted.queryParams)
+    const [bodyType, setBodyType] = useState<BodyType>(persisted.bodyType)
+    const [body, setBody] = useState(persisted.body)
+    const [auth, setAuth] = useState<AuthConfig>(persisted.auth)
 
-    const [method, setMethod] = useState<HttpMethod>(stored.method)
-    const [url, setUrl] = useState(stored.url)
-
-    const EXAMPLE_URLS: Partial<Record<HttpMethod, string>> = {
-        GET: "https://jsonplaceholder.typicode.com/posts/1",
-        POST: "https://jsonplaceholder.typicode.com/posts",
-        PUT: "https://jsonplaceholder.typicode.com/posts/1",
-        PATCH: "https://jsonplaceholder.typicode.com/posts/1",
-        DELETE: "https://jsonplaceholder.typicode.com/posts/1",
-    }
-
-    const [headers, setHeaders] = useState<KeyValuePair[]>(stored.headers)
-    const [body, setBody] = useState(stored.body)
-
-    const persistState = useCallback((m: HttpMethod, u: string, h: KeyValuePair[], b: string) => {
-        setStored({ method: m, url: u, headers: h, body: b })
-    }, [setStored])
-
-    const handleMethodChange = useCallback((m: HttpMethod) => {
-        setMethod(m)
-        setUrl(prev => {
-            const isExample = Object.values(EXAMPLE_URLS).includes(prev)
-            const newUrl = isExample ? (EXAMPLE_URLS[m] ?? prev) : prev
-            persistState(m, newUrl, headers, body)
-            return newUrl
-        })
-    }, [headers, body, persistState])
-
+    // ── Transient state ─────────────────────────────────────────────────────
+    const [formData, setFormData] = useState<KeyValuePair[]>([])
+    const [urlEncodedData, setUrlEncodedData] = useState<KeyValuePair[]>([])
+    const [binaryFile, setBinaryFile] = useState<File | null>(null)
     const [response, setResponse] = useState<ApiResponse | null>(null)
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
-
-    const [copied, setCopied] = useState<string | null>(null)
-    const [headersExpanded, setHeadersExpanded] = useState(true)
-    const [responseHeadersExpanded, setResponseHeadersExpanded] = useState(false)
-
-    // OpenAPI state
+    const [historyOpen, setHistoryOpen] = useState(false)
+    const [collectionsOpen, setCollectionsOpen] = useState(false)
+    const [envOpen, setEnvOpen] = useState(false)
+    const [importModalOpen, setImportModalOpen] = useState(false)
     const [spec, setSpec] = useState<ParsedOpenApiSpec | null>(null)
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [sidebarSearch, setSidebarSearch] = useState("")
-    const [importModalOpen, setImportModalOpen] = useState(false)
 
-    const { shareUrl } = useShareableUrl("api-request", { method, url, headers, body }, (restored) => {
-        setMethod(restored.method)
-        setUrl(restored.url)
+    // ── Environment variables ───────────────────────────────────────────────
+    const [envVars, setEnvVars] = useLocalStorage<Record<string, string>>("kutu-api-env", {})
+
+    // ── Sync ref to prevent URL ↔ queryParams infinite loops ────────────────
+    const syncingRef = useRef(false)
+
+    // ── Persist helper ──────────────────────────────────────────────────────
+    const persist = useCallback(
+        (patch: Partial<PersistedRequestState>) => {
+            setPersisted(prev => ({ ...prev, ...patch }))
+        },
+        [setPersisted],
+    )
+
+    // ── Setters with persistence + bidirectional sync ────────────────────────
+    const setMethod = useCallback((m: HttpMethod) => {
+        setMethodRaw(m)
+        persist({ method: m })
+    }, [persist])
+
+    const setUrl = useCallback((u: string) => {
+        setUrlRaw(u)
+        persist({ url: u })
+        if (!syncingRef.current) {
+            syncingRef.current = true
+            setQueryParamsRaw(parseQueryParams(u))
+            syncingRef.current = false
+        }
+    }, [persist])
+
+    const setQueryParams = useCallback((params: KeyValuePair[]) => {
+        setQueryParamsRaw(params)
+        persist({ queryParams: params })
+        if (!syncingRef.current) {
+            syncingRef.current = true
+            const base = getUrlWithoutParams(url)
+            const rebuilt = buildUrlWithParams(base, params)
+            setUrlRaw(rebuilt)
+            persist({ url: rebuilt, queryParams: params })
+            syncingRef.current = false
+        }
+    }, [persist, url])
+
+    // ── Shareable URL ───────────────────────────────────────────────────────
+    const shareableState = useMemo(
+        () => ({ method, url, headers, queryParams, bodyType, body, auth }),
+        [method, url, headers, queryParams, bodyType, body, auth],
+    )
+
+    const { shareUrl } = useShareableUrl("api-request", shareableState, (restored) => {
+        setMethodRaw(restored.method)
+        setUrlRaw(restored.url)
         setHeaders(restored.headers)
+        setQueryParamsRaw(restored.queryParams)
+        setBodyType(restored.bodyType)
         setBody(restored.body)
-        setStored(restored)
+        setAuth(restored.auth)
+        setPersisted(restored)
     })
 
-    const handlePresetSelect = useCallback((preset: Preset) => {
-        const data = JSON.parse(preset.content)
-        setMethod(data.method)
-        setUrl(data.url)
-        setHeaders(data.headers)
-        setBody(data.body)
-        persistState(data.method, data.url, data.headers, data.body)
-        setResponse(null)
-        setError(null)
-    }, [persistState])
+    // ── Referenced env vars (for EnvDrawer highlight) ────────────────────────
+    const referencedVars = useMemo(() => {
+        const texts = [url, body, auth.bearer.token, auth.basic.username, auth.basic.password, auth.apiKey.key, auth.apiKey.value]
+        headers.forEach(h => { texts.push(h.value) })
+        queryParams.forEach(p => { texts.push(p.value) })
+        return findVariableRefs(texts.join(" "))
+    }, [url, body, auth, headers, queryParams])
 
-    const exportOptions: ExportOption[] = useMemo(() => [
-        {
-            label: "Copy as cURL",
-            action: () => {
-                const enabledHeaders = headers.filter(h => h.enabled && h.key.trim())
-                const headerFlags = enabledHeaders.map(h => `-H '${h.key}: ${h.value}'`).join(" ")
-                const hasBody = ["POST", "PUT", "PATCH"].includes(method)
-                const bodyFlag = hasBody && body.trim() ? `-d '${body.replace(/'/g, "'\\''")}'` : ""
-                const curl = `curl -X ${method} '${url}' ${headerFlags} ${bodyFlag}`.trim()
-                navigator.clipboard.writeText(curl)
-            },
-        },
-        {
-            label: "Copy response",
-            action: () => {
-                if (response) navigator.clipboard.writeText(response.body)
-            },
-        },
-    ], [method, url, headers, body, response])
-
-    const shortcuts: Shortcut[] = useMemo(() => [
-        { key: "mod+enter", label: "Send request", action: () => handleSend() },
-        { key: "mod+shift+c", label: "Copy response", action: () => { if (response) navigator.clipboard.writeText(response.body) } },
-    ], [response])
-
-    useKeyboardShortcuts(shortcuts)
-
-    const handleCopy = async (text: string, which: string) => {
-        await navigator.clipboard.writeText(text)
-        setCopied(which)
-        setTimeout(() => setCopied(null), 2000)
-    }
-
-    const addHeader = () => {
-        setHeaders(prev => [...prev, { key: "", value: "", enabled: true }])
-    }
-
-    const removeHeader = (index: number) => {
-        setHeaders(prev => prev.filter((_, i) => i !== index))
-    }
-
-    const updateHeader = (index: number, field: "key" | "value" | "enabled", val: string | boolean) => {
-        setHeaders(prev => prev.map((h, i) => i === index ? { ...h, [field]: val } : h))
-    }
-
-    const handleBodyChange = useCallback((value: string | undefined) => {
-        const v = value || ""
-        setBody(v)
-        persistState(method, url, headers, v)
-    }, [method, url, headers, persistState])
-
+    // ── handleSend ──────────────────────────────────────────────────────────
     const handleSend = useCallback(async () => {
         setLoading(true)
         setError(null)
@@ -524,54 +156,119 @@ export function ApiRequestBuilder() {
 
         const startTime = performance.now()
         try {
-            const enabledHeaders: Record<string, string> = {}
-            headers.filter(h => h.enabled && h.key.trim()).forEach(h => {
-                enabledHeaders[h.key] = h.value
-            })
+            // Resolve env vars
+            const rUrl = resolveVariables(url, envVars)
+            const rHeaders = headers
+                .filter(h => h.enabled && h.key.trim())
+                .map(h => ({ ...h, value: resolveVariables(h.value, envVars) }))
+            const rParams = queryParams
+                .filter(p => p.enabled && p.key.trim())
+                .map(p => ({ ...p, value: resolveVariables(p.value, envVars) }))
+            const rBody = resolveVariables(body, envVars)
 
-            const fetchOptions: RequestInit = {
-                method,
-                headers: enabledHeaders,
+            // Auth
+            const authResult = resolveAuth(auth, envVars)
+
+            // Final URL
+            const finalUrl = buildUrlWithParams(rUrl, rParams, authResult.queryParams)
+
+            // Merge headers
+            const finalHeaders: Record<string, string> = {}
+            for (const h of rHeaders) finalHeaders[h.key] = h.value
+            for (const [k, v] of Object.entries(authResult.headers)) finalHeaders[k] = v
+
+            // Build body
+            let fetchBody: BodyInit | undefined
+            if (bodyType === "json" || bodyType === "raw") {
+                fetchBody = rBody || undefined
+            } else if (bodyType === "form-data") {
+                const fd = new FormData()
+                formData.filter(d => d.enabled && d.key.trim()).forEach(d => fd.append(d.key, d.value))
+                fetchBody = fd
+            } else if (bodyType === "x-www-form-urlencoded") {
+                const params = new URLSearchParams()
+                urlEncodedData.filter(d => d.enabled && d.key.trim()).forEach(d => params.append(d.key, d.value))
+                fetchBody = params
+            } else if (bodyType === "binary" && binaryFile) {
+                fetchBody = binaryFile
             }
 
-            if (["POST", "PUT", "PATCH"].includes(method) && body.trim()) {
-                fetchOptions.body = body
+            // Set Content-Type if not manually provided
+            if (bodyType === "json" && !finalHeaders["Content-Type"]) {
+                finalHeaders["Content-Type"] = "application/json"
+            } else if (bodyType === "x-www-form-urlencoded" && !finalHeaders["Content-Type"]) {
+                finalHeaders["Content-Type"] = "application/x-www-form-urlencoded"
             }
+            // form-data: let browser set boundary; binary: no default
 
-            const res = await fetch(url, fetchOptions)
+            const res = await fetch(finalUrl, { method, headers: finalHeaders, body: fetchBody })
             const elapsed = Math.round(performance.now() - startTime)
             const text = await res.text()
 
             const resHeaders: Record<string, string> = {}
-            res.headers.forEach((value, key) => {
-                resHeaders[key] = value
-            })
+            res.headers.forEach((v, k) => { resHeaders[k] = v })
 
             let formattedBody = text
             try {
-                const parsed = JSON.parse(text)
-                formattedBody = JSON.stringify(parsed, null, 2)
-            } catch {
-                // Not JSON, keep raw text
-            }
+                formattedBody = JSON.stringify(JSON.parse(text), null, 2)
+            } catch { /* not JSON */ }
 
-            setResponse({
+            const apiResponse: ApiResponse = {
                 status: res.status,
                 statusText: res.statusText,
                 headers: resHeaders,
                 body: formattedBody,
                 time: elapsed,
                 size: new Blob([text]).size,
+            }
+            setResponse(apiResponse)
+
+            // Save to history
+            store.addHistory({
+                id: crypto.randomUUID(),
+                requestId: null,
+                method,
+                url,
+                status: res.status,
+                statusText: res.statusText,
+                responseBody: formattedBody,
+                responseHeaders: resHeaders,
+                time: elapsed,
+                size: new Blob([text]).size,
+                timestamp: Date.now(),
             })
         } catch (e: unknown) {
             const msg = e instanceof Error ? e.message : "Request failed"
             setError(msg.includes("Failed to fetch") ? "Network error — the server may not allow browser requests (CORS)" : msg)
-            setResponse(null)
         } finally {
             setLoading(false)
         }
-    }, [method, url, headers, body])
+    }, [method, url, headers, queryParams, bodyType, body, auth, envVars, formData, urlEncodedData, binaryFile, store])
 
+    // ── handleSaveCurrent ───────────────────────────────────────────────────
+    const handleSaveCurrent = useCallback((name: string, collectionId: string) => {
+        store.saveRequest({
+            id: crypto.randomUUID(),
+            name,
+            method, url, headers, queryParams, bodyType, body, auth,
+            collectionId,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        })
+    }, [store, method, url, headers, queryParams, bodyType, body, auth])
+
+    // ── Preset handler ──────────────────────────────────────────────────────
+    const handlePresetSelect = useCallback((preset: Preset) => {
+        const data = JSON.parse(preset.content)
+        setMethod(data.method)
+        setUrl(data.url)
+        setHeaders(data.headers)
+        setBody(data.body ?? "")
+        setResponse(null)
+        setError(null)
+    }, [setMethod, setUrl])
+
+    // ── OpenAPI handlers ────────────────────────────────────────────────────
     const handleImportSpec = useCallback((parsed: ParsedOpenApiSpec) => {
         setSpec(parsed)
         setSidebarOpen(true)
@@ -587,34 +284,21 @@ export function ApiRequestBuilder() {
 
     const handleSelectEndpoint = useCallback((endpoint: OpenApiEndpoint) => {
         const m = endpoint.method.toUpperCase()
-        if (METHODS.includes(m as HttpMethod)) {
-            handleMethodChange(m as HttpMethod)
-        }
+        if (METHODS.includes(m as HttpMethod)) setMethod(m as HttpMethod)
 
-        // Build URL with base
         let endpointUrl = endpoint.path
         if (spec?.baseUrl) {
-            const base = spec.baseUrl.replace(/\/$/, "")
-            endpointUrl = base + endpoint.path
+            endpointUrl = spec.baseUrl.replace(/\/$/, "") + endpoint.path
         }
-
-        // Build query string from query params
         if (endpoint.queryParams.length > 0) {
-            const queryParts = endpoint.queryParams
-                .map(p => `${encodeURIComponent(p.name)}=`)
-                .join("&")
-            endpointUrl += "?" + queryParts
+            const qs = endpoint.queryParams.map(p => `${encodeURIComponent(p.name)}=`).join("&")
+            endpointUrl += "?" + qs
         }
-
         setUrl(endpointUrl)
 
-        // Set headers
         const newHeaders: KeyValuePair[] = endpoint.headers.map(h => ({
-            key: h.key,
-            value: h.value || "",
-            enabled: true,
+            key: h.key, value: h.value || "", enabled: true,
         }))
-        // Add Content-Type if there's a body
         if (endpoint.bodyExample && !newHeaders.some(h => h.key.toLowerCase() === "content-type")) {
             newHeaders.unshift({ key: "Content-Type", value: "application/json", enabled: true })
         }
@@ -622,36 +306,92 @@ export function ApiRequestBuilder() {
             newHeaders.push({ key: "Content-Type", value: "application/json", enabled: true })
         }
         setHeaders(newHeaders)
+        persist({ headers: newHeaders })
 
-        // Set body
         if (endpoint.bodyExample) {
             setBody(endpoint.bodyExample)
+            persist({ body: endpoint.bodyExample })
         }
 
-        // Clear previous response
         setResponse(null)
         setError(null)
-    }, [spec])
+    }, [spec, setMethod, setUrl, persist])
 
-    const hasBody = ["POST", "PUT", "PATCH"].includes(method)
+    // ── History select ──────────────────────────────────────────────────────
+    const handleHistorySelect = useCallback((entry: { method: HttpMethod; url: string }) => {
+        setMethod(entry.method)
+        setUrl(entry.url)
+        setHistoryOpen(false)
+        setResponse(null)
+        setError(null)
+    }, [setMethod, setUrl])
 
+    // ── Collection request select ───────────────────────────────────────────
+    const handleSelectRequest = useCallback((req: { method: HttpMethod; url: string; headers: KeyValuePair[]; queryParams: KeyValuePair[]; bodyType: BodyType; body: string; auth: AuthConfig }) => {
+        setMethod(req.method)
+        setUrl(req.url)
+        setHeaders(req.headers)
+        setQueryParamsRaw(req.queryParams)
+        setBodyType(req.bodyType)
+        setBody(req.body)
+        setAuth(req.auth)
+        setPersisted({ method: req.method, url: req.url, headers: req.headers, queryParams: req.queryParams, bodyType: req.bodyType, body: req.body, auth: req.auth })
+        setCollectionsOpen(false)
+        setResponse(null)
+        setError(null)
+    }, [setPersisted, setMethod, setUrl])
+
+    // ── Export options ───────────────────────────────────────────────────────
+    const exportOptions: ExportOption[] = useMemo(() => [
+        { label: "Copy as cURL", action: () => navigator.clipboard.writeText(generateCurl(method, url, headers, body, bodyType)) },
+        { label: "Copy response", action: () => { if (response) navigator.clipboard.writeText(response.body) } },
+        { label: "Copy request JSON", action: () => navigator.clipboard.writeText(JSON.stringify({ method, url, headers, queryParams, bodyType, body, auth }, null, 2)) },
+    ], [method, url, headers, queryParams, bodyType, body, auth, response])
+
+    // ── Keyboard shortcuts ──────────────────────────────────────────────────
+    const shortcuts: Shortcut[] = useMemo(() => [
+        { key: "mod+enter", label: "Send request", action: () => handleSend() },
+        { key: "mod+s", label: "Save to collection", action: () => setCollectionsOpen(true) },
+        { key: "mod+h", label: "Toggle history", action: () => setHistoryOpen(prev => !prev) },
+        { key: "mod+k", label: "Toggle collections", action: () => setCollectionsOpen(prev => !prev) },
+        { key: "mod+e", label: "Toggle environment", action: () => setEnvOpen(prev => !prev) },
+        { key: "mod+i", label: "Import OpenAPI", action: () => setImportModalOpen(true) },
+    ], [handleSend])
+
+    useKeyboardShortcuts(shortcuts)
+
+    // ── JSX ─────────────────────────────────────────────────────────────────
     return (
         <div className="h-full flex flex-col min-h-0 relative">
-            {/* Top toolbar */}
             <ToolToolbar
-                title="API Request"
-                status={response ? { type: response.status < 400 ? "success" : "error", label: `${response.status} ${response.statusText}` } : error ? { type: "error", label: error } : null}
+                title="API"
+                status={
+                    response
+                        ? { type: response.status < 400 ? "success" : "error", label: `${response.status} ${response.statusText}` }
+                        : error
+                            ? { type: "error", label: error }
+                            : null
+                }
                 copyValue={response?.body}
                 onShare={shareUrl}
                 exportOptions={exportOptions}
-                presets={API_REQUEST_PRESETS}
+                presets={API_PRESETS}
                 onPresetSelect={handlePresetSelect}
                 shortcuts={shortcuts}
                 actions={
                     <>
-                        <Button variant="ghost" size="xs" onClick={() => setImportModalOpen(true)} title="Import OpenAPI spec">
+                        <Button variant="ghost" size="xs" onClick={() => setHistoryOpen(true)} title="History">
+                            <HistoryIcon className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="xs" onClick={() => setCollectionsOpen(true)} title="Collections">
+                            <FolderIcon className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="xs" onClick={() => setEnvOpen(true)} title="Environment">
+                            <BracesIcon className="h-3 w-3" />
+                        </Button>
+                        <div className="w-px h-4 bg-border mx-0.5" />
+                        <Button variant="ghost" size="xs" onClick={() => setImportModalOpen(true)} title="Import OpenAPI">
                             <BookOpenIcon className="h-3 w-3" />
-                            <span className="text-[10px]">OpenAPI</span>
                         </Button>
                         {spec && !sidebarOpen && (
                             <Button variant="ghost" size="xs" onClick={() => setSidebarOpen(true)} title="Show endpoints">
@@ -661,52 +401,8 @@ export function ApiRequestBuilder() {
                     </>
                 }
             />
-            <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-border flex-shrink-0">
-                {/* Method pills */}
-                {METHODS.map(m => (
-                    <button
-                        key={m}
-                        onClick={() => handleMethodChange(m)}
-                        className={`px-2 py-1 rounded text-[11px] font-medium font-mono transition-colors ${
-                            method === m
-                                ? METHOD_COLORS[m]
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                        }`}
-                    >
-                        {m}
-                    </button>
-                ))}
-                <div className="w-px h-4 bg-border mx-0.5" />
-                {/* URL input */}
-                <input
-                    type="text"
-                    value={url}
-                    onChange={e => { setUrl(e.target.value); persistState(method, e.target.value, headers, body) }}
-                    onKeyDown={e => { if (e.key === "Enter") handleSend() }}
-                    placeholder="https://api.example.com/endpoint"
-                    className="order-last md:order-none basis-full md:basis-auto flex-1 h-6 px-2 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
-                    spellCheck={false}
-                />
-                <div className="w-px h-4 bg-border mx-0.5" />
-                {/* Send button */}
-                <Button
-                    variant="default"
-                    size="xs"
-                    onClick={handleSend}
-                    disabled={loading || !url.trim()}
-                >
-                    {loading ? (
-                        <LoaderIcon className="h-3 w-3 animate-spin" />
-                    ) : (
-                        <SendIcon className="h-3 w-3" />
-                    )}
-                    <span className="text-[11px]">Send</span>
-                </Button>
-            </div>
 
-            {/* Main content area: optional sidebar + request/response */}
             <div className="flex-1 flex min-h-0 gap-px bg-border">
-                {/* Sidebar */}
                 {spec && sidebarOpen && (
                     <div className="hidden md:flex">
                         <EndpointSidebar
@@ -720,183 +416,78 @@ export function ApiRequestBuilder() {
                     </div>
                 )}
 
-                {/* Request + Response vertical split */}
                 <div className="flex-1 flex flex-col min-h-0 bg-background">
-                    {/* REQUEST SECTION */}
-                    <div className="flex flex-col min-h-0 h-1/2">
-                        {/* Headers sub-section */}
-                        <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                            <button
-                                onClick={() => setHeadersExpanded(!headersExpanded)}
-                                className="flex items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                {headersExpanded ? (
-                                    <ChevronDownIcon className="h-3 w-3" />
-                                ) : (
-                                    <ChevronRightIcon className="h-3 w-3" />
-                                )}
-                                <span className="text-[10px] font-medium uppercase tracking-wider">
-                                    Headers ({headers.filter(h => h.enabled).length})
-                                </span>
-                            </button>
-                            <Button variant="ghost" size="xs" onClick={addHeader} title="Add header">
-                                <PlusIcon className="h-3 w-3" />
-                            </Button>
-                        </div>
-                        {headersExpanded && (
-                            <div className="overflow-y-auto max-h-28 flex-shrink-0 border-b border-border">
-                                {headers.map((header, i) => (
-                                    <div key={i} className="flex items-center gap-1.5 px-3 py-1">
-                                        <input
-                                            type="checkbox"
-                                            checked={header.enabled}
-                                            onChange={e => updateHeader(i, "enabled", e.target.checked)}
-                                            className="rounded accent-primary flex-shrink-0"
-                                        />
-                                        <input
-                                            type="text"
-                                            value={header.key}
-                                            onChange={e => updateHeader(i, "key", e.target.value)}
-                                            placeholder="Key"
-                                            className="flex-1 min-w-0 h-5 px-1.5 text-[11px] font-mono bg-transparent border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
-                                            spellCheck={false}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={header.value}
-                                            onChange={e => updateHeader(i, "value", e.target.value)}
-                                            placeholder="Value"
-                                            className="flex-1 min-w-0 h-5 px-1.5 text-[11px] font-mono bg-transparent border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
-                                            spellCheck={false}
-                                        />
-                                        <Button variant="ghost" size="xs" onClick={() => removeHeader(i)} title="Remove header">
-                                            <XIcon className="h-3 w-3" />
-                                        </Button>
-                                    </div>
-                                ))}
-                                {headers.length === 0 && (
-                                    <div className="px-3 py-2 text-[11px] text-muted-foreground">
-                                        No headers. Click + to add one.
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Body editor */}
-                        {hasBody ? (
-                            <div className="flex-1 min-h-0 flex flex-col">
-                                <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Body</span>
-                                    <Button variant="ghost" size="xs" onClick={() => handleCopy(body, "body")} title="Copy body">
-                                        {copied === "body" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                                    </Button>
-                                </div>
-                                <div className="flex-1 min-h-0">
-                                    <Editor
-                                        height="100%"
-                                        defaultLanguage="json"
-                                        value={body}
-                                        onChange={handleBodyChange}
-                                        theme={isDark ? "vs-dark" : "light"}
-                                        options={MONACO_OPTIONS}
-                                    />
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground">
-                                No body for {method} requests
-                            </div>
-                        )}
-                    </div>
-
-                    {/* RESPONSE SECTION */}
-                    <div className="flex-1 flex flex-col min-h-0 border-t border-border">
-                        {/* Response toolbar */}
-                        <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Response</span>
-                                {response && (
-                                    <>
-                                        <StatusBadge status={response.status} />
-                                        <span className="text-[10px] text-muted-foreground font-mono">{response.time}ms</span>
-                                        <span className="text-[10px] text-muted-foreground font-mono">{formatSize(response.size)}</span>
-                                    </>
-                                )}
-                                {error && (
-                                    <span className="text-destructive text-xs flex items-center gap-1">
-                                        <AlertCircleIcon className="h-3 w-3" />
-                                        {error}
-                                    </span>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                                {response && (
-                                    <>
-                                        <button
-                                            onClick={() => setResponseHeadersExpanded(!responseHeadersExpanded)}
-                                            className="flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                                        >
-                                            Headers
-                                            {responseHeadersExpanded ? (
-                                                <ChevronDownIcon className="h-3 w-3" />
-                                            ) : (
-                                                <ChevronRightIcon className="h-3 w-3" />
-                                            )}
-                                        </button>
-                                        <div className="w-px h-4 bg-border mx-0.5" />
-                                        <Button variant="ghost" size="xs" onClick={() => handleCopy(response.body, "response")} title="Copy response">
-                                            {copied === "response" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Response headers (collapsible) */}
-                        {responseHeadersExpanded && response && (
-                            <div className="overflow-y-auto max-h-28 border-b border-border px-3 py-1 flex-shrink-0 bg-muted/20">
-                                {Object.entries(response.headers).map(([key, value]) => (
-                                    <div key={key} className="flex gap-2 py-0.5 text-[11px] font-mono">
-                                        <span className="text-muted-foreground flex-shrink-0">{key}:</span>
-                                        <span className="text-foreground/80 break-all">{value}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
-                        {/* Response body */}
-                        <div className="flex-1 min-h-0">
-                            {loading ? (
-                                <div className="flex items-center justify-center h-full">
-                                    <LoaderIcon className="h-4 w-4 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : response ? (
-                                <Editor
-                                    height="100%"
-                                    defaultLanguage={detectLanguage(response.body)}
-                                    value={response.body}
-                                    theme="vs-dark"
-                                    options={{ ...MONACO_OPTIONS, readOnly: true }}
-                                />
-                            ) : !error ? (
-                                <div className="flex items-center justify-center h-full text-xs text-muted-foreground">
-                                    Send a request to see the response
-                                </div>
-                            ) : null}
-                        </div>
-                    </div>
+                    <RequestPanel
+                        method={method}
+                        url={url}
+                        headers={headers}
+                        queryParams={queryParams}
+                        bodyType={bodyType}
+                        body={body}
+                        formData={formData}
+                        urlEncodedData={urlEncodedData}
+                        binaryFile={binaryFile}
+                        auth={auth}
+                        loading={loading}
+                        isDark={isDark}
+                        onMethodChange={setMethod}
+                        onUrlChange={setUrl}
+                        onHeadersChange={(h) => { setHeaders(h); persist({ headers: h }) }}
+                        onQueryParamsChange={setQueryParams}
+                        onBodyTypeChange={(t) => { setBodyType(t); persist({ bodyType: t }) }}
+                        onBodyChange={(b) => { setBody(b); persist({ body: b }) }}
+                        onFormDataChange={setFormData}
+                        onUrlEncodedChange={setUrlEncodedData}
+                        onBinaryFileChange={setBinaryFile}
+                        onAuthChange={(a) => { setAuth(a); persist({ auth: a }) }}
+                        onSend={handleSend}
+                    />
+                    <ResponsePanel
+                        response={response}
+                        loading={loading}
+                        error={error}
+                        isDark={isDark}
+                    />
                 </div>
             </div>
 
-            {/* Import modal overlay */}
             {importModalOpen && (
-                <ImportModal
-                    onImport={handleImportSpec}
-                    onClose={() => setImportModalOpen(false)}
-                />
+                <ImportModal onImport={handleImportSpec} onClose={() => setImportModalOpen(false)} />
             )}
 
-            {/* Mobile OpenAPI sidebar overlay */}
+            <HistoryDrawer
+                open={historyOpen}
+                onClose={() => setHistoryOpen(false)}
+                history={store.history}
+                onSelect={handleHistorySelect}
+                onDelete={store.deleteHistory}
+                onClear={store.clearHistory}
+            />
+
+            <CollectionsDrawer
+                open={collectionsOpen}
+                onClose={() => setCollectionsOpen(false)}
+                collections={store.collections}
+                getRequestsByCollection={store.getRequestsByCollection}
+                onSelectRequest={handleSelectRequest}
+                onDeleteRequest={store.deleteRequest}
+                onAddCollection={(name) => store.addCollection({ id: crypto.randomUUID(), name, description: "", createdAt: Date.now(), updatedAt: Date.now() })}
+                onDeleteCollection={store.deleteCollection}
+                onRenameCollection={(id, name) => {
+                    const col = store.collections.find(c => c.id === id)
+                    if (col) store.updateCollection({ ...col, name, updatedAt: Date.now() })
+                }}
+                onSaveCurrent={handleSaveCurrent}
+            />
+
+            <EnvDrawer
+                open={envOpen}
+                onClose={() => setEnvOpen(false)}
+                vars={envVars}
+                onChange={setEnvVars}
+                referencedVars={referencedVars}
+            />
+
             {spec && sidebarOpen && (
                 <div className="fixed inset-0 z-40 md:hidden">
                     <button
@@ -910,10 +501,7 @@ export function ApiRequestBuilder() {
                             spec={spec}
                             search={sidebarSearch}
                             onSearchChange={setSidebarSearch}
-                            onSelect={(endpoint) => {
-                                handleSelectEndpoint(endpoint)
-                                setSidebarOpen(false)
-                            }}
+                            onSelect={(endpoint) => { handleSelectEndpoint(endpoint); setSidebarOpen(false) }}
                             onClose={() => setSidebarOpen(false)}
                             onClear={handleClearSpec}
                             className="w-full"
