@@ -1,8 +1,14 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { CopyIcon, CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { GRADIENT_PRESETS } from "./presets"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -76,14 +82,14 @@ const RADIAL_POSITION_FLUTTER: Record<RadialPosition, string> = {
   "bottom-right": "Alignment.bottomRight",
 }
 
-type Preset = {
+type GradientPreset = {
   name: string
   stops: ColorStop[]
   type: GradientType
   angle: number
 }
 
-const PRESETS: Preset[] = [
+const PRESETS: GradientPreset[] = [
   {
     name: "Sunset",
     type: "linear",
@@ -270,14 +276,30 @@ ${stopsStr},
 // Component
 // ---------------------------------------------------------------------------
 
-export function GradientGenerator() {
-  const [type, setType] = useState<GradientType>("linear")
-  const [angle, setAngle] = useState(135)
-  const [position, setPosition] = useState<RadialPosition>("center")
-  const [stops, setStops] = useState<ColorStop[]>([
+type GradientState = {
+  type: GradientType
+  angle: number
+  position: RadialPosition
+  stops: ColorStop[]
+}
+
+const DEFAULT_GRADIENT_STATE: GradientState = {
+  type: "linear",
+  angle: 135,
+  position: "center",
+  stops: [
     { color: "#667eea", position: 0 },
     { color: "#764ba2", position: 100 },
-  ])
+  ],
+}
+
+export function GradientGenerator() {
+  const [savedState, setSavedState] = useLocalStorage<GradientState>("gradient-generator-state", DEFAULT_GRADIENT_STATE)
+
+  const [type, setType] = useState<GradientType>(savedState.type)
+  const [angle, setAngle] = useState(savedState.angle)
+  const [position, setPosition] = useState<RadialPosition>(savedState.position)
+  const [stops, setStops] = useState<ColorStop[]>(savedState.stops)
   const [copied, setCopied] = useState<CopiedKey>(null)
 
   const cssGradient = useMemo(
@@ -327,15 +349,82 @@ export function GradientGenerator() {
     })
   }, [])
 
-  const applyPreset = useCallback((preset: Preset) => {
+  const applyPreset = useCallback((preset: GradientPreset) => {
     setType(preset.type)
     setAngle(preset.angle)
     setStops(preset.stops.map((s) => ({ ...s })))
     if (preset.type === "radial") setPosition("center")
   }, [])
 
+  // Persist state to localStorage
+  const currentState = useMemo<GradientState>(() => ({ type, angle, position, stops }), [type, angle, position, stops])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSavedState(currentState), 500)
+    return () => clearTimeout(timer)
+  }, [currentState, setSavedState])
+
+  // Shareable URL
+  const { shareUrl } = useShareableUrl("gradient-generator", currentState, useCallback((state: GradientState) => {
+    setType(state.type)
+    setAngle(state.angle)
+    setPosition(state.position)
+    setStops(state.stops)
+  }, []))
+
+  // Handle toolbar preset selection
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setType(data.type)
+    setAngle(data.angle)
+    setStops(data.stops)
+    if (data.type === "radial") setPosition("center")
+  }, [])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    {
+      label: "Copy CSS",
+      action: () => navigator.clipboard.writeText(cssCode),
+    },
+    {
+      label: "Copy Flutter",
+      action: () => navigator.clipboard.writeText(flutterCode),
+    },
+    {
+      label: "Download CSS",
+      action: () => {
+        const blob = new Blob([cssCode], { type: "text/css" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "gradient.css"
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [cssCode, flutterCode])
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy CSS", action: () => navigator.clipboard.writeText(cssCode) },
+    { key: "mod+shift+f", label: "Copy Flutter", action: () => navigator.clipboard.writeText(flutterCode) },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+  ], [cssCode, flutterCode, shareUrl])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Gradient Generator"
+        copyValue={cssCode}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={GRADIENT_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       <div className="flex-1 flex min-h-0">
         {/* Left Panel: Controls */}
         <div className="w-2/5 min-w-[280px] border-r border-border overflow-y-auto p-4 space-y-6">

@@ -9,8 +9,11 @@ import { PdfPageThumbnail } from "@/components/pdf/PdfPageThumbnail"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { reorderPdf, rotatePdfPage, deletePdfPages, getPdfPageCount } from "@/utils/pdfEngine"
-import { validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
+import { validatePdf, friendlyPdfError, downloadPdf } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 type RotationAngle = 90 | 180 | 270
 
@@ -209,13 +212,43 @@ export function PdfReorder() {
     }
   }, [pdfData, pageOrder, pageCount])
 
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadPdf(result, "reordered.pdf")
+    }
+  }, [result])
+
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const shortcuts = [
+    { key: "mod+enter", label: "Apply reorder", action: handleApply },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="Reorder PDF"
+        status={toolbarStatus}
+        exportOptions={exportOptions}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={["application/pdf"]}
         acceptedExtensions={[".pdf"]}

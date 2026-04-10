@@ -1,9 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { RefreshCwIcon, CopyIcon, CheckIcon, PlusIcon, TrashIcon } from "lucide-react"
+import { useState, useCallback, useMemo } from "react"
+import { RefreshCwIcon, PlusIcon, TrashIcon } from "lucide-react"
 import { faker } from "@faker-js/faker"
 import { Button } from "@/components/ui/button"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { FAKE_DATA_PRESETS } from "./presets"
 
 // ─── Types & constants ──────────────────────────────────────────────────────
 
@@ -124,46 +131,115 @@ function generateRows(schema: SchemaField[], count: number): Record<string, unkn
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+interface FakeDataState {
+  schema: SchemaField[]
+  rowCount: number
+}
+
+const DEFAULT_STATE: FakeDataState = {
+  schema: DEFAULT_SCHEMA,
+  rowCount: 10,
+}
+
 export function FakeDataGenerator() {
-  const [schema, setSchema] = useState<SchemaField[]>(DEFAULT_SCHEMA)
-  const [rowCount, setRowCount] = useState(10)
+  const [settings, setSettings] = useLocalStorage<FakeDataState>("fake-data-generator", DEFAULT_STATE)
   const [output, setOutput] = useState("")
-  const [copied, setCopied] = useState(false)
+
+  const { shareUrl } = useShareableUrl("fake-data", settings, (restored) => {
+    setSettings(restored)
+    setOutput("")
+  })
 
   const addField = useCallback(() => {
-    setSchema((prev) => [
+    setSettings(prev => ({
       ...prev,
-      { id: crypto.randomUUID(), key: "", type: "fullName" },
-    ])
-  }, [])
+      schema: [...prev.schema, { id: crypto.randomUUID(), key: "", type: "fullName" }],
+    }))
+  }, [setSettings])
 
   const removeField = useCallback((id: string) => {
-    setSchema((prev) => prev.filter((f) => f.id !== id))
-  }, [])
+    setSettings(prev => ({
+      ...prev,
+      schema: prev.schema.filter((f) => f.id !== id),
+    }))
+  }, [setSettings])
 
   const updateField = useCallback(
     (id: string, updates: Partial<Pick<SchemaField, "key" | "type">>) => {
-      setSchema((prev) =>
-        prev.map((f) => (f.id === id ? { ...f, ...updates } : f)),
-      )
+      setSettings(prev => ({
+        ...prev,
+        schema: prev.schema.map((f) => (f.id === id ? { ...f, ...updates } : f)),
+      }))
     },
-    [],
+    [setSettings],
   )
 
   const generate = useCallback(() => {
-    const rows = generateRows(schema, rowCount)
+    const rows = generateRows(settings.schema, settings.rowCount)
     setOutput(JSON.stringify(rows, null, 2))
-    setCopied(false)
-  }, [schema, rowCount])
+  }, [settings.schema, settings.rowCount])
 
-  const copy = useCallback(() => {
-    navigator.clipboard.writeText(output)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [output])
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const fields = JSON.parse(preset.content) as { key: string; type: FieldType }[]
+    setSettings(prev => ({
+      ...prev,
+      schema: fields.map(f => ({ id: crypto.randomUUID(), key: f.key, type: f.type })),
+    }))
+    setOutput("")
+  }, [setSettings])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+g", label: "Generate", action: generate },
+    { key: "mod+shift+a", label: "Add field", action: addField },
+  ], [generate, addField])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download as JSON",
+      action: () => {
+        const blob = new Blob([output], { type: "application/json" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "fake-data.json"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+    {
+      label: "Download as CSV",
+      action: () => {
+        try {
+          const rows = JSON.parse(output) as Record<string, unknown>[]
+          if (!rows.length) return
+          const keys = Object.keys(rows[0])
+          const csv = [keys.join(","), ...rows.map(r => keys.map(k => JSON.stringify(r[k] ?? "")).join(","))].join("\n")
+          const blob = new Blob([csv], { type: "text/csv" })
+          const a = document.createElement("a")
+          a.href = URL.createObjectURL(blob)
+          a.download = "fake-data.csv"
+          a.click()
+          URL.revokeObjectURL(a.href)
+        } catch {
+          // ignore
+        }
+      },
+    },
+  ], [output])
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Fake Data"
+        copyValue={output || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={FAKE_DATA_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* Schema builder */}
       <div className="flex-shrink-0 border-b bg-muted/20 px-4 py-3 space-y-3">
         <div className="flex flex-wrap items-center gap-3">
@@ -172,13 +248,13 @@ export function FakeDataGenerator() {
             type="number"
             min={MIN_ROWS}
             max={MAX_ROWS}
-            value={rowCount}
+            value={settings.rowCount}
             onChange={(e) => {
               const v = Math.max(
                 MIN_ROWS,
                 Math.min(MAX_ROWS, Number(e.target.value) || MIN_ROWS),
               )
-              setRowCount(v)
+              setSettings(prev => ({ ...prev, rowCount: v }))
             }}
             className="w-20 rounded-md border bg-muted/40 px-2 py-1.5 text-xs text-center font-medium"
           />
@@ -188,21 +264,11 @@ export function FakeDataGenerator() {
               <RefreshCwIcon className="size-3.5" />
               Generate
             </Button>
-            {output && (
-              <Button onClick={copy} variant="outline" size="sm">
-                {copied ? (
-                  <CheckIcon className="size-3.5" />
-                ) : (
-                  <CopyIcon className="size-3.5" />
-                )}
-                {copied ? "Copied" : "Copy JSON"}
-              </Button>
-            )}
           </div>
         </div>
 
         <div className="space-y-2">
-          {schema.map((field) => (
+          {settings.schema.map((field) => (
             <div key={field.id} className="flex items-center gap-2">
               <input
                 type="text"

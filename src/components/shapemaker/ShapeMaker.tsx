@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import type {
   Point,
   Layer,
@@ -25,6 +25,11 @@ import { LayersPanel } from "./LayersPanel"
 import { CodeExportPanel } from "./CodeExportPanel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { SHAPEMAKER_PRESETS } from "./presets"
 import {
   MousePointerIcon,
   PenToolIcon,
@@ -82,10 +87,11 @@ export function ShapeMaker() {
   const [canvasHeight] = useState(400)
   const [backgroundColor] = useState("#ffffff")
 
-  // Layers
+  // Layers - persist to localStorage
   const initialLayer = useRef(createLayer("Layer 1")).current
-  const [layers, setLayers] = useState<Layer[]>([initialLayer])
-  const [activeLayerId, setActiveLayerId] = useState(initialLayer.id)
+  const [savedLayers, setSavedLayers] = useLocalStorage<Layer[]>("shapemaker-layers", [initialLayer])
+  const [layers, setLayers] = useState<Layer[]>(savedLayers)
+  const [activeLayerId, setActiveLayerId] = useState(savedLayers[0]?.id ?? initialLayer.id)
   const [activePathId, setActivePathId] = useState<string | null>(null)
 
   // Tool
@@ -991,13 +997,75 @@ export function ShapeMaker() {
     { mode: "cubic", icon: WavesIcon, label: "Cubic", shortcut: "3" },
   ]
 
+  // ── Persist layers to localStorage ─────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => setSavedLayers(layers), 1000)
+    return () => clearTimeout(timer)
+  }, [layers, setSavedLayers])
+
+  // ── File import (JSON) ────────────────────────────────────────
+  const { dropzoneProps: shapeDropzone, isDragging: isShapeDragging } = useFileImport({
+    accept: [".json"],
+    onImport: useCallback((content: string) => {
+      try {
+        const data = JSON.parse(content)
+        if (Array.isArray(data) && data.length > 0 && data[0].paths !== undefined) {
+          setLayers(data as Layer[])
+          setActiveLayerId(data[0].id)
+          setActivePathId(null)
+        }
+      } catch {
+        // Invalid file
+      }
+    }, []),
+  })
+
+  // ── Presets ────────────────────────────────────────────────────
+  const handleShapePresetSelect = useCallback((_preset: Preset) => {
+    // Template presets — for now act as a fresh start
+  }, [])
+
+  // ── Export options ─────────────────────────────────────────────
+  const shapeExportOptions = useMemo(() => [
+    {
+      label: "Export JSON",
+      action: () => {
+        const blob = new Blob([JSON.stringify(layers, null, 2)], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "shape.json"
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [layers])
+
+  // ── Toolbar shortcuts ─────────────────────────────────────────
+  const shapeToolbarShortcuts = useMemo(() => [
+    { key: "mod+shift+e", label: "Export JSON", action: () => shapeExportOptions[0].action() },
+  ], [shapeExportOptions])
+
   return (
     <div
       className="h-full flex flex-col min-h-0"
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      {...shapeDropzone}
     >
-      {/* Toolbar */}
+      {isShapeDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+          <span className="text-sm font-medium text-primary">Drop JSON file here</span>
+        </div>
+      )}
+      <ToolToolbar
+        title="Shape Maker"
+        exportOptions={shapeExportOptions}
+        presets={SHAPEMAKER_PRESETS}
+        onPresetSelect={handleShapePresetSelect}
+        shortcuts={shapeToolbarShortcuts}
+      />
+      {/* Canvas Toolbar */}
       <div className="flex items-center gap-1 px-2 h-10 border-b border-border flex-shrink-0 overflow-x-auto">
         {/* Drawing tools */}
         <div className="flex items-center gap-0.5 pr-2 border-r border-border">

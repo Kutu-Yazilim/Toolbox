@@ -23,6 +23,12 @@ import {
   toJsonString,
   toCsvString,
 } from "./transformPipeline"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { TRANSFORM_PRESETS } from "./transformPresets"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -110,8 +116,48 @@ export function DataTransformer() {
     URL.revokeObjectURL(url)
   }, [outputData])
 
+  const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+    accept: [".json", ".csv"],
+    onImport: (content) => {
+      setInputText(content)
+      setInputCollapsed(false)
+    },
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setInputText(preset.content)
+    setInputCollapsed(false)
+    setSteps([])
+  }, [])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy JSON", action: handleCopyJson },
+    { label: "Download CSV", action: handleDownloadCsv },
+  ], [handleCopyJson, handleDownloadCsv])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+o", label: "Open File", action: openFilePicker },
+    { key: "mod+shift+c", label: "Copy JSON Output", action: handleCopyJson },
+    { key: "mod+s", label: "Download CSV", action: handleDownloadCsv },
+  ], [openFilePicker, handleCopyJson, handleDownloadCsv])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+          <p className="text-sm text-primary font-medium">Drop data file</p>
+        </div>
+      )}
+      <ToolToolbar
+        title="Data Transformer"
+        status={parsedData.length > 0 ? { type: "info", label: `${parsedData.length} -> ${outputData.length} rows` } : null}
+        exportOptions={outputData.length > 0 ? exportOptions : undefined}
+        presets={TRANSFORM_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       {/* ── Input Section ── */}
       <div className="border-b border-border">
         <button

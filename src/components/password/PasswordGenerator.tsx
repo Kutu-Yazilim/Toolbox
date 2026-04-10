@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import {
   CopyIcon,
   CheckIcon,
@@ -10,6 +10,12 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { PASSWORD_PRESETS } from "./passwordPresets"
 
 // ─── Types & constants ──────────────────────────────────────────────────────
 
@@ -121,16 +127,16 @@ export function PasswordGenerator() {
   const [mode, setMode] = useState<Mode>("password")
 
   // Password mode state
-  const [length, setLength] = useState(16)
-  const [useLowercase, setUseLowercase] = useState(true)
-  const [useUppercase, setUseUppercase] = useState(true)
-  const [useNumbers, setUseNumbers] = useState(true)
-  const [useSymbols, setUseSymbols] = useState(true)
-  const [excludeAmbiguous, setExcludeAmbiguous] = useState(false)
+  const [length, setLength] = useLocalStorage("pw-length", 16)
+  const [useLowercase, setUseLowercase] = useLocalStorage("pw-lower", true)
+  const [useUppercase, setUseUppercase] = useLocalStorage("pw-upper", true)
+  const [useNumbers, setUseNumbers] = useLocalStorage("pw-numbers", true)
+  const [useSymbols, setUseSymbols] = useLocalStorage("pw-symbols", true)
+  const [excludeAmbiguous, setExcludeAmbiguous] = useLocalStorage("pw-no-ambig", false)
 
   // Passphrase mode state
-  const [wordCount, setWordCount] = useState(4)
-  const [separator, setSeparator] = useState("-")
+  const [wordCount, setWordCount] = useLocalStorage("pw-words", 4)
+  const [separator, setSeparator] = useLocalStorage("pw-sep", "-")
 
   // Results
   const [results, setResults] = useState<string[]>([])
@@ -168,8 +174,53 @@ export function PasswordGenerator() {
     setTimeout(() => setCopiedIndex(null), 1500)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const config = JSON.parse(preset.content)
+    if (config.mode === "password") {
+      setMode("password")
+      setLength(config.length)
+      setUseLowercase(config.lower)
+      setUseUppercase(config.upper)
+      setUseNumbers(config.numbers)
+      setUseSymbols(config.symbols)
+      setExcludeAmbiguous(config.noAmbiguous)
+    } else {
+      setMode("passphrase")
+      setWordCount(config.wordCount)
+      setSeparator(config.separator)
+    }
+  }, [setLength, setUseLowercase, setUseUppercase, setUseNumbers, setUseSymbols, setExcludeAmbiguous, setWordCount, setSeparator])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy All", action: () => navigator.clipboard.writeText(results.join("\n")) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([results.join("\n")], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "passwords.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [results])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+g", label: "Generate", action: handleGenerate },
+    { key: "mod+shift+g", label: "Bulk Generate", action: handleBulk },
+    { key: "mod+shift+c", label: "Copy All", action: () => navigator.clipboard.writeText(results.join("\n")) },
+  ], [handleGenerate, handleBulk, results])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Password Generator"
+        status={results.length > 0 ? { type: "info", label: `${results.length} generated` } : null}
+        copyValue={results.length === 1 ? results[0] : undefined}
+        exportOptions={results.length > 0 ? exportOptions : undefined}
+        presets={PASSWORD_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       {/* Header bar */}
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         {/* Mode toggle */}

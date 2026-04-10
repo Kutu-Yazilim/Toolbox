@@ -9,7 +9,11 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
+import { downloadBlob } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 const ACCEPTED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -117,13 +121,43 @@ export function DocxToPdf() {
     }
   }, [htmlContent])
 
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadBlob(result, `${fileName || "document"}.pdf`)
+    }
+  }, [result, fileName])
+
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="DOCX to PDF"
+        status={toolbarStatus}
+        exportOptions={exportOptions}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={ACCEPTED_MIME_TYPES}
         acceptedExtensions={ACCEPTED_EXTENSIONS}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import Editor from "@monaco-editor/react"
 import {
@@ -15,6 +15,13 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
 } from "lucide-react"
+import { useTheme } from "@/hooks/useTheme"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { useFileImport } from "@/hooks/useFileImport"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { SQL_PRESETS } from "./sqlPresets"
 // @ts-expect-error sql.js lacks proper type declarations for the asm build
 import initSqlJs from "sql.js/dist/sql-asm.js"
 
@@ -137,6 +144,7 @@ function formatCellValue(value: string | number | Uint8Array | null): string {
 }
 
 export function SqlPlayground() {
+  const { isDark } = useTheme()
   const [db, setDb] = useState<Database | null>(null)
   const [loading, setLoading] = useState(true)
   const [initError, setInitError] = useState<string | null>(null)
@@ -427,6 +435,37 @@ export function SqlPlayground() {
     URL.revokeObjectURL(url)
   }, [results, resultToCSV])
 
+  const { dropzoneProps: sqlDropzone, openFilePicker } = useFileImport({
+    accept: [".csv", ".tsv", ".json", ".sql"],
+    onImport: (content, filename) => {
+      if (filename.endsWith(".sql")) {
+        setSql(content)
+      } else if (db) {
+        // Create a fake File for loadFileData
+        const file = new File([content], filename, { type: "text/plain" })
+        loadFileData(file)
+      }
+    },
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setSql(preset.content)
+  }, [])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy as CSV", action: () => copyToClipboard("csv") },
+    { label: "Copy as JSON", action: () => copyToClipboard("json") },
+    { label: "Download CSV", action: downloadCSV },
+  ], [copyToClipboard, downloadCSV])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Run Query", action: runQuery },
+    { key: "mod+o", label: "Open File", action: openFilePicker },
+    { key: "mod+shift+c", label: "Copy Results", action: () => copyToClipboard("csv") },
+  ], [runQuery, openFilePicker, copyToClipboard])
+
+  useKeyboardShortcuts(shortcuts)
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -452,7 +491,15 @@ export function SqlPlayground() {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...sqlDropzone}>
+      <ToolToolbar
+        title="SQL Playground"
+        status={tables.length > 0 ? { type: "info", label: `${tables.length} table(s)` } : null}
+        exportOptions={results.length > 0 ? exportOptions : undefined}
+        presets={SQL_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       {/* Top bar */}
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -543,7 +590,7 @@ export function SqlPlayground() {
                 <Editor
                   height="100%"
                   language="sql"
-                  theme="vs-dark"
+                  theme={isDark ? "vs-dark" : "light"}
                   value={sql}
                   onChange={(v) => setSql(v ?? "")}
                   onMount={(editor) => {

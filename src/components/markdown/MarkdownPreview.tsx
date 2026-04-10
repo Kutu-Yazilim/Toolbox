@@ -1,18 +1,24 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
-    CopyIcon,
-    CheckIcon,
     CodeIcon,
-    DownloadIcon,
     LinkIcon,
     UnlinkIcon,
 } from "lucide-react"
 import Editor, { type OnMount } from "@monaco-editor/react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useTheme } from "@/hooks/useTheme"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { MARKDOWN_PRESETS } from "./markdownPresets"
 
 const MONACO_OPTIONS = {
     minimap: { enabled: false },
@@ -210,23 +216,37 @@ const markdownComponents: Components = {
 }
 
 export function MarkdownPreview() {
-    const [markdown, setMarkdown] = useState(DEFAULT_MARKDOWN)
-    const [copiedMd, setCopiedMd] = useState(false)
-    const [copiedHtml, setCopiedHtml] = useState(false)
+    const [stored, setStored] = useLocalStorage("markdown-preview", { markdown: DEFAULT_MARKDOWN })
+    const [markdown, setMarkdown] = useState(stored.markdown)
     const [syncScroll, setSyncScroll] = useState(true)
     const previewRef = useRef<HTMLDivElement>(null)
     const previewScrollRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<Parameters<OnMount>[0] | null>(null)
     const isSyncingRef = useRef(false)
+    const { isDark } = useTheme()
+
+    const { shareUrl } = useShareableUrl("markdown-preview", { markdown }, (restored) => {
+        setMarkdown(restored.markdown)
+        setStored({ markdown: restored.markdown })
+    })
+
+    const { dropzoneProps, isDragging } = useFileImport({
+        accept: [".md", ".markdown", ".txt"],
+        onImport: (content) => {
+            setMarkdown(content)
+            setStored({ markdown: content })
+        },
+    })
 
     const handleEditorChange = useCallback((value: string | undefined) => {
-        setMarkdown(value || "")
-    }, [])
+        const v = value || ""
+        setMarkdown(v)
+        setStored({ markdown: v })
+    }, [setStored])
 
     const handleEditorMount: OnMount = useCallback((editor) => {
         editorRef.current = editor
 
-        // Sync: editor scroll → preview scroll
         editor.onDidScrollChange((e) => {
             if (!syncScroll || isSyncingRef.current) return
             const previewEl = previewScrollRef.current
@@ -250,7 +270,6 @@ export function MarkdownPreview() {
         })
     }, [syncScroll])
 
-    // Sync: preview scroll → editor scroll
     useEffect(() => {
         const previewEl = previewScrollRef.current
         if (!previewEl) return
@@ -277,13 +296,13 @@ export function MarkdownPreview() {
         return () => previewEl.removeEventListener("scroll", handlePreviewScroll)
     }, [syncScroll])
 
-    const handleCopyMarkdown = async () => {
-        await navigator.clipboard.writeText(markdown)
-        setCopiedMd(true)
-        setTimeout(() => setCopiedMd(false), 2000)
-    }
+    const handleCopyHtml = useCallback(async () => {
+        if (previewRef.current) {
+            await navigator.clipboard.writeText(previewRef.current.innerHTML)
+        }
+    }, [])
 
-    const handleDownloadMd = () => {
+    const handleDownloadMd = useCallback(() => {
         const blob = new Blob([markdown], { type: "text/markdown" })
         const url = URL.createObjectURL(blob)
         const a = document.createElement("a")
@@ -291,36 +310,41 @@ export function MarkdownPreview() {
         a.download = "document.md"
         a.click()
         URL.revokeObjectURL(url)
-    }
+    }, [markdown])
 
-    const handleCopyHtml = async () => {
-        if (previewRef.current) {
-            await navigator.clipboard.writeText(previewRef.current.innerHTML)
-            setCopiedHtml(true)
-            setTimeout(() => setCopiedHtml(false), 2000)
-        }
-    }
+    const handlePresetSelect = useCallback((preset: Preset) => {
+        setMarkdown(preset.content)
+        setStored({ markdown: preset.content })
+    }, [setStored])
+
+    const exportOptions: ExportOption[] = useMemo(() => [
+        { label: "Download .md", action: handleDownloadMd },
+        { label: "Copy as HTML", action: handleCopyHtml },
+    ], [handleDownloadMd, handleCopyHtml])
+
+    const shortcuts: Shortcut[] = useMemo(() => [
+        { key: "mod+shift+s", label: "Toggle scroll sync", action: () => setSyncScroll(p => !p) },
+        { key: "mod+shift+d", label: "Download markdown", action: handleDownloadMd },
+    ], [handleDownloadMd])
+
+    useKeyboardShortcuts(shortcuts)
 
     return (
-        <div className="h-full flex flex-col min-h-0">
+        <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
             {/* Two-panel layout */}
-            <div className="flex-1 flex flex-col md:flex-row min-h-0 gap-px bg-border">
+            <div className={`flex-1 flex flex-col md:flex-row min-h-0 gap-px bg-border ${isDragging ? "ring-2 ring-primary ring-inset" : ""}`}>
                 {/* Editor panel (left) */}
                 <div className="flex flex-col bg-background w-full md:w-1/2 h-1/2 md:h-auto min-h-0">
                     {/* Editor toolbar */}
-                    <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-                        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                            Markdown
-                        </span>
-                        <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="xs" onClick={handleCopyMarkdown} title="Copy Markdown">
-                                {copiedMd ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                            </Button>
-                            <Button variant="ghost" size="xs" onClick={handleDownloadMd} title="Download .md file">
-                                <DownloadIcon className="h-3 w-3" />
-                            </Button>
-                        </div>
-                    </div>
+                    <ToolToolbar
+                        title="Markdown"
+                        copyValue={markdown}
+                        onShare={shareUrl}
+                        exportOptions={exportOptions}
+                        presets={MARKDOWN_PRESETS}
+                        onPresetSelect={handlePresetSelect}
+                        shortcuts={shortcuts}
+                    />
 
                     {/* Monaco Editor */}
                     <div className="flex-1 min-h-0">
@@ -330,7 +354,7 @@ export function MarkdownPreview() {
                             value={markdown}
                             onChange={handleEditorChange}
                             onMount={handleEditorMount}
-                            theme="vs-dark"
+                            theme={isDark ? "vs-dark" : "light"}
                             options={MONACO_OPTIONS}
                         />
                     </div>
@@ -354,11 +378,7 @@ export function MarkdownPreview() {
                                 {syncScroll ? <LinkIcon className="h-3 w-3" /> : <UnlinkIcon className="h-3 w-3" />}
                             </Button>
                             <Button variant="ghost" size="xs" onClick={handleCopyHtml} title="Copy HTML">
-                                {copiedHtml ? (
-                                    <CheckIcon className="h-3 w-3" />
-                                ) : (
-                                    <CodeIcon className="h-3 w-3" />
-                                )}
+                                <CodeIcon className="h-3 w-3" />
                             </Button>
                         </div>
                     </div>

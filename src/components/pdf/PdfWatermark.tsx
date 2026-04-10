@@ -7,22 +7,34 @@ import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { addWatermark } from "@/utils/pdfEngine"
-import { validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
+import { validatePdf, friendlyPdfError, downloadPdf } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { PDF_WATERMARK_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
-const INITIAL_WATERMARK_CONFIG: WatermarkConfig = {
-  type: "text",
+interface WatermarkSettings {
+  text: string
+  fontSize: number
+  color: string
+  opacity: number
+  rotation: number
+  position: WatermarkPosition
+  layer: "foreground" | "background"
+}
+
+const DEFAULT_SETTINGS: WatermarkSettings = {
   text: "WATERMARK",
   fontSize: 48,
   color: "#ff0000",
   opacity: 0.3,
   rotation: -45,
   position: "diagonal",
-  pages: "all",
   layer: "foreground",
-  imageData: null,
-  imageFormat: "png",
-  scale: 0.3,
 }
 
 const POSITIONS: { value: WatermarkPosition; label: string }[] = [
@@ -39,12 +51,25 @@ const PAGE_PRESETS = ["all", "odd", "even"] as const
 
 export function PdfWatermark() {
   const [pdfFile, setPdfFile] = useState<File | null>(null)
-  const [config, setConfig] = useState<WatermarkConfig>(INITIAL_WATERMARK_CONFIG)
+  const [settings, setSettings] = useLocalStorage<WatermarkSettings>(
+    "pdf-tool-watermark-settings",
+    DEFAULT_SETTINGS,
+  )
+  const [watermarkType, setWatermarkType] = useState<"text" | "image">("text")
+  const [imageData, setImageData] = useState<Uint8Array | null>(null)
+  const [imageFormat, setImageFormat] = useState<"png" | "jpg">("png")
+  const [scale, setScale] = useState(0.3)
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Uint8Array | null>(null)
   const [customPages, setCustomPages] = useState("")
   const [pageMode, setPageMode] = useState<"all" | "odd" | "even" | "custom">("all")
   const imageInputRef = useRef<HTMLInputElement>(null)
+
+  const { shareUrl } = useShareableUrl<WatermarkSettings>(
+    "pdf-watermark",
+    settings,
+    useCallback((restored: WatermarkSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback((files: File[]) => {
     setResult(null)
@@ -60,11 +85,8 @@ export function PdfWatermark() {
     reader.onload = () => {
       const arrayBuffer = reader.result as ArrayBuffer
       const format = file.type === "image/jpeg" ? "jpg" : "png"
-      setConfig((prev) => ({
-        ...prev,
-        imageData: new Uint8Array(arrayBuffer),
-        imageFormat: format,
-      }))
+      setImageData(new Uint8Array(arrayBuffer))
+      setImageFormat(format)
     }
     reader.readAsArrayBuffer(file)
   }, [])
@@ -92,8 +114,18 @@ export function PdfWatermark() {
       })
 
       const finalConfig: WatermarkConfig = {
-        ...config,
+        type: watermarkType,
+        text: settings.text,
+        fontSize: settings.fontSize,
+        color: settings.color,
+        opacity: settings.opacity,
+        rotation: settings.rotation,
+        position: settings.position,
         pages: pageMode === "custom" ? customPages : pageMode,
+        layer: settings.layer,
+        imageData,
+        imageFormat,
+        scale,
       }
 
       const output = await addWatermark(buffer, finalConfig)
@@ -113,15 +145,54 @@ export function PdfWatermark() {
         error: friendlyPdfError(err),
       })
     }
-  }, [pdfFile, config, pageMode, customPages])
+  }, [pdfFile, settings, watermarkType, pageMode, customPages, imageData, imageFormat, scale])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadPdf(result, `watermarked-${pdfFile?.name ?? "output.pdf"}`)
+    }
+  }, [result, pdfFile])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<WatermarkSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+    setWatermarkType("text")
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Apply watermark", action: handleApply },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="PDF Watermark"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={PDF_WATERMARK_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={["application/pdf"]}
         acceptedExtensions={[".pdf"]}
@@ -139,10 +210,10 @@ export function PdfWatermark() {
               {(["text", "image"] as const).map((t) => (
                 <button
                   key={t}
-                  onClick={() => setConfig((prev) => ({ ...prev, type: t }))}
+                  onClick={() => setWatermarkType(t)}
                   className={cn(
                     "px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize",
-                    config.type === t
+                    watermarkType === t
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
@@ -154,14 +225,14 @@ export function PdfWatermark() {
           </div>
 
           {/* Text Mode Controls */}
-          {config.type === "text" && (
+          {watermarkType === "text" && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Text</label>
                 <input
                   type="text"
-                  value={config.text}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, text: e.target.value }))}
+                  value={settings.text}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, text: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg border bg-background text-sm"
                   placeholder="Watermark text"
                 />
@@ -169,16 +240,16 @@ export function PdfWatermark() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Font Size: {config.fontSize}px
+                  Font Size: {settings.fontSize}px
                 </label>
                 <input
                   type="range"
                   min={12}
                   max={72}
                   step={1}
-                  value={config.fontSize}
+                  value={settings.fontSize}
                   onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, fontSize: Number(e.target.value) }))
+                    setSettings((prev) => ({ ...prev, fontSize: Number(e.target.value) }))
                   }
                   className="w-full"
                 />
@@ -188,24 +259,24 @@ export function PdfWatermark() {
                 <label className="text-sm font-medium">Color</label>
                 <input
                   type="color"
-                  value={config.color}
-                  onChange={(e) => setConfig((prev) => ({ ...prev, color: e.target.value }))}
+                  value={settings.color}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, color: e.target.value }))}
                   className="h-9 w-16 rounded border cursor-pointer"
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Opacity: {config.opacity.toFixed(2)}
+                  Opacity: {settings.opacity.toFixed(2)}
                 </label>
                 <input
                   type="range"
                   min={0.1}
                   max={1.0}
                   step={0.05}
-                  value={config.opacity}
+                  value={settings.opacity}
                   onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, opacity: Number(e.target.value) }))
+                    setSettings((prev) => ({ ...prev, opacity: Number(e.target.value) }))
                   }
                   className="w-full"
                 />
@@ -213,16 +284,16 @@ export function PdfWatermark() {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Rotation: {config.rotation}°
+                  Rotation: {settings.rotation}°
                 </label>
                 <input
                   type="range"
                   min={-180}
                   max={180}
                   step={1}
-                  value={config.rotation}
+                  value={settings.rotation}
                   onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, rotation: Number(e.target.value) }))
+                    setSettings((prev) => ({ ...prev, rotation: Number(e.target.value) }))
                   }
                   className="w-full"
                 />
@@ -231,7 +302,7 @@ export function PdfWatermark() {
           )}
 
           {/* Image Mode Controls */}
-          {config.type === "image" && (
+          {watermarkType === "image" && (
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Watermark Image</label>
@@ -242,26 +313,24 @@ export function PdfWatermark() {
                   onChange={handleImageUpload}
                   className="block w-full text-sm file:mr-3 file:px-3 file:py-1.5 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-muted file:text-foreground hover:file:bg-muted/80 file:cursor-pointer"
                 />
-                {config.imageData && (
+                {imageData && (
                   <p className="text-xs text-muted-foreground">
-                    Image loaded ({config.imageFormat.toUpperCase()}, {config.imageData.byteLength} bytes)
+                    Image loaded ({imageFormat.toUpperCase()}, {imageData.byteLength} bytes)
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">
-                  Scale: {config.scale.toFixed(2)}
+                  Scale: {scale.toFixed(2)}
                 </label>
                 <input
                   type="range"
                   min={0.1}
                   max={1.0}
                   step={0.05}
-                  value={config.scale}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, scale: Number(e.target.value) }))
-                  }
+                  value={scale}
+                  onChange={(e) => setScale(Number(e.target.value))}
                   className="w-full"
                 />
               </div>
@@ -275,10 +344,10 @@ export function PdfWatermark() {
               {POSITIONS.map((pos) => (
                 <button
                   key={pos.value}
-                  onClick={() => setConfig((prev) => ({ ...prev, position: pos.value }))}
+                  onClick={() => setSettings((prev) => ({ ...prev, position: pos.value }))}
                   className={cn(
                     "px-3 py-1.5 rounded-md text-xs font-medium transition-colors",
-                    config.position === pos.value
+                    settings.position === pos.value
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
                   )}
@@ -337,10 +406,10 @@ export function PdfWatermark() {
               {(["foreground", "background"] as const).map((l) => (
                 <button
                   key={l}
-                  onClick={() => setConfig((prev) => ({ ...prev, layer: l }))}
+                  onClick={() => setSettings((prev) => ({ ...prev, layer: l }))}
                   className={cn(
                     "px-4 py-1.5 rounded-md text-sm font-medium transition-colors capitalize",
-                    config.layer === l
+                    settings.layer === l
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
@@ -357,7 +426,7 @@ export function PdfWatermark() {
             disabled={
               processing.status === "processing" ||
               processing.status === "reading" ||
-              (config.type === "image" && !config.imageData)
+              (watermarkType === "image" && !imageData)
             }
             className={cn(
               "px-4 py-2 rounded-lg text-sm font-medium transition-colors",

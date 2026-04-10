@@ -9,7 +9,15 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
+import { downloadBlob } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { XLSX_TO_PDF_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 const ACCEPTED_MIME_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -20,6 +28,12 @@ const ACCEPTED_EXTENSIONS = [".xlsx", ".xls"]
 type PageSizeOption = "a4" | "letter"
 type OrientationOption = "portrait" | "landscape"
 type FontSizeOption = 8 | 10 | 12
+
+interface XlsxToPdfSettings {
+  pageSize: PageSizeOption
+  orientation: OrientationOption
+  fontSize: FontSizeOption
+}
 
 const PAGE_SIZE_OPTIONS: { value: PageSizeOption; label: string }[] = [
   { value: "a4", label: "A4" },
@@ -52,6 +66,12 @@ const PAGE_DIMENSIONS: Record<
 }
 
 const PREVIEW_MAX_ROWS = 20
+
+const DEFAULT_SETTINGS: XlsxToPdfSettings = {
+  pageSize: "a4",
+  orientation: "landscape",
+  fontSize: 10,
+}
 
 function OptionGroup<T extends string | number>({
   label,
@@ -94,12 +114,19 @@ export function XlsxToPdf() {
   const [activeSheet, setActiveSheet] = useState(0)
   const [sheets, setSheets] = useState<string[][][]>([])
   const [fileName, setFileName] = useState("")
-  const [pageSize, setPageSize] = useState<PageSizeOption>("a4")
-  const [orientation, setOrientation] = useState<OrientationOption>("landscape")
-  const [fontSize, setFontSize] = useState<FontSizeOption>(10)
+  const [settings, setSettings] = useLocalStorage<XlsxToPdfSettings>(
+    "pdf-tool-xlsx-settings",
+    DEFAULT_SETTINGS,
+  )
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
   const captureRef = useRef<HTMLDivElement>(null)
+
+  const { shareUrl } = useShareableUrl<XlsxToPdfSettings>(
+    "xlsx-to-pdf",
+    settings,
+    useCallback((restored: XlsxToPdfSettings) => setSettings(restored), [setSettings]),
+  )
 
   const currentRows = sheets[activeSheet] ?? []
   const headerRow = currentRows.length > 0 ? currentRows[0] : null
@@ -149,10 +176,10 @@ export function XlsxToPdf() {
     })
 
     try {
-      const dims = PAGE_DIMENSIONS[pageSize][orientation]
+      const dims = PAGE_DIMENSIONS[settings.pageSize][settings.orientation]
       const padding = 24
       const contentWidth = dims.width - padding * 2
-      const rowHeight = fontSize * 2.2
+      const rowHeight = settings.fontSize * 2.2
       const headerHeight = headerRow ? rowHeight : 0
       const availableHeight = dims.height - padding * 2 - headerHeight
       const rowsPerPage = Math.max(1, Math.floor(availableHeight / rowHeight))
@@ -172,7 +199,7 @@ export function XlsxToPdf() {
         captureRef.current.innerHTML = buildTableHtml(
           batchWithHeader,
           headerRow !== null,
-          fontSize
+          settings.fontSize
         )
 
         captureRef.current.style.width = `${contentWidth}px`
@@ -228,15 +255,53 @@ export function XlsxToPdf() {
         error: err instanceof Error ? err.message : "PDF conversion failed",
       })
     }
-  }, [currentRows, dataRows, headerRow, pageSize, orientation, fontSize])
+  }, [currentRows, dataRows, headerRow, settings])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadBlob(result, `${fileName || "spreadsheet"}.pdf`)
+    }
+  }, [result, fileName])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<XlsxToPdfSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="XLSX to PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={XLSX_TO_PDF_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={ACCEPTED_MIME_TYPES}
         acceptedExtensions={ACCEPTED_EXTENSIONS}
@@ -276,20 +341,20 @@ export function XlsxToPdf() {
             <OptionGroup
               label="Page Size"
               options={PAGE_SIZE_OPTIONS}
-              value={pageSize}
-              onChange={setPageSize}
+              value={settings.pageSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, pageSize: v }))}
             />
             <OptionGroup
               label="Orientation"
               options={ORIENTATION_OPTIONS}
-              value={orientation}
-              onChange={setOrientation}
+              value={settings.orientation}
+              onChange={(v) => setSettings((prev) => ({ ...prev, orientation: v }))}
             />
             <OptionGroup
               label="Font Size"
               options={FONT_SIZE_OPTIONS}
-              value={fontSize}
-              onChange={setFontSize}
+              value={settings.fontSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, fontSize: v }))}
             />
           </div>
 

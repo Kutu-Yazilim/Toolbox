@@ -14,6 +14,13 @@ import {
   InfoIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { BASE64_FILE_PRESETS } from "./presets"
 
 type FileType = {
   extension: string
@@ -58,26 +65,16 @@ function detectFromDataUri(input: string): { mime: string; base64: string } | nu
 // Detect file type from raw base64 magic bytes
 function detectFromMagicBytes(base64: string): string | null {
   const clean = base64.replace(/\s/g, "")
-  // PNG: 89 50 4E 47
   if (clean.startsWith("iVBOR")) return "image/png"
-  // JPEG: FF D8 FF
   if (clean.startsWith("/9j/")) return "image/jpeg"
-  // GIF: 47 49 46 38
   if (clean.startsWith("R0lG")) return "image/gif"
-  // PDF: 25 50 44 46 (%PDF)
   if (clean.startsWith("JVBE")) return "application/pdf"
-  // ZIP/DOCX/XLSX: 50 4B 03 04
   if (clean.startsWith("UEsD")) return "application/zip"
-  // WebP: 52 49 46 46 ... 57 45 42 50
   if (clean.startsWith("UklG")) return "image/webp"
-  // BMP: 42 4D
   if (clean.startsWith("Qk")) return "image/bmp"
-  // WAV: 52 49 46 46
   if (clean.startsWith("UklG") && !clean.startsWith("UklGR")) return "audio/wav"
-  // MP3: ID3 or FF FB
   if (clean.startsWith("SUQz") || clean.startsWith("//u")) return "audio/mpeg"
 
-  // Try to decode as text and check for SVG/HTML/XML/JSON
   try {
     const decoded = atob(clean.slice(0, 100))
     const trimmed = decoded.trimStart()
@@ -122,9 +119,47 @@ function decodeBase64ToText(base64: string): string | null {
 }
 
 export function Base64ToFile() {
-  const [input, setInput] = useState("")
+  const [input, setInput] = useLocalStorage<string>("base64-to-file-input", "")
   const [manualMime, setManualMime] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  const { shareUrl } = useShareableUrl("base64-to-file", { input }, (restored) => {
+    setInput((restored as { input: string }).input)
+    setManualMime(null)
+    setError(null)
+  })
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".txt", ".b64"],
+    onImport: (content) => {
+      setInput(content)
+      setManualMime(null)
+      setError(null)
+    },
+  })
+
+  const handleClear = useCallback(() => {
+    setInput("")
+    setManualMime(null)
+    setError(null)
+  }, [setInput])
+
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      setInput(text)
+      setManualMime(null)
+    } catch {
+      setError("Failed to read clipboard")
+    }
+  }, [setInput])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+v", label: "Paste from clipboard", action: handlePaste },
+    { key: "mod+shift+x", label: "Clear input", action: handleClear },
+  ], [handlePaste, handleClear])
+
+  useKeyboardShortcuts(shortcuts)
 
   const parsed = useMemo(() => {
     if (!input.trim()) return null
@@ -133,18 +168,15 @@ export function Base64ToFile() {
     let base64 = input.trim()
     let detectedMime: string | null = null
 
-    // Check for data URI
     const dataUri = detectFromDataUri(base64)
     if (dataUri) {
       base64 = dataUri.base64
       detectedMime = dataUri.mime
     } else {
-      // Clean whitespace
       base64 = base64.replace(/\s/g, "")
       detectedMime = detectFromMagicBytes(base64)
     }
 
-    // Validate base64
     try {
       atob(base64)
     } catch {
@@ -165,22 +197,6 @@ export function Base64ToFile() {
     }
   }, [input, manualMime])
 
-  const handleClear = useCallback(() => {
-    setInput("")
-    setManualMime(null)
-    setError(null)
-  }, [])
-
-  const handlePaste = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText()
-      setInput(text)
-      setManualMime(null)
-    } catch {
-      setError("Failed to read clipboard")
-    }
-  }, [])
-
   const handleDownload = useCallback(() => {
     if (!parsed) return
     const mime = parsed.mime || "application/octet-stream"
@@ -192,6 +208,12 @@ export function Base64ToFile() {
     a.click()
   }, [parsed])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setInput(preset.content)
+    setManualMime(null)
+    setError(null)
+  }, [setInput])
+
   const previewDataUrl = useMemo(() => {
     if (!parsed?.base64 || !parsed.mime) return null
     return `data:${parsed.mime};base64,${parsed.base64}`
@@ -200,7 +222,6 @@ export function Base64ToFile() {
   const textContent = useMemo(() => {
     if (!parsed?.base64) return null
     if (!parsed.fileType || parsed.fileType.category !== "text") {
-      // Also try CSV
       if (parsed.mime === "text/csv") {
         return decodeBase64ToText(parsed.base64)
       }
@@ -234,17 +255,26 @@ export function Base64ToFile() {
   }, [parsed?.mime, textContent])
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+          <span className="text-sm font-medium text-primary">Drop file to import</span>
+        </div>
+      )}
+
       {/* Two-panel layout */}
       <div className="flex-1 flex flex-col md:flex-row min-h-0 gap-px bg-border">
         {/* Input panel (left) */}
         <div className="flex flex-col bg-background w-full md:w-1/2 h-1/2 md:h-auto min-h-0">
           {/* Input toolbar */}
-          <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Base64 Input
-            </span>
-            <div className="flex items-center gap-1">
+          <ToolToolbar
+            title="Base64 Input"
+            onShare={shareUrl}
+            presets={BASE64_FILE_PRESETS}
+            onPresetSelect={handlePresetSelect}
+            shortcuts={shortcuts}
+          >
+            <div className="flex items-center gap-1 ml-auto">
               <Button variant="ghost" size="xs" onClick={handlePaste} title="Paste from clipboard">
                 <ClipboardPasteIcon className="h-3 w-3" />
               </Button>
@@ -252,7 +282,7 @@ export function Base64ToFile() {
                 <TrashIcon className="h-3 w-3" />
               </Button>
             </div>
-          </div>
+          </ToolToolbar>
 
           {/* Textarea */}
           <div className="flex-1 min-h-0">

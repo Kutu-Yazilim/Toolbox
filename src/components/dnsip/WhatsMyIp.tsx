@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   RefreshCwIcon,
@@ -17,6 +17,9 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { fetchIpInfo, type IpInfo } from "@/utils/dnsUtils"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type ExportOption } from "@/components/shared/ExportMenu"
 
 type InfoCardProps = {
   icon: React.ReactNode
@@ -85,26 +88,51 @@ export function WhatsMyIp() {
     setTimeout(() => setCopied(null), 2000)
   }
 
+  const infoText = useMemo(() => {
+    if (!info) return ""
+    return `IP: ${info.ip}\nISP: ${info.isp}\nCity: ${info.city}\nRegion: ${info.region}\nCountry: ${info.country} (${info.countryCode})\nTimezone: ${info.timezone}\nCoordinates: ${info.lat}, ${info.lon}\nAS: ${info.as}`
+  }, [info])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy All Info", action: () => navigator.clipboard.writeText(infoText) },
+    { label: "Copy IP Only", action: () => info && navigator.clipboard.writeText(info.ip) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([infoText], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "my-ip-info.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [infoText, info])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+r", label: "Refresh", action: handleFetch },
+    { key: "mod+shift+c", label: "Copy IP", action: () => info && navigator.clipboard.writeText(info.ip) },
+  ], [handleFetch, info])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 h-8 border-b border-border bg-muted/20 flex-shrink-0">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          Your Public IP
-        </span>
-        <Button
-          variant="ghost"
-          size="xs"
-          onClick={handleFetch}
-          disabled={loading}
-          className="gap-1"
-        >
-          <RefreshCwIcon
-            className={cn("h-3 w-3", loading && "animate-spin")}
-          />
-          <span className="text-[10px]">Refresh</span>
-        </Button>
-      </div>
+      <ToolToolbar
+        title="Your Public IP"
+        status={info ? { type: "success", label: info.ip } : error ? { type: "error", label: "Error" } : null}
+        copyValue={info?.ip}
+        exportOptions={exportOptions}
+        shortcuts={shortcuts}
+        actions={
+          <Button
+            variant="ghost"
+            size="xs"
+            onClick={handleFetch}
+            disabled={loading}
+            className="gap-1"
+          >
+            <RefreshCwIcon className={cn("h-3 w-3", loading && "animate-spin")} />
+            <span className="text-[10px]">Refresh</span>
+          </Button>
+        }
+      />
 
       <div className="flex-1 p-4">
         {/* Loading state */}

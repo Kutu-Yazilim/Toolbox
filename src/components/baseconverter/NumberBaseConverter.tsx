@@ -1,9 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { CopyIcon, CheckIcon, InfoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { NUMBER_BASE_PRESETS } from "./presets"
 
 type Base = "bin" | "oct" | "dec" | "hex"
 
@@ -44,7 +51,7 @@ function padBinary(bin: string): string {
 }
 
 export function NumberBaseConverter() {
-  const [values, setValues] = useState<Record<Base, string>>({
+  const [values, setValues] = useLocalStorage<Record<Base, string>>("number-base-converter", {
     bin: "",
     oct: "",
     dec: "",
@@ -52,6 +59,10 @@ export function NumberBaseConverter() {
   })
   const [activeBase, setActiveBase] = useState<Base | null>(null)
   const [copiedField, setCopiedField] = useState<Base | null>(null)
+
+  const { shareUrl } = useShareableUrl("number-base", values, (restored) => {
+    setValues(restored)
+  })
 
   const handleChange = useCallback((base: Base, raw: string) => {
     const config = BASE_CONFIG.find((c) => c.id === base)!
@@ -78,7 +89,7 @@ export function NumberBaseConverter() {
     }
     next[base] = raw
     setValues(next)
-  }, [])
+  }, [setValues])
 
   const handleCopy = useCallback((base: Base) => {
     const val = values[base]
@@ -88,10 +99,53 @@ export function NumberBaseConverter() {
     setTimeout(() => setCopiedField(null), 1500)
   }, [values])
 
+  const handleClear = useCallback(() => {
+    setValues({ bin: "", oct: "", dec: "", hex: "" })
+    setActiveBase(null)
+  }, [setValues])
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    handleChange("dec", preset.content)
+  }, [handleChange])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+x", label: "Clear all", action: handleClear },
+    { key: "mod+shift+b", label: "Copy binary", action: () => handleCopy("bin") },
+    { key: "mod+shift+h", label: "Copy hex", action: () => handleCopy("hex") },
+  ], [handleClear, handleCopy])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const allValues = `Binary: ${values.bin}\nOctal: ${values.oct}\nDecimal: ${values.dec}\nHex: ${values.hex}`
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download all formats",
+      action: () => {
+        const blob = new Blob([allValues], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "number-conversion.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [allValues])
+
   const binaryDisplay = values.bin ? padBinary(values.bin) : ""
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Number Base"
+        onShare={shareUrl}
+        copyValue={values.dec}
+        exportOptions={exportOptions}
+        presets={NUMBER_BASE_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* Info bar */}
       <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/20 flex-shrink-0">
         <InfoIcon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
@@ -121,7 +175,7 @@ export function NumberBaseConverter() {
                   disabled={!values[config.id]}
                 >
                   {copiedField === config.id ? (
-                    <CheckIcon className="h-3 w-3 text-green-500" />
+                    <CheckIcon className="h-3 w-3 text-emerald-500" />
                   ) : (
                     <CopyIcon className="h-3 w-3" />
                   )}
@@ -132,7 +186,7 @@ export function NumberBaseConverter() {
                 value={values[config.id]}
                 onChange={(e) => handleChange(config.id, e.target.value)}
                 onFocus={() => setActiveBase(config.id)}
-                placeholder={`Enter ${config.label.toLowerCase()} value…`}
+                placeholder={`Enter ${config.label.toLowerCase()} value...`}
                 spellCheck={false}
                 className={cn(
                   "w-full rounded-md border px-3 py-2 text-sm font-mono bg-background outline-none transition-colors",

@@ -1,14 +1,22 @@
 "use client"
 
 import { useState, useCallback, useMemo } from "react"
-import { Button } from "@/components/ui/button"
-import { CopyIcon, CheckIcon, AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon } from "lucide-react"
 import Editor from "@monaco-editor/react"
 import { generateTypeScript } from "@/utils/jsonToTs"
 import { generateDart } from "@/utils/jsonToDart"
 import { generateCsharp } from "@/utils/jsonToCsharp"
 import { generatePython } from "@/utils/jsonToPython"
 import { generateJava } from "@/utils/jsonToJava"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useTheme } from "@/hooks/useTheme"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { JSON_TO_TYPES_PRESETS } from "./jsonToTypesPresets"
 
 const LANGUAGES = [
   { value: "typescript", label: "TypeScript", monacoLang: "typescript" },
@@ -43,11 +51,42 @@ const EXAMPLE_JSON = `{
   "metadata": null
 }`
 
+interface JsonToTypesState {
+  json: string
+  language: Language
+  rootName: string
+}
+
 export function JsonToTypes() {
-  const [json, setJson] = useState(EXAMPLE_JSON)
-  const [language, setLanguage] = useState<Language>("typescript")
-  const [rootName, setRootName] = useState("Root")
-  const [copied, setCopied] = useState(false)
+  const [stored, setStored] = useLocalStorage<JsonToTypesState>("json-to-types", {
+    json: EXAMPLE_JSON,
+    language: "typescript",
+    rootName: "Root",
+  })
+
+  const [json, setJson] = useState(stored.json)
+  const [language, setLanguage] = useState<Language>(stored.language)
+  const [rootName, setRootName] = useState(stored.rootName)
+  const { isDark } = useTheme()
+
+  const persist = useCallback((j: string, l: Language, r: string) => {
+    setStored({ json: j, language: l, rootName: r })
+  }, [setStored])
+
+  const { shareUrl } = useShareableUrl("json-to-types", { json, language, rootName }, (restored) => {
+    setJson(restored.json)
+    setLanguage(restored.language)
+    setRootName(restored.rootName)
+    setStored(restored)
+  })
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".json"],
+    onImport: (content) => {
+      setJson(content)
+      persist(content, language, rootName)
+    },
+  })
 
   const { output, error } = useMemo(() => {
     if (!json.trim()) return { output: "", error: null }
@@ -64,14 +103,46 @@ export function JsonToTypes() {
   }, [json, language, rootName])
 
   const handleChange = useCallback((value: string | undefined) => {
-    setJson(value ?? "")
-  }, [])
+    const v = value ?? ""
+    setJson(v)
+    persist(v, language, rootName)
+  }, [language, rootName, persist])
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(output)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const handleLanguageChange = useCallback((l: Language) => {
+    setLanguage(l)
+    persist(json, l, rootName)
+  }, [json, rootName, persist])
+
+  const handleRootNameChange = useCallback((r: string) => {
+    setRootName(r)
+    persist(json, language, r)
+  }, [json, language, persist])
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setJson(preset.content)
+    persist(preset.content, language, rootName)
+  }, [language, rootName, persist])
+
+  const handleDownload = useCallback(() => {
+    const ext = language === "typescript" ? "ts" : language === "csharp" ? "cs" : language === "python" ? "py" : language
+    const blob = new Blob([output], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${rootName || "Root"}.${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [output, language, rootName])
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download types", action: handleDownload },
+  ], [handleDownload])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+d", label: "Download types", action: handleDownload },
+  ], [handleDownload])
+
+  useKeyboardShortcuts(shortcuts)
 
   const monacoLang =
     LANGUAGES.find((l) => l.value === language)?.monacoLang ?? "plaintext"
@@ -92,25 +163,30 @@ export function JsonToTypes() {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          JSON → Types
-        </span>
-        <div className="flex items-center gap-2">
+      <ToolToolbar
+        title="JSON -> Types"
+        status={error ? { type: "error", label: "Invalid JSON" } : output ? { type: "success", label: `${output.split("\n").length} lines` } : null}
+        copyValue={output}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={JSON_TO_TYPES_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+        actions={
           <input
             value={rootName}
-            onChange={(e) => setRootName(e.target.value)}
+            onChange={(e) => handleRootNameChange(e.target.value)}
             placeholder="Root"
             className="h-6 w-20 text-xs bg-transparent border border-border rounded px-1.5 text-foreground outline-none font-mono"
             title="Root type name"
           />
-        </div>
-      </div>
+        }
+      />
 
       {/* Panels */}
-      <div className="flex-1 min-h-0 flex flex-col md:flex-row gap-px bg-border">
+      <div className={`flex-1 min-h-0 flex flex-col md:flex-row gap-px bg-border ${isDragging ? "ring-2 ring-primary ring-inset" : ""}`}>
         {/* Input pane */}
         <div className="flex-1 min-h-0 flex flex-col bg-background">
           <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
@@ -130,7 +206,7 @@ export function JsonToTypes() {
               defaultLanguage="json"
               value={json}
               onChange={handleChange}
-              theme="vs-dark"
+              theme={isDark ? "vs-dark" : "light"}
               options={editorOptions}
             />
             {error && (
@@ -148,7 +224,7 @@ export function JsonToTypes() {
           <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as Language)}
+              onChange={(e) => handleLanguageChange(e.target.value as Language)}
               className="h-5 text-[10px] bg-transparent border border-border rounded px-1 text-foreground outline-none uppercase tracking-wider font-medium"
             >
               {LANGUAGES.map((l) => (
@@ -157,26 +233,13 @@ export function JsonToTypes() {
                 </option>
               ))}
             </select>
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={handleCopy}
-              disabled={!output}
-              title="Copy"
-            >
-              {copied ? (
-                <CheckIcon className="h-3 w-3" />
-              ) : (
-                <CopyIcon className="h-3 w-3" />
-              )}
-            </Button>
           </div>
           <div className="flex-1 min-h-0">
             <Editor
               height="100%"
               language={monacoLang}
               value={output}
-              theme="vs-dark"
+              theme={isDark ? "vs-dark" : "light"}
               options={{
                 ...editorOptions,
                 readOnly: true,

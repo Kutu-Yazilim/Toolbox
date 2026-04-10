@@ -10,6 +10,13 @@ import {
   ChevronDownIcon,
 } from "lucide-react"
 import Editor from "@monaco-editor/react"
+import { useTheme } from "@/hooks/useTheme"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { JSONPATH_PRESETS } from "./jsonpathPresets"
 
 const SAMPLE_JSON = `{
   "store": {
@@ -313,6 +320,7 @@ function TreeNode({
 // ----------- Main component -----------
 
 export function JsonPathFinder() {
+  const { isDark } = useTheme()
   const [json, setJson] = useState(SAMPLE_JSON)
   const [query, setQuery] = useState("")
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
@@ -356,28 +364,53 @@ export function JsonPathFinder() {
     setTimeout(() => setCopiedField(null), 1500)
   }, [])
 
+  const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+    accept: [".json"],
+    onImport: (content) => setJson(content),
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setJson(preset.content)
+    setQuery("")
+    setSelectedPath(null)
+    setSelectedJqPath(null)
+  }, [])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy JSON", action: () => navigator.clipboard.writeText(json) },
+    { label: "Copy Path", action: () => selectedPath && navigator.clipboard.writeText(selectedPath) },
+    { label: "Download JSON", action: () => {
+      const blob = new Blob([json], { type: "application/json" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "data.json"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [json, selectedPath])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+o", label: "Open File", action: openFilePicker },
+    { key: "mod+shift+c", label: "Copy JSON", action: () => navigator.clipboard.writeText(json) },
+  ], [openFilePicker, json])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="h-full flex flex-col min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            JSON Path Finder
-          </span>
-          {parseResult.error && (
-            <span className="text-destructive text-xs flex items-center gap-1">
-              <AlertCircleIcon className="h-3 w-3" />
-              Invalid JSON
-            </span>
-          )}
-          {parseResult.valid && json.trim() && (
-            <span className="text-emerald-500 text-xs flex items-center gap-1">
-              <CheckIcon className="h-3 w-3" />
-              Valid
-            </span>
-          )}
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+          <p className="text-sm text-primary font-medium">Drop JSON file</p>
         </div>
-      </div>
+      )}
+      <ToolToolbar
+        title="JSON Path Finder"
+        status={parseResult.error ? { type: "error", label: "Invalid JSON" } : parseResult.valid && json.trim() ? { type: "success", label: "Valid" } : null}
+        copyValue={json}
+        exportOptions={exportOptions}
+        presets={JSONPATH_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
 
       {/* Split panel */}
       <div className="flex-1 flex min-h-0">
@@ -388,7 +421,7 @@ export function JsonPathFinder() {
             defaultLanguage="json"
             value={json}
             onChange={handleEditorChange}
-            theme="vs-dark"
+            theme={isDark ? "vs-dark" : "light"}
             options={{
               minimap: { enabled: false },
               fontSize: 13,

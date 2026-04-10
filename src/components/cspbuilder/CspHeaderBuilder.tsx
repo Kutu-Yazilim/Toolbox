@@ -10,6 +10,13 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CSP_PRESETS } from "./cspPresets"
 
 // ─── Types & Constants ──────────────────────────────────────────────────────
 
@@ -95,6 +102,22 @@ function getWarnings(directives: Record<string, DirectiveState>): Warning[] {
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+function parseCspString(csp: string): Record<string, DirectiveState> {
+  const state = buildInitialState()
+  if (!csp.trim()) return state
+  const parts = csp.split(";").map((s) => s.trim()).filter(Boolean)
+  for (const part of parts) {
+    const tokens = part.split(/\s+/)
+    const name = tokens[0]
+    const sources = tokens.slice(1)
+    const config = DIRECTIVES.find((d) => d.name === name)
+    if (config) {
+      state[name] = { enabled: true, sources: config.isFlag ? [] : sources }
+    }
+  }
+  return state
+}
+
 export function CspHeaderBuilder() {
   const [directives, setDirectives] = useState<Record<string, DirectiveState>>(buildInitialState)
   const [copied, setCopied] = useState(false)
@@ -163,8 +186,46 @@ export function CspHeaderBuilder() {
     [customInputs, addSource],
   )
 
+  const { shareUrl } = useShareableUrl("csp-builder", { csp: cspHeader }, (restored) => {
+    const s = restored as { csp: string }
+    setDirectives(parseCspString(s.csp))
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setDirectives(parseCspString(preset.content))
+  }, [])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy Header", action: () => navigator.clipboard.writeText(cspHeader) },
+    { label: "Copy as Meta Tag", action: () => navigator.clipboard.writeText(`<meta http-equiv="Content-Security-Policy" content="${cspHeader}">`) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([cspHeader], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "csp-header.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [cspHeader])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+shift+c", label: "Copy Header", action: copyToClipboard },
+  ], [copyToClipboard])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="flex h-full flex-col gap-4 p-4">
+    <div className="flex h-full flex-col min-h-0">
+      <ToolToolbar
+        title="CSP Header Builder"
+        status={warnings.length > 0 ? { type: "error", label: `${warnings.length} warning(s)` } : cspHeader ? { type: "success", label: `${cspHeader.length} chars` } : null}
+        copyValue={cspHeader || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={CSP_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex flex-col gap-4 p-4 flex-1 overflow-y-auto">
       {/* ── Header preview ───────────────────────────────────────── */}
       <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-3">
         <div className="flex items-center justify-between">
@@ -317,6 +378,7 @@ export function CspHeaderBuilder() {
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import {
   CopyIcon,
   CheckIcon,
@@ -12,6 +12,12 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ENCRYPTION_PRESETS } from "./encryptionPresets"
 
 // ─── Types & constants ──────────────────────────────────────────────────────
 
@@ -148,8 +154,57 @@ export function EncryptionTool() {
     [mode],
   )
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setInput(preset.content)
+    setMode("encrypt")
+    setOutput("")
+    setError("")
+  }, [])
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".txt", ".pem", ".key"],
+    onImport: (content) => {
+      setInput(content)
+      setOutput("")
+      setError("")
+    },
+  })
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy Output", action: () => output && navigator.clipboard.writeText(output) },
+    { label: "Download Output", action: () => {
+      if (!output) return
+      const blob = new Blob([output], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = mode === "encrypt" ? "encrypted.txt" : "decrypted.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [output, mode])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Encrypt / Decrypt", action: handleAction },
+    { key: "mod+shift+c", label: "Copy Output", action: handleCopy },
+  ], [handleAction, handleCopy])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      <ToolToolbar
+        title="Encryption Tool"
+        status={output ? { type: "success", label: mode === "encrypt" ? "Encrypted" : "Decrypted" } : error ? { type: "error", label: "Failed" } : null}
+        copyValue={output || undefined}
+        exportOptions={output ? exportOptions : undefined}
+        presets={ENCRYPTION_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+          <p className="text-sm text-primary font-medium">Drop file to import</p>
+        </div>
+      )}
       {/* Header bar */}
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         {/* Mode toggle */}
@@ -168,20 +223,6 @@ export function EncryptionTool() {
               {m}
             </button>
           ))}
-        </div>
-
-        {/* Copy output button */}
-        <div className="flex items-center gap-2 ml-auto">
-          {output && (
-            <Button onClick={handleCopy} variant="outline" size="sm">
-              {copied ? (
-                <CheckIcon className="size-3.5" />
-              ) : (
-                <CopyIcon className="size-3.5" />
-              )}
-              {copied ? "Copied" : "Copy Output"}
-            </Button>
-          )}
         </div>
       </div>
 

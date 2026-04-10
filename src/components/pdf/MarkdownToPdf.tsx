@@ -10,12 +10,26 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
+import { downloadBlob } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { MARKDOWN_TO_PDF_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 type InputMode = "upload" | "type"
 type PageSizeOption = "a4" | "letter"
 type OrientationOption = "portrait" | "landscape"
 type MarginOption = "none" | "small" | "normal"
+
+interface MarkdownToPdfSettings {
+  pageSize: PageSizeOption
+  orientation: OrientationOption
+  margin: MarginOption
+}
 
 const INPUT_MODE_OPTIONS: { value: InputMode; label: string }[] = [
   { value: "upload", label: "Upload File" },
@@ -47,6 +61,12 @@ const MARGIN_VALUES: Record<MarginOption, number> = {
   none: 0,
   small: 10,
   normal: 20,
+}
+
+const DEFAULT_SETTINGS: MarkdownToPdfSettings = {
+  pageSize: "a4",
+  orientation: "portrait",
+  margin: "normal",
 }
 
 function OptionGroup<T extends string>({
@@ -88,12 +108,19 @@ function OptionGroup<T extends string>({
 export function MarkdownToPdf() {
   const [inputMode, setInputMode] = useState<InputMode>("upload")
   const [markdown, setMarkdown] = useState("")
-  const [pageSize, setPageSize] = useState<PageSizeOption>("a4")
-  const [orientation, setOrientation] = useState<OrientationOption>("portrait")
-  const [margin, setMargin] = useState<MarginOption>("normal")
+  const [settings, setSettings] = useLocalStorage<MarkdownToPdfSettings>(
+    "pdf-tool-markdown-settings",
+    DEFAULT_SETTINGS,
+  )
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
   const hiddenRef = useRef<HTMLDivElement>(null)
+
+  const { shareUrl } = useShareableUrl<MarkdownToPdfSettings>(
+    "markdown-to-pdf",
+    settings,
+    useCallback((restored: MarkdownToPdfSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback((files: File[]) => {
     if (files.length === 0) return
@@ -119,11 +146,11 @@ export function MarkdownToPdf() {
     })
 
     try {
-      const dims = PAGE_DIMENSIONS[pageSize]
-      const isLandscape = orientation === "landscape"
+      const dims = PAGE_DIMENSIONS[settings.pageSize]
+      const isLandscape = settings.orientation === "landscape"
       const pageWidthMm = isLandscape ? dims.height : dims.width
       const pageHeightMm = isLandscape ? dims.width : dims.height
-      const marginMm = MARGIN_VALUES[margin]
+      const marginMm = MARGIN_VALUES[settings.margin]
 
       const contentWidthMm = pageWidthMm - marginMm * 2
       const dpi = 96
@@ -171,7 +198,7 @@ export function MarkdownToPdf() {
       const pdf = new jsPDF({
         orientation: isLandscape ? "landscape" : "portrait",
         unit: "mm",
-        format: pageSize === "a4" ? "a4" : "letter",
+        format: settings.pageSize === "a4" ? "a4" : "letter",
       })
 
       for (let page = 0; page < totalPages; page++) {
@@ -229,15 +256,53 @@ export function MarkdownToPdf() {
         error: err instanceof Error ? err.message : "Conversion failed",
       })
     }
-  }, [markdown, pageSize, orientation, margin])
+  }, [markdown, settings])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadBlob(result, "markdown-to-pdf.pdf")
+    }
+  }, [result])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<MarkdownToPdfSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="Markdown to PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={MARKDOWN_TO_PDF_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <OptionGroup
         label="Input Mode"
         options={INPUT_MODE_OPTIONS}
@@ -309,20 +374,20 @@ export function MarkdownToPdf() {
             <OptionGroup
               label="Page Size"
               options={PAGE_SIZE_OPTIONS}
-              value={pageSize}
-              onChange={setPageSize}
+              value={settings.pageSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, pageSize: v }))}
             />
             <OptionGroup
               label="Orientation"
               options={ORIENTATION_OPTIONS}
-              value={orientation}
-              onChange={setOrientation}
+              value={settings.orientation}
+              onChange={(v) => setSettings((prev) => ({ ...prev, orientation: v }))}
             />
             <OptionGroup
               label="Margins"
               options={MARGIN_OPTIONS}
-              value={margin}
-              onChange={setMargin}
+              value={settings.margin}
+              onChange={(v) => setSettings((prev) => ({ ...prev, margin: v }))}
             />
           </div>
 

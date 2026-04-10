@@ -1,9 +1,15 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { PlusIcon, Trash2Icon, DownloadIcon } from "lucide-react"
+import { PlusIcon, Trash2Icon } from "lucide-react"
 import { toPng } from "html-to-image"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { DATE_TIMELINE_PRESETS } from "./presets"
 import {
   type DateEntry,
   TIMELINE_COLORS,
@@ -68,7 +74,8 @@ const DEFAULT_ENTRIES: DateEntry[] = (() => {
 })()
 
 export function DateTimeline() {
-  const [entries, setEntries] = useState<DateEntry[]>(DEFAULT_ENTRIES)
+  const [savedEntries, setSavedEntries] = useLocalStorage<DateEntry[]>("date-timeline-state", DEFAULT_ENTRIES)
+  const [entries, setEntries] = useState<DateEntry[]>(savedEntries)
   const timelineRef = useRef<HTMLDivElement>(null)
 
   const addEntry = useCallback(() => {
@@ -162,20 +169,71 @@ export function DateTimeline() {
     a.click()
   }, [])
 
+  // Persist to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => setSavedEntries(entries), 500)
+    return () => clearTimeout(timer)
+  }, [entries, setSavedEntries])
+
+  // Shareable URL
+  const { shareUrl } = useShareableUrl("date-timeline", entries, useCallback((state: DateEntry[]) => {
+    setEntries(state)
+  }, []))
+
+  // Presets
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content) as Array<{ title: string; daysFromNow: number; duration: number; color: string }>
+    const today = todayStr()
+    setEntries(data.map(e => ({
+      id: nextId(),
+      title: e.title,
+      startDate: addDays(today, e.daysFromNow),
+      endDate: addDays(today, e.daysFromNow + e.duration),
+      color: e.color,
+    })))
+  }, [])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    { label: "Export PNG", action: exportPng },
+    {
+      label: "Export JSON",
+      action: () => {
+        const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "date-timeline.json"
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [exportPng, entries])
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "mod+n", label: "Add Task", action: addEntry },
+    { key: "mod+e", label: "Export PNG", action: exportPng },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+  ], [addEntry, exportPng, shareUrl])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
-        <span className="text-sm font-medium text-muted-foreground mr-auto">
-          Date-Based Mode
-        </span>
-        <Button variant="outline" size="sm" onClick={addEntry}>
-          <PlusIcon /> Add Task
-        </Button>
-        <Button variant="outline" size="sm" onClick={exportPng}>
-          <DownloadIcon /> Export PNG
-        </Button>
-      </div>
+      <ToolToolbar
+        title="Date Timeline"
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={DATE_TIMELINE_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+        actions={
+          <Button variant="outline" size="xs" onClick={addEntry}>
+            <PlusIcon className="h-3 w-3" /> Add Task
+          </Button>
+        }
+      />
 
       <div className="flex-1 min-h-0 overflow-auto p-4 flex flex-col gap-6">
         {/* Entry table */}

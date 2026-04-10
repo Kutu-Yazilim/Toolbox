@@ -3,6 +3,13 @@
 import { useState, useMemo, useCallback } from "react"
 import { CopyIcon, CheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { COLOR_FORMAT_PRESETS } from "./presets"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -127,11 +134,9 @@ function rgbToCmyk(rgb: RGB): CMYK {
 function parseColor(input: string): RGB | null {
   const trimmed = input.trim()
 
-  // Try HEX
   const hexMatch = trimmed.match(/^#?([0-9a-fA-F]{6})$/)
   if (hexMatch) return hexToRgb(hexMatch[1])
 
-  // Try RGB
   const rgbMatch = trimmed.match(
     /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i,
   )
@@ -143,7 +148,6 @@ function parseColor(input: string): RGB | null {
     return null
   }
 
-  // Try HSL
   const hslMatch = trimmed.match(
     /^hsl\(\s*(\d{1,3})\s*,\s*(\d{1,3})%\s*,\s*(\d{1,3})%\s*\)$/i,
   )
@@ -189,7 +193,7 @@ const DEFAULT_INPUT = "#3B82F6"
 // ---------------------------------------------------------------------------
 
 export function ColorFormatConverter() {
-  const [input, setInput] = useState(DEFAULT_INPUT)
+  const [input, setInput] = useLocalStorage<string>("color-format-input", DEFAULT_INPUT)
   const [copiedIdx, setCopiedIdx] = useState<number | null>(null)
 
   const parsed = useMemo(() => parseColor(input), [input])
@@ -197,6 +201,10 @@ export function ColorFormatConverter() {
   const hexForPreview = useMemo(() => (parsed ? rgbToHex(parsed) : null), [parsed])
 
   const hasInput = input.trim().length > 0
+
+  const { shareUrl } = useShareableUrl("color-format", { input }, (restored) => {
+    setInput((restored as { input: string }).input)
+  })
 
   const handleCopy = useCallback(
     (value: string, idx: number) => {
@@ -207,8 +215,46 @@ export function ColorFormatConverter() {
     [],
   )
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setInput(preset.content)
+  }, [setInput])
+
+  const allFormatsText = formats ? formats.map(f => `${f.label}: ${f.value}`).join("\n") : ""
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download all formats",
+      action: () => {
+        const blob = new Blob([allFormatsText], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "color-formats.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [allFormatsText])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+1", label: "Copy HEX", action: () => formats && handleCopy(formats[0].value, 0) },
+    { key: "mod+shift+2", label: "Copy RGB", action: () => formats && handleCopy(formats[1].value, 1) },
+    { key: "mod+shift+3", label: "Copy HSL", action: () => formats && handleCopy(formats[2].value, 2) },
+  ], [formats, handleCopy])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="flex h-full flex-col">
+      <ToolToolbar
+        title="Color Format"
+        copyValue={hexForPreview ?? undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={COLOR_FORMAT_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* Top section */}
       <div className="flex-shrink-0 border-b border-border p-4">
         <div className="flex items-center gap-4">
@@ -265,7 +311,7 @@ export function ColorFormatConverter() {
                   onClick={() => handleCopy(f.value, idx)}
                 >
                   {copiedIdx === idx ? (
-                    <CheckIcon className="h-4 w-4 text-green-400" />
+                    <CheckIcon className="h-4 w-4 text-emerald-500" />
                   ) : (
                     <CopyIcon className="h-4 w-4" />
                   )}

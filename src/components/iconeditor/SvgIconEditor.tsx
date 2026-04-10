@@ -1,6 +1,13 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { ICON_EDITOR_PRESETS } from "./presets"
 import {
   CopyIcon,
   CheckIcon,
@@ -195,14 +202,33 @@ function hexToFlutterColor(hex: string): string {
 // Component
 // ---------------------------------------------------------------------------
 
+type IconEditorState = {
+  icon: string
+  size: number
+  color: string
+  strokeWidth: number
+  bgColor: string
+  bgTransparent: boolean
+}
+
+const DEFAULT_ICON_STATE: IconEditorState = {
+  icon: "Home",
+  size: 48,
+  color: "#000000",
+  strokeWidth: 2,
+  bgColor: "#ffffff",
+  bgTransparent: true,
+}
+
 export function SvgIconEditor() {
-  const [selectedIcon, setSelectedIcon] = useState("Home")
+  const [savedState, setSavedState] = useLocalStorage<IconEditorState>("icon-editor-state", DEFAULT_ICON_STATE)
+  const [selectedIcon, setSelectedIcon] = useState(savedState.icon)
   const [searchQuery, setSearchQuery] = useState("")
-  const [size, setSize] = useState(48)
-  const [color, setColor] = useState("#000000")
-  const [strokeWidth, setStrokeWidth] = useState(2)
-  const [bgColor, setBgColor] = useState("#ffffff")
-  const [bgTransparent, setBgTransparent] = useState(true)
+  const [size, setSize] = useState(savedState.size)
+  const [color, setColor] = useState(savedState.color)
+  const [strokeWidth, setStrokeWidth] = useState(savedState.strokeWidth)
+  const [bgColor, setBgColor] = useState(savedState.bgColor)
+  const [bgTransparent, setBgTransparent] = useState(savedState.bgTransparent)
   const [copied, setCopied] = useState<CopiedKey>(null)
 
   const previewRef = useRef<HTMLDivElement>(null)
@@ -282,10 +308,82 @@ export function SvgIconEditor() {
     img.src = svgDataUrl
   }, [selectedIcon, size, bgColor, bgTransparent])
 
+  // ---- Persist state ----
+
+  const currentState = useMemo<IconEditorState>(() => ({
+    icon: selectedIcon, size, color, strokeWidth, bgColor, bgTransparent,
+  }), [selectedIcon, size, color, strokeWidth, bgColor, bgTransparent])
+
+  useEffect(() => {
+    const timer = setTimeout(() => setSavedState(currentState), 500)
+    return () => clearTimeout(timer)
+  }, [currentState, setSavedState])
+
+  // Shareable URL
+  const { shareUrl } = useShareableUrl("icon-editor", currentState, useCallback((state: IconEditorState) => {
+    setSelectedIcon(state.icon)
+    setSize(state.size)
+    setColor(state.color)
+    setStrokeWidth(state.strokeWidth)
+    setBgColor(state.bgColor)
+    setBgTransparent(state.bgTransparent)
+  }, []))
+
+  // File import (SVG)
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".svg"],
+    onImport: useCallback((_content: string, _filename: string) => {
+      // SVG import — future enhancement
+    }, []),
+  })
+
+  // Presets
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    if (data.icon && ICON_MAP[data.icon]) setSelectedIcon(data.icon)
+    if (data.size) setSize(data.size)
+    if (data.color) setColor(data.color)
+    if (data.strokeWidth) setStrokeWidth(data.strokeWidth)
+    if (data.bgTransparent !== undefined) setBgTransparent(data.bgTransparent)
+    if (data.bgColor) setBgColor(data.bgColor)
+  }, [])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    { label: "Download SVG", action: downloadSvg },
+    { label: "Download PNG", action: downloadPng },
+    { label: "Copy React Code", action: () => navigator.clipboard.writeText(reactCode) },
+    { label: "Copy Flutter Code", action: () => navigator.clipboard.writeText(flutterCode) },
+  ], [downloadSvg, downloadPng, reactCode, flutterCode])
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy React Code", action: () => navigator.clipboard.writeText(reactCode) },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+    { key: "mod+e", label: "Export SVG", action: downloadSvg },
+  ], [reactCode, shareUrl, downloadSvg])
+
+  useKeyboardShortcuts(shortcuts)
+
   // ---- Render ----
 
   return (
-    <div className="flex h-full gap-4 overflow-hidden p-4">
+    <div className="flex flex-col h-full overflow-hidden" {...dropzoneProps}>
+      <ToolToolbar
+        title="Icon Editor"
+        copyValue={reactCode}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={ICON_EDITOR_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+          <span className="text-sm font-medium text-primary">Drop SVG file here</span>
+        </div>
+      )}
+      <div className="flex flex-1 gap-4 overflow-hidden p-4">
       {/* Left panel — icon browser */}
       <div className="flex w-[30%] min-w-[220px] flex-col gap-3 overflow-hidden">
         <div className="relative">
@@ -492,6 +590,7 @@ export function SvgIconEditor() {
             </pre>
           </div>
         </section>
+      </div>
       </div>
     </div>
   )

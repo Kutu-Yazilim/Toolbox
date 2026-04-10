@@ -8,12 +8,26 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
+import { downloadBlob } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { HTML_TO_PDF_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 type InputMode = "upload" | "paste"
 type PageSizeOption = "a4" | "letter"
 type OrientationOption = "portrait" | "landscape"
 type MarginOption = "none" | "small" | "normal"
+
+interface HtmlToPdfSettings {
+  pageSize: PageSizeOption
+  orientation: OrientationOption
+  margin: MarginOption
+}
 
 const INPUT_MODE_OPTIONS: { value: InputMode; label: string }[] = [
   { value: "upload", label: "Upload File" },
@@ -45,6 +59,12 @@ const MARGIN_VALUES: Record<MarginOption, number> = {
   none: 0,
   small: 10,
   normal: 20,
+}
+
+const DEFAULT_SETTINGS: HtmlToPdfSettings = {
+  pageSize: "a4",
+  orientation: "portrait",
+  margin: "normal",
 }
 
 function OptionGroup<T extends string>({
@@ -86,12 +106,19 @@ function OptionGroup<T extends string>({
 export function HtmlToPdf() {
   const [inputMode, setInputMode] = useState<InputMode>("upload")
   const [htmlContent, setHtmlContent] = useState<string>("")
-  const [pageSize, setPageSize] = useState<PageSizeOption>("a4")
-  const [orientation, setOrientation] = useState<OrientationOption>("portrait")
-  const [margin, setMargin] = useState<MarginOption>("normal")
+  const [settings, setSettings] = useLocalStorage<HtmlToPdfSettings>(
+    "pdf-tool-html-settings",
+    DEFAULT_SETTINGS,
+  )
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
   const renderRef = useRef<HTMLDivElement>(null)
+
+  const { shareUrl } = useShareableUrl<HtmlToPdfSettings>(
+    "html-to-pdf",
+    settings,
+    useCallback((restored: HtmlToPdfSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback((files: File[]) => {
     if (files.length === 0) return
@@ -125,10 +152,10 @@ export function HtmlToPdf() {
     setResult(null)
 
     try {
-      const marginMm = MARGIN_VALUES[margin]
-      const dims = PAGE_DIMENSIONS[pageSize]
-      const pageW = orientation === "landscape" ? dims.height : dims.width
-      const pageH = orientation === "landscape" ? dims.width : dims.height
+      const marginMm = MARGIN_VALUES[settings.margin]
+      const dims = PAGE_DIMENSIONS[settings.pageSize]
+      const pageW = settings.orientation === "landscape" ? dims.height : dims.width
+      const pageH = settings.orientation === "landscape" ? dims.width : dims.height
 
       const contentW = pageW - marginMm * 2
       const contentH = pageH - marginMm * 2
@@ -165,9 +192,9 @@ export function HtmlToPdf() {
       })
 
       const pdf = new jsPDF({
-        orientation: orientation === "landscape" ? "l" : "p",
+        orientation: settings.orientation === "landscape" ? "l" : "p",
         unit: "mm",
-        format: pageSize,
+        format: settings.pageSize,
       })
 
       for (let i = 0; i < pageCount; i++) {
@@ -217,15 +244,53 @@ export function HtmlToPdf() {
         error: err instanceof Error ? err.message : "Conversion failed",
       })
     }
-  }, [htmlContent, pageSize, orientation, margin])
+  }, [htmlContent, settings])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadBlob(result, "html-to-pdf.pdf")
+    }
+  }, [result])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<HtmlToPdfSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="HTML to PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={HTML_TO_PDF_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <OptionGroup
         label="Input Mode"
         options={INPUT_MODE_OPTIONS}
@@ -281,20 +346,20 @@ export function HtmlToPdf() {
             <OptionGroup
               label="Page Size"
               options={PAGE_SIZE_OPTIONS}
-              value={pageSize}
-              onChange={setPageSize}
+              value={settings.pageSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, pageSize: v }))}
             />
             <OptionGroup
               label="Orientation"
               options={ORIENTATION_OPTIONS}
-              value={orientation}
-              onChange={setOrientation}
+              value={settings.orientation}
+              onChange={(v) => setSettings((prev) => ({ ...prev, orientation: v }))}
             />
             <OptionGroup
               label="Margins"
               options={MARGIN_OPTIONS}
-              value={margin}
-              onChange={setMargin}
+              value={settings.margin}
+              onChange={(v) => setSettings((prev) => ({ ...prev, margin: v }))}
             />
           </div>
 

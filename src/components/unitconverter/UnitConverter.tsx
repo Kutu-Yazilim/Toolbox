@@ -4,6 +4,13 @@ import { useState, useMemo, useCallback } from "react"
 import { ArrowRightLeftIcon, CopyIcon, CheckIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { UNIT_CONVERTER_PRESETS } from "./presets"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -140,50 +147,64 @@ function formatResult(value: number): string {
 // Component
 // ---------------------------------------------------------------------------
 
+interface UnitConverterState {
+  categoryId: CategoryId
+  fromUnitId: string
+  toUnitId: string
+  inputValue: string
+}
+
+const DEFAULT_STATE: UnitConverterState = {
+  categoryId: "length",
+  fromUnitId: "",
+  toUnitId: "",
+  inputValue: "1",
+}
+
 export function UnitConverter() {
-  const [categoryId, setCategoryId] = useState<CategoryId>("length")
-  const [fromUnitId, setFromUnitId] = useState<string>("")
-  const [toUnitId, setToUnitId] = useState<string>("")
-  const [inputValue, setInputValue] = useState<string>("1")
+  const [state, setState] = useLocalStorage<UnitConverterState>("unit-converter", DEFAULT_STATE)
   const [copied, setCopied] = useState(false)
 
+  const { shareUrl } = useShareableUrl("unit-converter", state, (restored) => {
+    setState(restored)
+  })
+
   const category = useMemo(
-    () => CATEGORIES.find((c) => c.id === categoryId)!,
-    [categoryId],
+    () => CATEGORIES.find((c) => c.id === state.categoryId)!,
+    [state.categoryId],
   )
 
-  // Initialise unit IDs when they don't belong to the current category
   const fromUnit = useMemo(() => {
-    const found = category.units.find((u) => u.id === fromUnitId)
+    const found = category.units.find((u) => u.id === state.fromUnitId)
     return found ?? category.units[0]
-  }, [category, fromUnitId])
+  }, [category, state.fromUnitId])
 
   const toUnit = useMemo(() => {
-    const found = category.units.find((u) => u.id === toUnitId)
+    const found = category.units.find((u) => u.id === state.toUnitId)
     return found ?? category.units[1]
-  }, [category, toUnitId])
+  }, [category, state.toUnitId])
 
   const result = useMemo(() => {
-    const num = parseFloat(inputValue)
+    const num = parseFloat(state.inputValue)
     if (Number.isNaN(num)) return ""
     const base = fromUnit.toBase(num)
     return formatResult(toUnit.fromBase(base))
-  }, [inputValue, fromUnit, toUnit])
+  }, [state.inputValue, fromUnit, toUnit])
 
   const handleCategoryChange = useCallback((id: CategoryId) => {
-    setCategoryId(id)
-    setFromUnitId("")
-    setToUnitId("")
-    setInputValue("1")
+    setState(prev => ({ ...prev, categoryId: id, fromUnitId: "", toUnitId: "", inputValue: "1" }))
     setCopied(false)
-  }, [])
+  }, [setState])
 
   const handleSwap = useCallback(() => {
-    setFromUnitId(toUnit.id)
-    setToUnitId(fromUnit.id)
-    setInputValue(result || "1")
+    setState(prev => ({
+      ...prev,
+      fromUnitId: toUnit.id,
+      toUnitId: fromUnit.id,
+      inputValue: result || "1",
+    }))
     setCopied(false)
-  }, [fromUnit, toUnit, result])
+  }, [setState, fromUnit, toUnit, result])
 
   const handleCopy = useCallback(() => {
     if (!result) return
@@ -192,110 +213,158 @@ export function UnitConverter() {
     setTimeout(() => setCopied(false), 1500)
   }, [result])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setState({
+      categoryId: data.category,
+      fromUnitId: data.from,
+      toUnitId: data.to,
+      inputValue: data.value,
+    })
+    setCopied(false)
+  }, [setState])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+s", label: "Swap units", action: handleSwap },
+    { key: "mod+shift+c", label: "Copy result", action: handleCopy },
+  ], [handleSwap, handleCopy])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const conversionText = result && state.inputValue
+    ? `${state.inputValue} ${fromUnit.id} = ${result} ${toUnit.id}`
+    : ""
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download conversion",
+      action: () => {
+        const blob = new Blob([conversionText], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "unit-conversion.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [conversionText])
+
   return (
-    <div className="mx-auto w-full max-w-2xl space-y-6 p-4">
-      {/* Category tabs */}
-      <div className="flex flex-wrap gap-2">
-        {CATEGORIES.map((cat) => (
-          <Button
-            key={cat.id}
-            variant={cat.id === categoryId ? "default" : "outline"}
-            size="sm"
-            onClick={() => handleCategoryChange(cat.id)}
-          >
-            {cat.label}
-          </Button>
-        ))}
-      </div>
+    <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Unit Converter"
+        copyValue={result}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={UNIT_CONVERTER_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
 
-      {/* Converter card */}
-      <div className="rounded-lg border border-border bg-card p-6">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4">
-          {/* From column */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-muted-foreground">From</label>
-            <select
-              value={fromUnit.id}
-              onChange={(e) => {
-                setFromUnitId(e.target.value)
-                setCopied(false)
-              }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+      <div className="mx-auto w-full max-w-2xl space-y-6 p-4">
+        {/* Category tabs */}
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map((cat) => (
+            <Button
+              key={cat.id}
+              variant={cat.id === state.categoryId ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleCategoryChange(cat.id)}
             >
-              {category.units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={inputValue}
-              onChange={(e) => {
-                setInputValue(e.target.value)
-                setCopied(false)
-              }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-              placeholder="Enter value"
-            />
-          </div>
-
-          {/* Swap button */}
-          <div className="flex items-center pb-1">
-            <Button variant="ghost" size="icon" onClick={handleSwap} title="Swap units">
-              <ArrowRightLeftIcon className="h-4 w-4" />
+              {cat.label}
             </Button>
-          </div>
-
-          {/* To column */}
-          <div className="space-y-3">
-            <label className="text-sm font-medium text-muted-foreground">To</label>
-            <select
-              value={toUnit.id}
-              onChange={(e) => {
-                setToUnitId(e.target.value)
-                setCopied(false)
-              }}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {category.units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex-1 rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono",
-                  !result && "text-muted-foreground",
-                )}
-              >
-                {result || "—"}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCopy}
-                disabled={!result}
-                title="Copy result"
-              >
-                {copied ? (
-                  <CheckIcon className="h-4 w-4 text-green-500" />
-                ) : (
-                  <CopyIcon className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Conversion summary */}
-        {result && inputValue && (
-          <p className="mt-4 text-center text-sm text-muted-foreground">
-            {inputValue} {fromUnit.id} = {result} {toUnit.id}
-          </p>
-        )}
+        {/* Converter card */}
+        <div className="rounded-lg border border-border bg-card p-6">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-4">
+            {/* From column */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">From</label>
+              <select
+                value={fromUnit.id}
+                onChange={(e) => {
+                  setState(prev => ({ ...prev, fromUnitId: e.target.value }))
+                  setCopied(false)
+                }}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {category.units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                value={state.inputValue}
+                onChange={(e) => {
+                  setState(prev => ({ ...prev, inputValue: e.target.value }))
+                  setCopied(false)
+                }}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                placeholder="Enter value"
+              />
+            </div>
+
+            {/* Swap button */}
+            <div className="flex items-center pb-1">
+              <Button variant="ghost" size="icon" onClick={handleSwap} title="Swap units">
+                <ArrowRightLeftIcon className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* To column */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium text-muted-foreground">To</label>
+              <select
+                value={toUnit.id}
+                onChange={(e) => {
+                  setState(prev => ({ ...prev, toUnitId: e.target.value }))
+                  setCopied(false)
+                }}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {category.units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+              <div className="flex items-center gap-2">
+                <div
+                  className={cn(
+                    "flex-1 rounded-md border border-input bg-muted px-3 py-2 text-sm font-mono",
+                    !result && "text-muted-foreground",
+                  )}
+                >
+                  {result || "\u2014"}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleCopy}
+                  disabled={!result}
+                  title="Copy result"
+                >
+                  {copied ? (
+                    <CheckIcon className="h-4 w-4 text-emerald-500" />
+                  ) : (
+                    <CopyIcon className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Conversion summary */}
+          {conversionText && (
+            <p className="mt-4 text-center text-sm text-muted-foreground">
+              {conversionText}
+            </p>
+          )}
+        </div>
       </div>
     </div>
   )

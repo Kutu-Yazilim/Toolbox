@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import {
   CopyIcon,
   CheckIcon,
@@ -12,6 +12,12 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { useFileImport } from "@/hooks/useFileImport"
+import { CERT_PRESETS } from "./certPresets"
 
 // ─── OID map ────────────────────────────────────────────────────────────────
 
@@ -606,8 +612,58 @@ export function CertificateDecoder() {
   const isNotYetValid =
     certInfo?.notBefore ? certInfo.notBefore.getTime() > Date.now() : null
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setPem(preset.content)
+    handleParse(preset.content)
+  }, [handleParse])
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".pem", ".crt", ".cer", ".txt"],
+    onImport: (content) => {
+      setPem(content)
+      handleParse(content)
+    },
+  })
+
+  const certSummary = useMemo(() => {
+    if (!certInfo) return ""
+    return `Subject: ${certInfo.subject.CN || "N/A"}\nIssuer: ${certInfo.issuer.CN || "N/A"}\nValid: ${formatDate(certInfo.notBefore)} - ${formatDate(certInfo.notAfter)}\nAlgorithm: ${certInfo.signatureAlgorithm}\nKey: ${certInfo.publicKeyAlgorithm} ${certInfo.publicKeySize || ""}bit\nFingerprint: ${certInfo.fingerprint}`
+  }, [certInfo, formatDate])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy Summary", action: () => navigator.clipboard.writeText(certSummary) },
+    { label: "Download Summary", action: () => {
+      const blob = new Blob([certSummary], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "certificate-info.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [certSummary])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+o", label: "Open File", action: () => {} },
+    { key: "mod+shift+c", label: "Copy Summary", action: () => navigator.clipboard.writeText(certSummary) },
+  ], [certSummary])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      <ToolToolbar
+        title="Certificate Decoder"
+        status={certInfo ? (isExpired ? { type: "error", label: "Expired" } : { type: "success", label: "Valid" }) : error ? { type: "error", label: "Parse Error" } : null}
+        copyValue={certSummary || undefined}
+        exportOptions={certInfo ? exportOptions : undefined}
+        presets={CERT_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+          <p className="text-sm text-primary font-medium">Drop certificate file</p>
+        </div>
+      )}
       {/* Header bar */}
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         <span className="text-sm font-medium text-muted-foreground">

@@ -1,23 +1,16 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { CopyIcon, CheckIcon, AlertCircleIcon } from "lucide-react"
+import { AlertCircleIcon } from "lucide-react"
 import cronstrue from "cronstrue"
 import { CronExpressionParser } from "cron-parser"
-
-const PRESETS: { label: string; value: string }[] = [
-  { label: "Every minute", value: "* * * * *" },
-  { label: "Every 5 minutes", value: "*/5 * * * *" },
-  { label: "Every 15 minutes", value: "*/15 * * * *" },
-  { label: "Every hour", value: "0 * * * *" },
-  { label: "Every day at midnight", value: "0 0 * * *" },
-  { label: "Every day at noon", value: "0 12 * * *" },
-  { label: "Every Monday at 9 AM", value: "0 9 * * 1" },
-  { label: "Weekdays at 9 AM", value: "0 9 * * 1-5" },
-  { label: "First of month at midnight", value: "0 0 1 * *" },
-  { label: "Every Sunday at 3 AM", value: "0 3 * * 0" },
-]
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CRON_PRESETS } from "./cronPresets"
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -27,8 +20,22 @@ const MONTHS = [
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
 
 export function CronBuilder() {
-  const [expression, setExpression] = useState("*/15 * * * *")
-  const [copied, setCopied] = useState(false)
+  const [stored, setStored] = useLocalStorage("cron-builder", { expression: "*/15 * * * *" })
+  const [expression, setExpression] = useState(stored.expression)
+
+  const persist = useCallback((expr: string) => {
+    setStored({ expression: expr })
+  }, [setStored])
+
+  const { shareUrl } = useShareableUrl("cron-builder", { expression }, (restored) => {
+    setExpression(restored.expression)
+    setStored(restored)
+  })
+
+  const handleExpressionChange = useCallback((expr: string) => {
+    setExpression(expr)
+    persist(expr)
+  }, [persist])
 
   const fields = useMemo(() => {
     const parts = expression.trim().split(/\s+/)
@@ -46,9 +53,11 @@ export function CronBuilder() {
       const parts = expression.trim().split(/\s+/)
       while (parts.length < 5) parts.push("*")
       parts[index] = value
-      setExpression(parts.join(" "))
+      const newExpr = parts.join(" ")
+      setExpression(newExpr)
+      persist(newExpr)
     },
-    [expression],
+    [expression, persist],
   )
 
   const { description, error } = useMemo(() => {
@@ -74,43 +83,46 @@ export function CronBuilder() {
     }
   }, [expression])
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(expression)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setExpression(preset.content)
+    persist(preset.content)
+  }, [persist])
+
+  const handleDownload = useCallback(() => {
+    const content = `# Cron Expression: ${expression}\n# ${description || "Invalid expression"}\n# Next runs:\n${nextRuns.map(r => `# - ${r}`).join("\n")}\n\n${expression}\n`
+    const blob = new Blob([content], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "crontab.txt"
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [expression, description, nextRuns])
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download crontab", action: handleDownload },
+  ], [handleDownload])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+r", label: "Reset to every minute", action: () => handleExpressionChange("* * * * *") },
+    { key: "mod+shift+d", label: "Download crontab", action: handleDownload },
+  ], [handleExpressionChange, handleDownload])
+
+  useKeyboardShortcuts(shortcuts)
 
   return (
     <div className="h-full flex flex-col min-h-0 overflow-y-auto">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Cron Builder
-        </span>
-        <div className="flex items-center gap-1">
-          <select
-            onChange={(e) => {
-              if (e.target.value) setExpression(e.target.value)
-              e.target.value = ""
-            }}
-            defaultValue=""
-            className="h-6 text-xs bg-transparent border border-border rounded px-1.5 text-foreground outline-none"
-          >
-            <option value="" disabled>
-              Presets…
-            </option>
-            {PRESETS.map((p) => (
-              <option key={p.value} value={p.value}>
-                {p.label}
-              </option>
-            ))}
-          </select>
-          <div className="w-px h-4 bg-border mx-0.5" />
-          <Button variant="ghost" size="xs" onClick={handleCopy} title="Copy expression">
-            {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-          </Button>
-        </div>
-      </div>
+      <ToolToolbar
+        title="Cron Builder"
+        status={error ? { type: "error", label: error } : description ? { type: "info", label: description } : null}
+        copyValue={expression}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={CRON_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
 
       <div className="p-4 space-y-6 max-w-2xl mx-auto w-full">
         {/* Expression input */}
@@ -120,7 +132,7 @@ export function CronBuilder() {
           </label>
           <input
             value={expression}
-            onChange={(e) => setExpression(e.target.value)}
+            onChange={(e) => handleExpressionChange(e.target.value)}
             className="w-full h-10 text-lg font-mono bg-transparent border border-border rounded-md px-3 text-foreground outline-none text-center tracking-widest"
             placeholder="* * * * *"
             spellCheck={false}

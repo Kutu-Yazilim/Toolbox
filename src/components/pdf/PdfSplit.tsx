@@ -9,10 +9,17 @@ import { PdfPageThumbnail } from "@/components/pdf/PdfPageThumbnail"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { splitPdf, getPdfPageCount } from "@/utils/pdfEngine"
-import { formatFileSize, downloadBlob, validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
+import { formatFileSize, downloadBlob, downloadPdf, validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
 import { DownloadIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { PDF_SPLIT_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 const SPLIT_MODES: { value: SplitMode; label: string }[] = [
   { value: "range", label: "Page Ranges" },
@@ -22,16 +29,34 @@ const SPLIT_MODES: { value: SplitMode; label: string }[] = [
 
 const EVERY_N_OPTIONS = [1, 2, 5, 10] as const
 
+interface PdfSplitSettings {
+  mode: SplitMode
+  everyN: number
+}
+
+const DEFAULT_SETTINGS: PdfSplitSettings = {
+  mode: "range",
+  everyN: 2,
+}
+
 export function PdfSplit() {
   const [file, setFile] = useState<File | null>(null)
   const [pdfData, setPdfData] = useState<ArrayBuffer | null>(null)
   const [pageCount, setPageCount] = useState(0)
-  const [mode, setMode] = useState<SplitMode>("range")
+  const [settings, setSettings] = useLocalStorage<PdfSplitSettings>(
+    "pdf-tool-split-settings",
+    DEFAULT_SETTINGS,
+  )
   const [ranges, setRanges] = useState("")
-  const [everyN, setEveryN] = useState(2)
   const [selectedPages, setSelectedPages] = useState<Set<number>>(new Set())
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [results, setResults] = useState<Uint8Array[]>([])
+
+  const { shareUrl } = useShareableUrl<PdfSplitSettings>(
+    "pdf-split",
+    settings,
+    useCallback((restored: PdfSplitSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback(async (files: File[]) => {
     const picked = files[0]
@@ -63,22 +88,22 @@ export function PdfSplit() {
   }, [])
 
   const buildConfig = useCallback((): SplitConfig => {
-    switch (mode) {
+    switch (settings.mode) {
       case "range":
         return { mode: "range", ranges, everyN: 1 }
       case "every-n":
-        return { mode: "every-n", ranges: "", everyN }
+        return { mode: "every-n", ranges: "", everyN: settings.everyN }
       case "extract": {
         const sorted = Array.from(selectedPages).sort((a, b) => a - b)
         const rangeStr = sorted.map((i) => String(i + 1)).join(",")
         return { mode: "extract", ranges: rangeStr, everyN: 1 }
       }
     }
-  }, [mode, ranges, everyN, selectedPages])
+  }, [settings.mode, ranges, settings.everyN, selectedPages])
 
   const canSplit = useCallback((): boolean => {
     if (!pdfData) return false
-    switch (mode) {
+    switch (settings.mode) {
       case "range":
         return ranges.trim().length > 0
       case "every-n":
@@ -86,7 +111,7 @@ export function PdfSplit() {
       case "extract":
         return selectedPages.size > 0
     }
-  }, [pdfData, mode, ranges, selectedPages])
+  }, [pdfData, settings.mode, ranges, selectedPages])
 
   const handleSplit = useCallback(async () => {
     if (!pdfData || !canSplit()) return
@@ -145,6 +170,12 @@ export function PdfSplit() {
     downloadBlob(blob, `${baseName}_split.zip`)
   }, [results, file])
 
+  const handleDownloadSingle = useCallback(() => {
+    if (results.length === 1 && file) {
+      downloadPdf(results[0], `${file.name.replace(/\.pdf$/i, "")}_split.pdf`)
+    }
+  }, [results, file])
+
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResults([])
@@ -162,8 +193,44 @@ export function PdfSplit() {
     })
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<PdfSplitSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Split PDF", action: handleSplit },
+    { key: "mod+s", label: "Download result", action: results.length > 1 ? handleDownloadZip : handleDownloadSingle },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = []
+  if (results.length === 1) {
+    exportOptions.push({ label: "Download as PDF", action: handleDownloadSingle })
+  }
+  if (results.length > 1) {
+    exportOptions.push({ label: "Download as ZIP", action: handleDownloadZip })
+  }
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="Split PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={PDF_SPLIT_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={["application/pdf"]}
         acceptedExtensions={[".pdf"]}
@@ -187,10 +254,10 @@ export function PdfSplit() {
             {SPLIT_MODES.map((m) => (
               <button
                 key={m.value}
-                onClick={() => setMode(m.value)}
+                onClick={() => setSettings((prev) => ({ ...prev, mode: m.value }))}
                 className={cn(
                   "px-3 py-1.5 rounded-full text-sm font-medium transition-colors",
-                  mode === m.value
+                  settings.mode === m.value
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted/50 text-muted-foreground hover:bg-muted"
                 )}
@@ -201,7 +268,7 @@ export function PdfSplit() {
           </div>
 
           {/* Mode-specific controls */}
-          {mode === "range" && (
+          {settings.mode === "range" && (
             <div className="space-y-1.5">
               <label className="text-sm text-muted-foreground">
                 Page ranges (e.g. 1-3, 5, 7-10)
@@ -216,14 +283,14 @@ export function PdfSplit() {
             </div>
           )}
 
-          {mode === "every-n" && (
+          {settings.mode === "every-n" && (
             <div className="space-y-1.5">
               <label className="text-sm text-muted-foreground">
                 Split every N pages
               </label>
               <select
-                value={everyN}
-                onChange={(e) => setEveryN(Number(e.target.value))}
+                value={settings.everyN}
+                onChange={(e) => setSettings((prev) => ({ ...prev, everyN: Number(e.target.value) }))}
                 className="px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
                 {EVERY_N_OPTIONS.map((n) => (
@@ -235,7 +302,7 @@ export function PdfSplit() {
             </div>
           )}
 
-          {mode === "extract" && (
+          {settings.mode === "extract" && (
             <p className="text-sm text-muted-foreground">
               Click pages to select them for extraction
               {selectedPages.size > 0 && (
@@ -251,12 +318,12 @@ export function PdfSplit() {
             {Array.from({ length: pageCount }, (_, i) => (
               <button
                 key={i}
-                onClick={() => mode === "extract" && togglePage(i)}
-                disabled={mode !== "extract"}
+                onClick={() => settings.mode === "extract" && togglePage(i)}
+                disabled={settings.mode !== "extract"}
                 className={cn(
                   "relative rounded-lg overflow-hidden border-2 transition-all",
-                  mode === "extract" && "cursor-pointer hover:opacity-90",
-                  mode === "extract" && selectedPages.has(i)
+                  settings.mode === "extract" && "cursor-pointer hover:opacity-90",
+                  settings.mode === "extract" && selectedPages.has(i)
                     ? "ring-2 ring-primary border-primary"
                     : "border-transparent"
                 )}

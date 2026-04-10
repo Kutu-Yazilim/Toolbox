@@ -1,9 +1,15 @@
 "use client"
 
 import { useState, useMemo, useCallback } from "react"
-import { CopyIcon, CheckIcon, InfoIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { InfoIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { GIT_COMMAND_PRESETS } from "./gitCommandPresets"
 
 // ─── Types & Constants ──────────────────────────────────────────────────────
 
@@ -398,34 +404,77 @@ function getDefaultState(opId: OperationId): FlagState {
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function GitCommandBuilder() {
-  const [selectedOp, setSelectedOp] = useState<OperationId>("commit")
-  const [flagState, setFlagState] = useState<FlagState>(() => getDefaultState("commit"))
-  const [copied, setCopied] = useState(false)
+  const [stored, setStored] = useLocalStorage<{ op: OperationId; flags: FlagState }>("git-command-builder", {
+    op: "commit",
+    flags: getDefaultState("commit"),
+  })
+
+  const [selectedOp, setSelectedOp] = useState<OperationId>(stored.op)
+  const [flagState, setFlagState] = useState<FlagState>(stored.flags)
 
   const operation = OPERATION_MAP.get(selectedOp)!
 
   const command = useMemo(() => buildCommand(selectedOp, flagState), [selectedOp, flagState])
 
+  const { shareUrl } = useShareableUrl("git-command", { op: selectedOp, flags: flagState }, (restored) => {
+    setSelectedOp(restored.op)
+    setFlagState(restored.flags)
+    setStored(restored)
+  })
+
   const switchOperation = useCallback((opId: OperationId) => {
     setSelectedOp(opId)
-    setFlagState(getDefaultState(opId))
-  }, [])
+    const defaults = getDefaultState(opId)
+    setFlagState(defaults)
+    setStored({ op: opId, flags: defaults })
+  }, [setStored])
 
   const setFlag = useCallback((id: string, value: string | boolean) => {
-    setFlagState((prev) => ({ ...prev, [id]: value }))
-  }, [])
+    setFlagState((prev) => {
+      const next = { ...prev, [id]: value }
+      setStored({ op: selectedOp, flags: next })
+      return next
+    })
+  }, [selectedOp, setStored])
 
   const applyRecipe = useCallback((recipe: Recipe) => {
     setSelectedOp(recipe.operationId)
     const base = getDefaultState(recipe.operationId)
-    setFlagState({ ...base, ...recipe.state })
-  }, [])
+    const flags = { ...base, ...recipe.state }
+    setFlagState(flags)
+    setStored({ op: recipe.operationId, flags })
+  }, [setStored])
 
-  const copyCommand = useCallback(() => {
-    navigator.clipboard.writeText(command)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setSelectedOp(data.op)
+    const base = getDefaultState(data.op)
+    const flags = { ...base, ...data.flags }
+    setFlagState(flags)
+    setStored({ op: data.op, flags })
+  }, [setStored])
+
+  const handleDownload = useCallback(() => {
+    const content = `#!/bin/bash\n# Generated git command\n${command}\n`
+    const blob = new Blob([content], { type: "text/x-shellscript" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "git-command.sh"
+    a.click()
+    URL.revokeObjectURL(url)
   }, [command])
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download as script", action: handleDownload },
+  ], [handleDownload])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy command", action: () => navigator.clipboard.writeText(command) },
+    { key: "mod+shift+d", label: "Download script", action: handleDownload },
+  ], [command, handleDownload])
+
+  useKeyboardShortcuts(shortcuts)
 
   // Determine which flags are disabled due to exclusion rules
   const disabledFlags = useMemo(() => {
@@ -447,7 +496,18 @@ export function GitCommandBuilder() {
   }, [operation.flags, flagState])
 
   return (
-    <div className="flex flex-col gap-4 p-4">
+    <div className="flex flex-col gap-0">
+      <ToolToolbar
+        title="Git Command Builder"
+        copyValue={command}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={GIT_COMMAND_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
+      <div className="flex flex-col gap-4 p-4">
       {/* ── Info bar ───────────────────────────────────────────────── */}
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
         <InfoIcon className="h-4 w-4 shrink-0" />
@@ -494,19 +554,6 @@ export function GitCommandBuilder() {
       {/* ── Command preview ────────────────────────────────────────── */}
       <div className="flex items-center gap-3 rounded-md border border-border bg-muted/20 px-4 py-3">
         <code className="flex-1 font-mono text-sm text-foreground break-all">{command}</code>
-        <Button variant="ghost" size="sm" onClick={copyCommand} className="h-8 shrink-0 gap-1.5">
-          {copied ? (
-            <>
-              <CheckIcon className="h-3.5 w-3.5 text-green-400" />
-              <span className="text-xs text-green-400">Copied</span>
-            </>
-          ) : (
-            <>
-              <CopyIcon className="h-3.5 w-3.5" />
-              <span className="text-xs">Copy</span>
-            </>
-          )}
-        </Button>
       </div>
 
       {/* ── Common recipes ─────────────────────────────────────────── */}
@@ -527,6 +574,7 @@ export function GitCommandBuilder() {
             </button>
           ))}
         </div>
+      </div>
       </div>
     </div>
   )

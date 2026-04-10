@@ -1,8 +1,14 @@
 "use client"
 
-import { useState, useMemo, useCallback } from "react"
+import { useState, useMemo, useCallback, useEffect } from "react"
 import { CopyIcon, CheckIcon, PlusIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { BOX_SHADOW_PRESETS } from "./presets"
 
 // ---------------------------------------------------------------------------
 // Types
@@ -106,8 +112,11 @@ function layerToFlutter(layer: ShadowLayer): string {
 // Component
 // ---------------------------------------------------------------------------
 
+type ShadowState = Omit<ShadowLayer, "id">[]
+
 export function BoxShadowGenerator() {
-  const [layers, setLayers] = useState<ShadowLayer[]>([createLayer()])
+  const [savedLayers, setSavedLayers] = useLocalStorage<ShadowState>("box-shadow-state", [{ ...DEFAULT_LAYER }])
+  const [layers, setLayers] = useState<ShadowLayer[]>(() => savedLayers.map(l => createLayer(l)))
   const [copied, setCopied] = useState<CopiedKey>(null)
 
   const updateLayer = useCallback((id: number, patch: Partial<Omit<ShadowLayer, "id">>) => {
@@ -143,8 +152,65 @@ export function BoxShadowGenerator() {
     [cssSnippet, flutterSnippet],
   )
 
+  // Persist to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSavedLayers(layers.map(({ id, ...rest }) => rest))
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [layers, setSavedLayers])
+
+  // Shareable URL
+  const shareableState = useMemo(() => layers.map(({ id, ...rest }) => rest), [layers])
+  const { shareUrl } = useShareableUrl("box-shadow-generator", shareableState, useCallback((state: ShadowState) => {
+    setLayers(state.map(l => createLayer(l)))
+  }, []))
+
+  // Preset handling
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content) as ShadowState
+    setLayers(data.map(l => createLayer(l)))
+  }, [])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    { label: "Copy CSS", action: () => navigator.clipboard.writeText(cssSnippet) },
+    { label: "Copy Flutter", action: () => navigator.clipboard.writeText(flutterSnippet) },
+    {
+      label: "Download CSS",
+      action: () => {
+        const blob = new Blob([cssSnippet], { type: "text/css" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "box-shadow.css"
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [cssSnippet, flutterSnippet])
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy CSS", action: () => navigator.clipboard.writeText(cssSnippet) },
+    { key: "mod+shift+f", label: "Copy Flutter", action: () => navigator.clipboard.writeText(flutterSnippet) },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+  ], [cssSnippet, flutterSnippet, shareUrl])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="flex h-full gap-4 overflow-hidden p-4">
+    <div className="flex flex-col h-full overflow-hidden">
+      <ToolToolbar
+        title="Box Shadow Generator"
+        copyValue={cssSnippet}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={BOX_SHADOW_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex flex-1 gap-4 overflow-hidden p-4">
       {/* Left panel – controls */}
       <div className="flex w-2/5 min-w-0 flex-col gap-3 overflow-y-auto pr-1">
         <div className="flex items-center justify-between">
@@ -271,6 +337,7 @@ export function BoxShadowGenerator() {
             {flutterSnippet}
           </pre>
         </div>
+      </div>
       </div>
     </div>
   )

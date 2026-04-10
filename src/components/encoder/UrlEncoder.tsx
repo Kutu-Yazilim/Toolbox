@@ -1,63 +1,110 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
-    CopyIcon,
-    CheckIcon,
     AlertCircleIcon,
     ArrowDownIcon,
     ArrowUpIcon,
-    BookOpenIcon,
 } from "lucide-react"
 import { urlEncode, urlDecode } from "@/utils/encoderUtils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { URL_PRESETS } from "./presets"
 
-const EXAMPLE_INPUT = `https://example.com/search?q=hello world&lang=en&filter=name="test"&redirect=https://other.com/path`
+interface UrlEncoderState {
+    input: string
+    output: string
+    urlMode: "component" | "uri"
+}
+
+const DEFAULT_STATE: UrlEncoderState = { input: "", output: "", urlMode: "component" }
 
 export function UrlEncoder() {
-    const [input, setInput] = useState("")
-    const [output, setOutput] = useState("")
+    const [state, setState] = useLocalStorage<UrlEncoderState>("url-encoder", DEFAULT_STATE)
     const [error, setError] = useState<string | null>(null)
-    const [copied, setCopied] = useState<"input" | "output" | null>(null)
-    const [urlMode, setUrlMode] = useState<"component" | "uri">("component")
+
+    const { shareUrl } = useShareableUrl("url-encoder", state, (restored) => {
+        setState(restored)
+        setError(null)
+    })
+
+    const { dropzoneProps, isDragging } = useFileImport({
+        accept: [".txt", ".url"],
+        onImport: (content) => {
+            setState(prev => ({ ...prev, input: content }))
+            setError(null)
+        },
+    })
 
     const handleEncode = useCallback(() => {
         setError(null)
         try {
-            setOutput(urlEncode(input, urlMode))
+            setState(prev => ({ ...prev, output: urlEncode(prev.input, prev.urlMode) }))
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : "Encoding failed")
         }
-    }, [input, urlMode])
+    }, [setState])
 
     const handleDecode = useCallback(() => {
         setError(null)
         try {
-            setOutput(urlDecode(input, urlMode))
+            setState(prev => ({ ...prev, output: urlDecode(prev.input, prev.urlMode) }))
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : "Decoding failed")
         }
-    }, [input, urlMode])
+    }, [setState])
 
     const handleSwap = useCallback(() => {
-        setInput(output)
-        setOutput(input)
-    }, [input, output])
+        setState(prev => ({ ...prev, input: prev.output, output: prev.input }))
+    }, [setState])
 
-    const handleCopy = async (text: string, which: "input" | "output") => {
-        await navigator.clipboard.writeText(text)
-        setCopied(which)
-        setTimeout(() => setCopied(null), 2000)
-    }
+    const shortcuts: Shortcut[] = useMemo(() => [
+        { key: "mod+shift+e", label: "Encode", action: handleEncode },
+        { key: "mod+shift+d", label: "Decode", action: handleDecode },
+        { key: "mod+shift+s", label: "Swap input/output", action: handleSwap },
+    ], [handleEncode, handleDecode, handleSwap])
+
+    useKeyboardShortcuts(shortcuts)
+
+    const exportOptions: ExportOption[] = useMemo(() => [
+        {
+            label: "Download as .txt",
+            action: () => {
+                const blob = new Blob([state.output], { type: "text/plain" })
+                const a = document.createElement("a")
+                a.href = URL.createObjectURL(blob)
+                a.download = "url-encoded-output.txt"
+                a.click()
+                URL.revokeObjectURL(a.href)
+            },
+        },
+    ], [state.output])
+
+    const handlePresetSelect = useCallback((preset: Preset) => {
+        setState(prev => ({ ...prev, input: preset.content, output: "" }))
+        setError(null)
+    }, [setState])
 
     return (
-        <div className="h-full flex flex-col min-h-0">
+        <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+            {isDragging && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+                    <span className="text-sm font-medium text-primary">Drop file to import</span>
+                </div>
+            )}
+
             {/* URL sub-mode toggle */}
             <div className="flex items-center gap-1 px-3 h-8 border-b border-border flex-shrink-0 bg-muted/10">
                 <button
-                    onClick={() => setUrlMode("component")}
+                    onClick={() => setState(prev => ({ ...prev, urlMode: "component" }))}
                     className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                        urlMode === "component"
+                        state.urlMode === "component"
                             ? "bg-muted text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -65,9 +112,9 @@ export function UrlEncoder() {
                     component
                 </button>
                 <button
-                    onClick={() => setUrlMode("uri")}
+                    onClick={() => setState(prev => ({ ...prev, urlMode: "uri" }))}
                     className={`px-2 py-0.5 rounded text-[10px] font-mono transition-colors ${
-                        urlMode === "uri"
+                        state.urlMode === "uri"
                             ? "bg-muted text-foreground"
                             : "text-muted-foreground hover:text-foreground"
                     }`}
@@ -78,15 +125,18 @@ export function UrlEncoder() {
 
             {/* Input */}
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Input</span>
-                    <Button variant="ghost" size="xs" onClick={() => handleCopy(input, "input")}>
-                        {copied === "input" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                    </Button>
-                </div>
+                <ToolToolbar
+                    title="Input"
+                    copyValue={state.input}
+                    onShare={shareUrl}
+                    exportOptions={exportOptions}
+                    presets={URL_PRESETS}
+                    onPresetSelect={handlePresetSelect}
+                    shortcuts={shortcuts}
+                />
                 <textarea
-                    value={input}
-                    onChange={e => { setInput(e.target.value); setError(null) }}
+                    value={state.input}
+                    onChange={e => { setState(prev => ({ ...prev, input: e.target.value })); setError(null) }}
                     className="flex-1 w-full px-3 py-2 text-sm font-mono bg-transparent text-foreground resize-none outline-none"
                     placeholder="Enter text or URL to encode/decode..."
                     spellCheck={false}
@@ -106,11 +156,6 @@ export function UrlEncoder() {
                 <Button variant="ghost" size="xs" onClick={handleSwap} title="Swap input/output">
                     <span className="text-[10px]">Swap</span>
                 </Button>
-                <div className="w-px h-4 bg-border mx-0.5" />
-                <Button variant="ghost" size="xs" onClick={() => { setInput(EXAMPLE_INPUT); setOutput(""); setError(null) }} title="Load example">
-                    <BookOpenIcon className="h-3 w-3" />
-                    <span className="text-[10px]">Example</span>
-                </Button>
                 {error && (
                     <span className="text-destructive text-xs flex items-center gap-1 ml-2">
                         <AlertCircleIcon className="h-3 w-3" />
@@ -121,14 +166,9 @@ export function UrlEncoder() {
 
             {/* Output */}
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
-                    <Button variant="ghost" size="xs" onClick={() => handleCopy(output, "output")} disabled={!output}>
-                        {copied === "output" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                    </Button>
-                </div>
+                <ToolToolbar title="Output" copyValue={state.output} shortcuts={[]} />
                 <textarea
-                    value={output}
+                    value={state.output}
                     readOnly
                     className="flex-1 w-full px-3 py-2 text-sm font-mono bg-muted/10 text-foreground resize-none outline-none"
                     placeholder="Result will appear here..."

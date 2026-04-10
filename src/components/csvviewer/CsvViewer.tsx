@@ -13,6 +13,12 @@ import {
   UploadIcon,
   FileSpreadsheetIcon,
 } from "lucide-react"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { useFileImport } from "@/hooks/useFileImport"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CSV_PRESETS } from "./csvPresets"
 
 type Delimiter = "," | "\t" | ";" | "|"
 type SortDir = "asc" | "desc" | null
@@ -218,16 +224,39 @@ export function CsvViewer() {
     navigator.clipboard.writeText(serializeCSV(data, delimiter))
   }, [data, delimiter])
 
+  const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+    accept: [".csv", ".tsv", ".txt"],
+    onImport: (content) => loadData(content),
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    loadData(preset.content)
+  }, [loadData])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Download CSV", action: exportCSV },
+    { label: "Copy as JSON", action: exportJSON },
+    { label: "Copy as CSV", action: copyCSV },
+  ], [exportCSV, exportJSON, copyCSV])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+o", label: "Open File", action: openFilePicker },
+    { key: "mod+shift+c", label: "Copy CSV", action: copyCSV },
+    { key: "mod+s", label: "Download CSV", action: exportCSV },
+  ], [openFilePicker, copyCSV, exportCSV])
+
+  useKeyboardShortcuts(shortcuts)
+
   // Input mode
   if (data.length === 0) {
     return (
       <div className="h-full flex flex-col min-h-0">
-        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border bg-muted/20">
-          <FileSpreadsheetIcon className="h-4 w-4 text-muted-foreground" />
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            CSV Viewer
-          </span>
-        </div>
+        <ToolToolbar
+          title="CSV Viewer"
+          presets={CSV_PRESETS}
+          onPresetSelect={handlePresetSelect}
+          shortcuts={shortcuts}
+        />
         <div className="flex-1 flex items-center justify-center p-6 min-h-0">
           <div className="w-full max-w-2xl space-y-4">
             <div
@@ -298,6 +327,14 @@ export function CsvViewer() {
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="CSV Viewer"
+        status={{ type: "info", label: `${rowCount} rows x ${headers.length} cols` }}
+        exportOptions={exportOptions}
+        presets={CSV_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       {/* Toolbar */}
       <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border bg-muted/20 flex-shrink-0 flex-wrap">
         <div className="flex items-center gap-1.5">

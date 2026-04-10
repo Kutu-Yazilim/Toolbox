@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   SearchIcon,
@@ -11,6 +11,12 @@ import {
   InfoIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { HEADERS_PRESETS } from "./headersPresets"
 
 // TODO: Replace mock data with real backend API calls when available.
 // Browser-side JS cannot fetch arbitrary URLs' response headers due to
@@ -118,11 +124,11 @@ export function HttpHeadersInspector() {
   const [showResults, setShowResults] = useState(false)
   const [mobilePanel, setMobilePanel] = useState<"input" | "results">("input")
 
-  const handleInspect = () => {
+  const handleInspect = useCallback(() => {
     if (!url.trim()) return
     setShowResults(true)
     setMobilePanel("results")
-  }
+  }, [url])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleInspect()
@@ -132,8 +138,50 @@ export function HttpHeadersInspector() {
   const passedCount = securityChecks.filter((c) => c.present).length
   const totalCount = securityChecks.length
 
+  const headersText = useMemo(() =>
+    MOCK_HEADERS.map((h) => `${h.name}: ${h.value}`).join("\n"),
+  [])
+
+  const { shareUrl } = useShareableUrl("headers-inspector", { url }, (restored) => {
+    const s = restored as { url: string }
+    setUrl(s.url)
+  })
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy Headers", action: () => navigator.clipboard.writeText(headersText) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([headersText], { type: "text/plain" })
+      const u = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = u; a.download = "headers.txt"; a.click()
+      URL.revokeObjectURL(u)
+    }},
+  ], [headersText])
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setUrl(preset.content)
+  }, [])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Inspect", action: handleInspect },
+    { key: "mod+shift+c", label: "Copy Headers", action: () => navigator.clipboard.writeText(headersText) },
+  ], [handleInspect, headersText])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <ToolToolbar
+        title="HTTP Headers Inspector"
+        status={showResults ? { type: "success", label: `${passedCount}/${totalCount} security headers` } : null}
+        copyValue={showResults ? headersText : undefined}
+        onShare={shareUrl}
+        exportOptions={showResults ? exportOptions : undefined}
+        presets={HEADERS_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Mobile panel switcher */}
       <div className="md:hidden flex items-center gap-1 px-3 h-8 border-b border-border bg-muted/10 flex-shrink-0">
         <button
@@ -214,12 +262,6 @@ export function HttpHeadersInspector() {
           mobilePanel === "results" ? "flex" : "hidden md:flex"
         )}
       >
-        <div className="flex items-center px-3 h-8 border-b border-border bg-muted/20 flex-shrink-0">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            Response Headers
-          </span>
-        </div>
-
         {!showResults ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
@@ -323,6 +365,7 @@ export function HttpHeadersInspector() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

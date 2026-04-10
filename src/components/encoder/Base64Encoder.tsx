@@ -1,67 +1,117 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
-    CopyIcon,
-    CheckIcon,
     AlertCircleIcon,
     ArrowDownIcon,
     ArrowUpIcon,
-    BookOpenIcon,
 } from "lucide-react"
 import { base64Encode, base64Decode } from "@/utils/encoderUtils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { BASE64_PRESETS } from "./presets"
 
-const EXAMPLE_INPUT = `{"name":"Alice","email":"alice@example.com","roles":["admin","user"]}`
+interface Base64State {
+    input: string
+    output: string
+}
+
+const DEFAULT_STATE: Base64State = { input: "", output: "" }
 
 export function Base64Encoder() {
-    const [input, setInput] = useState("")
-    const [output, setOutput] = useState("")
+    const [state, setState] = useLocalStorage<Base64State>("base64-encoder", DEFAULT_STATE)
     const [error, setError] = useState<string | null>(null)
-    const [copied, setCopied] = useState<"input" | "output" | null>(null)
+
+    const { shareUrl } = useShareableUrl("base64-encoder", state, (restored) => {
+        setState(restored)
+        setError(null)
+    })
+
+    const { dropzoneProps, isDragging } = useFileImport({
+        accept: [".txt", ".json", ".xml", ".csv", ".html"],
+        onImport: (content) => {
+            setState(prev => ({ ...prev, input: content }))
+            setError(null)
+        },
+    })
 
     const handleEncode = useCallback(() => {
         setError(null)
         try {
-            setOutput(base64Encode(input))
+            setState(prev => ({ ...prev, output: base64Encode(prev.input) }))
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : "Encoding failed")
         }
-    }, [input])
+    }, [setState])
 
     const handleDecode = useCallback(() => {
         setError(null)
         try {
-            setOutput(base64Decode(input))
+            setState(prev => ({ ...prev, output: base64Decode(prev.input) }))
         } catch (e: unknown) {
             setError(e instanceof Error ? e.message : "Decoding failed")
         }
-    }, [input])
+    }, [setState])
 
     const handleSwap = useCallback(() => {
-        setInput(output)
-        setOutput(input)
-    }, [input, output])
+        setState(prev => ({ input: prev.output, output: prev.input }))
+    }, [setState])
 
-    const handleCopy = async (text: string, which: "input" | "output") => {
-        await navigator.clipboard.writeText(text)
-        setCopied(which)
-        setTimeout(() => setCopied(null), 2000)
-    }
+    const shortcuts: Shortcut[] = useMemo(() => [
+        { key: "mod+shift+e", label: "Encode", action: handleEncode },
+        { key: "mod+shift+d", label: "Decode", action: handleDecode },
+        { key: "mod+shift+s", label: "Swap input/output", action: handleSwap },
+    ], [handleEncode, handleDecode, handleSwap])
+
+    useKeyboardShortcuts(shortcuts)
+
+    const exportOptions: ExportOption[] = useMemo(() => [
+        {
+            label: "Download as .txt",
+            action: () => {
+                const blob = new Blob([state.output], { type: "text/plain" })
+                const a = document.createElement("a")
+                a.href = URL.createObjectURL(blob)
+                a.download = "base64-output.txt"
+                a.click()
+                URL.revokeObjectURL(a.href)
+            },
+        },
+    ], [state.output])
+
+    const handlePresetSelect = useCallback((preset: Preset) => {
+        setState({ input: preset.content, output: "" })
+        setError(null)
+    }, [setState])
 
     return (
-        <div className="h-full flex flex-col min-h-0">
+        <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+            {isDragging && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+                    <span className="text-sm font-medium text-primary">Drop file to import</span>
+                </div>
+            )}
+
             {/* Input */}
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Input</span>
-                    <Button variant="ghost" size="xs" onClick={() => handleCopy(input, "input")}>
-                        {copied === "input" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                    </Button>
-                </div>
+                <ToolToolbar
+                    title="Input"
+                    copyValue={state.input}
+                    onShare={shareUrl}
+                    exportOptions={exportOptions}
+                    presets={BASE64_PRESETS}
+                    onPresetSelect={handlePresetSelect}
+                    shortcuts={shortcuts}
+                />
                 <textarea
-                    value={input}
-                    onChange={e => { setInput(e.target.value); setError(null) }}
+                    value={state.input}
+                    onChange={e => { setState(prev => ({ ...prev, input: e.target.value })); setError(null) }}
                     className="flex-1 w-full px-3 py-2 text-sm font-mono bg-transparent text-foreground resize-none outline-none"
                     placeholder="Enter text to encode/decode..."
                     spellCheck={false}
@@ -81,11 +131,6 @@ export function Base64Encoder() {
                 <Button variant="ghost" size="xs" onClick={handleSwap} title="Swap input/output">
                     <span className="text-[10px]">Swap</span>
                 </Button>
-                <div className="w-px h-4 bg-border mx-0.5" />
-                <Button variant="ghost" size="xs" onClick={() => { setInput(EXAMPLE_INPUT); setOutput(""); setError(null) }} title="Load example">
-                    <BookOpenIcon className="h-3 w-3" />
-                    <span className="text-[10px]">Example</span>
-                </Button>
                 {error && (
                     <span className="text-destructive text-xs flex items-center gap-1 ml-2">
                         <AlertCircleIcon className="h-3 w-3" />
@@ -96,14 +141,9 @@ export function Base64Encoder() {
 
             {/* Output */}
             <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex items-center justify-between px-3 h-7 border-b border-border flex-shrink-0">
-                    <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Output</span>
-                    <Button variant="ghost" size="xs" onClick={() => handleCopy(output, "output")} disabled={!output}>
-                        {copied === "output" ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                    </Button>
-                </div>
+                <ToolToolbar title="Output" copyValue={state.output} shortcuts={[]} />
                 <textarea
-                    value={output}
+                    value={state.output}
                     readOnly
                     className="flex-1 w-full px-3 py-2 text-sm font-mono bg-muted/10 text-foreground resize-none outline-none"
                     placeholder="Result will appear here..."

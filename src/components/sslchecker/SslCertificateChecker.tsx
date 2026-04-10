@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   SearchIcon,
@@ -12,6 +12,11 @@ import {
   AlertTriangleIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { SSL_PRESETS } from "./sslPresets"
 
 // TODO: Replace mock data with real backend API calls when available.
 // Browser-side JS cannot access TLS certificate details due to CORS and
@@ -115,15 +120,30 @@ export function SslCertificateChecker() {
   const [expandedCerts, setExpandedCerts] = useState<Set<number>>(new Set([2]))
   const [mobilePanel, setMobilePanel] = useState<"input" | "results">("input")
 
-  const handleCheck = () => {
+  const handleCheck = useCallback(() => {
     if (!domain.trim()) return
     setShowResults(true)
     setMobilePanel("results")
-  }
+  }, [domain])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") handleCheck()
   }
+
+  const { shareUrl } = useShareableUrl("ssl-checker", { domain }, (restored) => {
+    const s = restored as { domain: string }
+    setDomain(s.domain)
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setDomain(preset.content)
+  }, [])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Check Certificate", action: handleCheck },
+  ], [handleCheck])
+
+  useKeyboardShortcuts(shortcuts)
 
   const toggleCert = (index: number) => {
     setExpandedCerts((prev) => {
@@ -141,7 +161,16 @@ export function SslCertificateChecker() {
   const expiryDays = daysUntil(leafCert.validTo)
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <ToolToolbar
+        title="SSL Certificate Checker"
+        status={showResults ? { type: "success", label: domain } : null}
+        onShare={shareUrl}
+        presets={SSL_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Mobile panel switcher */}
       <div className="md:hidden flex items-center gap-1 px-3 h-8 border-b border-border bg-muted/10 flex-shrink-0">
         <button
@@ -222,12 +251,6 @@ export function SslCertificateChecker() {
           mobilePanel === "results" ? "flex" : "hidden md:flex"
         )}
       >
-        <div className="flex items-center px-3 h-8 border-b border-border bg-muted/20 flex-shrink-0">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            Certificate Details
-          </span>
-        </div>
-
         {!showResults ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
@@ -364,6 +387,7 @@ export function SslCertificateChecker() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

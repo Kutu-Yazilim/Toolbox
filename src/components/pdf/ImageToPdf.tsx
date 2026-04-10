@@ -13,11 +13,25 @@ import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { imagesToPdf } from "@/utils/pdfConverters"
+import { downloadPdf } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { IMAGE_TO_PDF_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 type PageSizeOption = "fit" | "a4" | "letter"
 type OrientationOption = "portrait" | "landscape" | "auto"
 type MarginOption = "none" | "small" | "normal"
+
+interface ImageToPdfSettings {
+  pageSize: PageSizeOption
+  orientation: OrientationOption
+  margin: MarginOption
+}
 
 const PAGE_SIZE_OPTIONS: { value: PageSizeOption; label: string }[] = [
   { value: "fit", label: "Fit to image" },
@@ -73,14 +87,27 @@ function OptionGroup<T extends string>({
   )
 }
 
+const DEFAULT_SETTINGS: ImageToPdfSettings = {
+  pageSize: "fit",
+  orientation: "auto",
+  margin: "none",
+}
+
 export function ImageToPdf({ toolId }: { toolId: PdfToolId }) {
   const toolDef = getToolDefinition(toolId)!
   const [images, setImages] = useState<PdfImageData[]>([])
-  const [pageSize, setPageSize] = useState<PageSizeOption>("fit")
-  const [orientation, setOrientation] = useState<OrientationOption>("auto")
-  const [margin, setMargin] = useState<MarginOption>("none")
+  const [settings, setSettings] = useLocalStorage<ImageToPdfSettings>(
+    `pdf-tool-${toolId}-settings`,
+    DEFAULT_SETTINGS,
+  )
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Uint8Array | null>(null)
+
+  const { shareUrl } = useShareableUrl<ImageToPdfSettings>(
+    toolId,
+    settings,
+    useCallback((restored: ImageToPdfSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback((files: File[]) => {
     setResult(null)
@@ -122,7 +149,11 @@ export function ImageToPdf({ toolId }: { toolId: PdfToolId }) {
     })
 
     try {
-      const options: PageOptions = { pageSize, orientation, margin }
+      const options: PageOptions = {
+        pageSize: settings.pageSize,
+        orientation: settings.orientation,
+        margin: settings.margin,
+      }
       const pdfBytes = await imagesToPdf(images, options)
       setResult(pdfBytes)
       setProcessing({
@@ -139,15 +170,53 @@ export function ImageToPdf({ toolId }: { toolId: PdfToolId }) {
         error: err instanceof Error ? err.message : "Conversion failed",
       })
     }
-  }, [images, pageSize, orientation, margin])
+  }, [images, settings])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadPdf(result, "images-to-pdf.pdf")
+    }
+  }, [result])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<ImageToPdfSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title={toolId === "jpg-to-pdf" ? "JPG to PDF" : "PNG to PDF"}
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={IMAGE_TO_PDF_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={toolDef.acceptedMimeTypes}
         acceptedExtensions={toolDef.acceptedExtensions}
@@ -162,20 +231,20 @@ export function ImageToPdf({ toolId }: { toolId: PdfToolId }) {
             <OptionGroup
               label="Page Size"
               options={PAGE_SIZE_OPTIONS}
-              value={pageSize}
-              onChange={setPageSize}
+              value={settings.pageSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, pageSize: v }))}
             />
             <OptionGroup
               label="Orientation"
               options={ORIENTATION_OPTIONS}
-              value={orientation}
-              onChange={setOrientation}
+              value={settings.orientation}
+              onChange={(v) => setSettings((prev) => ({ ...prev, orientation: v }))}
             />
             <OptionGroup
               label="Margins"
               options={MARGIN_OPTIONS}
-              value={margin}
-              onChange={setMargin}
+              value={settings.margin}
+              onChange={(v) => setSettings((prev) => ({ ...prev, margin: v }))}
             />
           </div>
 

@@ -7,14 +7,19 @@ import {
   PlusIcon,
   XIcon,
   UploadIcon,
-  DownloadIcon,
-  CopyIcon,
-  CheckIcon,
   SearchIcon,
   BookOpenIcon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { ENV_EDITOR_PRESETS } from "./envEditorPresets"
 
 // ─── Types & Constants ──────────────────────────────────────────────────────
 
@@ -146,12 +151,19 @@ function buildDiff(left: EnvEntry[], right: EnvEntry[]): DiffRow[] {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function EnvEditor() {
-  const [mode, setMode] = useState<Mode>("single")
+  const [stored, setStored] = useLocalStorage("env-editor", { rawInput: "", mode: "single" as Mode })
+  const [mode, setMode] = useState<Mode>(stored.mode)
 
   // Single mode state
-  const [rawInput, setRawInput] = useState("")
-  const [entries, setEntries] = useState<EnvEntry[]>([])
-  const [hasParsed, setHasParsed] = useState(false)
+  const [rawInput, setRawInput] = useState(stored.rawInput)
+  const [entries, setEntries] = useState<EnvEntry[]>(() => {
+    if (stored.rawInput) {
+      const lines = parseEnv(stored.rawInput)
+      return toEntries(lines)
+    }
+    return []
+  })
+  const [hasParsed, setHasParsed] = useState(!!stored.rawInput)
   const [filter, setFilter] = useState("")
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{
@@ -174,6 +186,72 @@ export function EnvEditor() {
   const leftFileRef = useRef<HTMLInputElement>(null)
   const rightFileRef = useRef<HTMLInputElement>(null)
 
+  const exportString = useMemo(() => entriesToEnvString(entries), [entries])
+
+  const { shareUrl } = useShareableUrl("env-editor", { rawInput, mode }, (restored) => {
+    setRawInput(restored.rawInput)
+    setMode(restored.mode)
+    if (restored.rawInput) {
+      const lines = parseEnv(restored.rawInput)
+      setEntries(toEntries(lines))
+      setHasParsed(true)
+    }
+    setStored(restored)
+  })
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".env", ".txt"],
+    onImport: (content) => {
+      setRawInput(content)
+      const lines = parseEnv(content)
+      setEntries(toEntries(lines))
+      setHasParsed(true)
+      setRevealedIds(new Set())
+      setStored({ rawInput: content, mode })
+    },
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setRawInput(preset.content)
+    const lines = parseEnv(preset.content)
+    setEntries(toEntries(lines))
+    setHasParsed(true)
+    setRevealedIds(new Set())
+    setStored({ rawInput: preset.content, mode })
+  }, [mode, setStored])
+
+  const handleExport = useCallback(() => {
+    const blob = new Blob([exportString], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = ".env"
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [exportString])
+
+  const handleCopy = useCallback(() => {
+    navigator.clipboard.writeText(exportString)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1500)
+  }, [exportString])
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download .env", action: handleExport },
+  ], [handleExport])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+e", label: "Export .env", action: handleExport },
+    { key: "mod+shift+c", label: "Copy all", action: handleCopy },
+    { key: "mod+shift+m", label: "Toggle mode", action: () => {
+      const newMode = mode === "single" ? "compare" : "single"
+      setMode(newMode as Mode)
+      setStored({ rawInput, mode: newMode as Mode })
+    }},
+  ], [handleExport, handleCopy, mode, rawInput, setStored])
+
+  useKeyboardShortcuts(shortcuts)
+
   // ─── Single mode handlers ────────────────────────────────────────────
 
   const handleParse = useCallback(() => {
@@ -182,7 +260,8 @@ export function EnvEditor() {
     setHasParsed(true)
     setRevealedIds(new Set())
     setEditingCell(null)
-  }, [rawInput])
+    setStored({ rawInput, mode })
+  }, [rawInput, mode, setStored])
 
   const handleFileUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,6 +289,7 @@ export function EnvEditor() {
       setEntries(toEntries(lines))
       setHasParsed(true)
       setRevealedIds(new Set())
+      setStored({ rawInput: EXAMPLE_ENV, mode })
     } else {
       setLeftRaw(EXAMPLE_ENV_LEFT)
       setRightRaw(EXAMPLE_ENV_RIGHT)
@@ -218,7 +298,7 @@ export function EnvEditor() {
       setHasCompared(true)
       setCompareRevealed(new Set())
     }
-  }, [mode])
+  }, [mode, setStored])
 
   const toggleReveal = useCallback((id: string) => {
     setRevealedIds((prev) => {
@@ -254,24 +334,6 @@ export function EnvEditor() {
         e.key.toLowerCase().includes(q) || e.value.toLowerCase().includes(q),
     )
   }, [entries, filter])
-
-  const exportString = useMemo(() => entriesToEnvString(entries), [entries])
-
-  const handleExport = useCallback(() => {
-    const blob = new Blob([exportString], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = ".env"
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [exportString])
-
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(exportString)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
-  }, [exportString])
 
   // ─── Compare mode handlers ──────────────────────────────────────────
 
@@ -320,73 +382,70 @@ export function EnvEditor() {
   // ─── Render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-4">
-      {/* Top bar */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="bg-muted inline-flex rounded-lg p-[3px]">
-          <button
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-              mode === "single"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => setMode("single")}
-          >
-            Single
-          </button>
-          <button
-            className={cn(
-              "rounded-md px-3 py-1.5 text-sm font-medium transition-all",
-              mode === "compare"
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-            onClick={() => setMode("compare")}
-          >
-            Compare
-          </button>
-        </div>
-
-        <div className="flex-1" />
-
-        <Button variant="outline" size="sm" onClick={handleLoadExample}>
-          <BookOpenIcon />
-          Load Example
-        </Button>
-
-        {mode === "single" && (
+    <div className={`mx-auto flex w-full max-w-6xl flex-col gap-0 ${isDragging ? "ring-2 ring-primary ring-inset" : ""}`} {...dropzoneProps}>
+      <ToolToolbar
+        title=".env Editor"
+        status={hasParsed ? { type: "info", label: `${entries.length} entries` } : null}
+        copyValue={hasParsed ? exportString : undefined}
+        onShare={shareUrl}
+        exportOptions={hasParsed ? exportOptions : undefined}
+        presets={ENV_EDITOR_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+        actions={
           <>
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".env,.env.*,.txt"
-              className="hidden"
-              onChange={handleFileUpload}
-            />
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileRef.current?.click()}
-            >
-              <UploadIcon />
-              Upload
+            <div className="bg-muted inline-flex rounded-lg p-[2px]">
+              <button
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[10px] font-medium transition-all",
+                  mode === "single"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => { setMode("single"); setStored({ rawInput, mode: "single" }) }}
+              >
+                Single
+              </button>
+              <button
+                className={cn(
+                  "rounded-md px-2 py-0.5 text-[10px] font-medium transition-all",
+                  mode === "compare"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => { setMode("compare"); setStored({ rawInput, mode: "compare" }) }}
+              >
+                Compare
+              </button>
+            </div>
+            <div className="w-px h-4 bg-border mx-0.5" />
+            <Button variant="ghost" size="xs" onClick={handleLoadExample}>
+              <BookOpenIcon className="h-3 w-3" />
+              <span className="text-[10px]">Example</span>
             </Button>
-            {hasParsed && (
+            {mode === "single" && (
               <>
-                <Button variant="outline" size="sm" onClick={handleExport}>
-                  <DownloadIcon />
-                  Export
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleCopy}>
-                  {copied ? <CheckIcon /> : <CopyIcon />}
-                  {copied ? "Copied" : "Copy"}
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".env,.env.*,.txt"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <UploadIcon className="h-3 w-3" />
+                  <span className="text-[10px]">Upload</span>
                 </Button>
               </>
             )}
           </>
-        )}
-      </div>
+        }
+      />
+      <div className="p-4 flex flex-col gap-4">
 
       {/* Single mode */}
       {mode === "single" && (
@@ -743,6 +802,7 @@ export function EnvEditor() {
           )}
         </>
       )}
+      </div>
     </div>
   )
 }

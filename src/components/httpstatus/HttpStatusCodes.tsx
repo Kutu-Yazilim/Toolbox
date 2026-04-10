@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useCallback } from "react"
 import { SearchIcon, ChevronDownIcon, ChevronRightIcon } from "lucide-react"
 import {
   HTTP_STATUS_CODES,
@@ -9,10 +9,27 @@ import {
   type HttpStatusCategory,
   type HttpStatusCode,
 } from "@/data/httpStatusCodes"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { HTTP_STATUS_PRESETS } from "./httpStatusPresets"
 
 export function HttpStatusCodes() {
-  const [search, setSearch] = useState("")
+  const [stored, setStored] = useLocalStorage("http-status", { search: "" })
+  const [search, setSearch] = useState(stored.search)
   const [expanded, setExpanded] = useState<Set<number>>(new Set())
+
+  const { shareUrl } = useShareableUrl("http-status", { search }, (restored) => {
+    setSearch(restored.search)
+    setStored(restored)
+  })
+
+  const handleSearchChange = useCallback((val: string) => {
+    setSearch(val)
+    setStored({ search: val })
+  }, [setStored])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return HTTP_STATUS_CODES
@@ -48,26 +65,42 @@ export function HttpStatusCodes() {
     })
   }
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setSearch(preset.content)
+    setStored({ search: preset.content })
+  }, [setStored])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+k", label: "Focus search", action: () => {
+      const input = document.querySelector<HTMLInputElement>("[data-http-search]")
+      input?.focus()
+    }},
+    { key: "mod+shift+x", label: "Clear search", action: () => handleSearchChange("") },
+  ], [handleSearchChange])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
       {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          HTTP Status Codes
-        </span>
-        <span className="text-[10px] text-muted-foreground">
-          {filtered.length} codes
-        </span>
-      </div>
+      <ToolToolbar
+        title="HTTP Status Codes"
+        status={{ type: "info", label: `${filtered.length} codes` }}
+        onShare={shareUrl}
+        presets={HTTP_STATUS_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
 
       {/* Search */}
       <div className="px-3 py-2 border-b border-border flex-shrink-0">
         <div className="relative">
           <SearchIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <input
+            data-http-search
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by code, name, or description…"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search by code, name, or description..."
             className="w-full h-8 text-sm bg-transparent border border-border rounded-md pl-8 pr-3 text-foreground outline-none placeholder:text-muted-foreground"
             spellCheck={false}
           />

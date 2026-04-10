@@ -4,6 +4,13 @@ import { useState, useMemo, useCallback } from "react"
 import { CopyIcon, CheckIcon, InfoIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CHMOD_PRESETS } from "./chmodPresets"
 
 // ─── Types & Constants ──────────────────────────────────────────────────────
 
@@ -16,28 +23,12 @@ const PERM_VALUES = [4, 2, 1] as const
 
 type CopiedField = "numeric" | "symbolic" | "command" | null
 
-type Preset = {
-  numeric: string
-  description: string
-  matrix: PermMatrix
-}
-
 function numericToMatrix(numeric: string): PermMatrix {
   return numeric.split("").map((digit) => {
     const n = parseInt(digit, 10)
     return [!!(n & 4), !!(n & 2), !!(n & 1)]
   })
 }
-
-const PRESETS: Preset[] = [
-  { numeric: "644", description: "Default file" },
-  { numeric: "755", description: "Default dir / script" },
-  { numeric: "700", description: "Owner only" },
-  { numeric: "777", description: "Full access" },
-  { numeric: "600", description: "Owner read/write" },
-  { numeric: "750", description: "Group read/exec" },
-  { numeric: "444", description: "Read-only all" },
-].map((p) => ({ ...p, matrix: numericToMatrix(p.numeric) }))
 
 const DEFAULT_MATRIX = numericToMatrix("755")
 
@@ -59,15 +50,12 @@ function toSymbolic(matrix: PermMatrix): string {
     .join("")
 }
 
-function matricesEqual(a: PermMatrix, b: PermMatrix): boolean {
-  return a.every((row, ri) => row.every((val, ci) => val === b[ri][ci]))
-}
-
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export function ChmodCalculator() {
+  const [stored, setStored] = useLocalStorage("chmod-calculator", { numeric: "755" })
   const [matrix, setMatrix] = useState<PermMatrix>(
-    () => DEFAULT_MATRIX.map((row) => [...row]),
+    () => numericToMatrix(stored.numeric).map((row) => [...row]),
   )
   const [copiedField, setCopiedField] = useState<CopiedField>(null)
 
@@ -75,17 +63,31 @@ export function ChmodCalculator() {
   const symbolic = useMemo(() => toSymbolic(matrix), [matrix])
   const command = useMemo(() => `chmod ${numeric} filename`, [numeric])
 
-  const toggle = useCallback((row: number, col: number) => {
-    setMatrix((prev) =>
-      prev.map((r, ri) =>
-        ri === row ? r.map((v, ci) => (ci === col ? !v : v)) : [...r],
-      ),
-    )
-  }, [])
+  const { shareUrl } = useShareableUrl("chmod-calculator", { numeric }, (restored) => {
+    const m = numericToMatrix(restored.numeric)
+    setMatrix(m.map((row) => [...row]))
+    setStored({ numeric: restored.numeric })
+  })
 
-  const applyPreset = useCallback((preset: Preset) => {
-    setMatrix(preset.matrix.map((row) => [...row]))
-  }, [])
+  const toggle = useCallback((row: number, col: number) => {
+    setMatrix((prev) => {
+      const next = prev.map((r, ri) =>
+        ri === row ? r.map((v, ci) => (ci === col ? !v : v)) : [...r],
+      )
+      setStored({ numeric: toNumeric(next) })
+      return next
+    })
+  }, [setStored])
+
+  const applyNumeric = useCallback((num: string) => {
+    const m = numericToMatrix(num)
+    setMatrix(m.map((row) => [...row]))
+    setStored({ numeric: num })
+  }, [setStored])
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    applyNumeric(preset.content)
+  }, [applyNumeric])
 
   const copyToClipboard = useCallback(
     (text: string, field: CopiedField) => {
@@ -96,107 +98,142 @@ export function ChmodCalculator() {
     [],
   )
 
-  return (
-    <div className="flex h-full flex-col gap-4 p-4">
-      {/* ── Info bar ───────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
-        <InfoIcon className="h-4 w-4 shrink-0" />
-        Toggle permissions below or pick a preset
-      </div>
+  const handleDownload = useCallback(() => {
+    const content = `# Chmod: ${numeric}\n# Symbolic: ${symbolic}\n# Command: ${command}\n`
+    const blob = new Blob([content], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "chmod.txt"
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [numeric, symbolic, command])
 
-      {/* ── Permission grid ────────────────────────────────────────── */}
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Role
-              </th>
-              {PERMS.map((perm) => (
-                <th
-                  key={perm}
-                  className="px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                >
-                  {perm}
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download chmod info", action: handleDownload },
+  ], [handleDownload])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy command", action: () => copyToClipboard(command, "command") },
+    { key: "mod+shift+n", label: "Copy numeric", action: () => copyToClipboard(numeric, "numeric") },
+  ], [command, numeric, copyToClipboard])
+
+  useKeyboardShortcuts(shortcuts)
+
+  return (
+    <div className="flex h-full flex-col">
+      <ToolToolbar
+        title="Chmod Calculator"
+        status={{ type: "info", label: numeric }}
+        copyValue={command}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={CHMOD_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
+      <div className="flex flex-col gap-4 p-4 overflow-y-auto">
+        {/* ── Info bar ───────────────────────────────────────────────── */}
+        <div className="flex items-center gap-2 rounded-md border border-border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+          <InfoIcon className="h-4 w-4 shrink-0" />
+          Toggle permissions below or pick a preset
+        </div>
+
+        {/* ── Permission grid ────────────────────────────────────────── */}
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Role
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {ROLES.map((role, ri) => (
-              <tr key={role} className="border-t border-border">
-                <td className="px-3 py-2 text-sm font-medium text-foreground">
-                  {role}
-                </td>
-                {PERMS.map((_, ci) => (
-                  <td key={ci} className="px-3 py-2 text-center">
-                    <button
-                      onClick={() => toggle(ri, ci)}
-                      className={cn(
-                        "inline-flex h-10 w-14 items-center justify-center rounded-md font-mono text-sm font-semibold transition-colors",
-                        matrix[ri][ci]
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "bg-muted text-muted-foreground hover:bg-muted/80",
-                      )}
-                    >
-                      {matrix[ri][ci] ? PERM_CHARS[ci] : "-"}
-                    </button>
-                  </td>
+                {PERMS.map((perm) => (
+                  <th
+                    key={perm}
+                    className="px-3 py-2 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                  >
+                    {perm}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {ROLES.map((role, ri) => (
+                <tr key={role} className="border-t border-border">
+                  <td className="px-3 py-2 text-sm font-medium text-foreground">
+                    {role}
+                  </td>
+                  {PERMS.map((_, ci) => (
+                    <td key={ci} className="px-3 py-2 text-center">
+                      <button
+                        onClick={() => toggle(ri, ci)}
+                        className={cn(
+                          "inline-flex h-10 w-14 items-center justify-center rounded-md font-mono text-sm font-semibold transition-colors",
+                          matrix[ri][ci]
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80",
+                        )}
+                      >
+                        {matrix[ri][ci] ? PERM_CHARS[ci] : "-"}
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      {/* ── Output section ─────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2">
-        <OutputRow
-          label="Numeric"
-          value={numeric}
-          copied={copiedField === "numeric"}
-          onCopy={() => copyToClipboard(numeric, "numeric")}
-        />
-        <OutputRow
-          label="Symbolic"
-          value={symbolic}
-          copied={copiedField === "symbolic"}
-          onCopy={() => copyToClipboard(symbolic, "symbolic")}
-        />
-        <OutputRow
-          label="Command"
-          value={command}
-          copied={copiedField === "command"}
-          onCopy={() => copyToClipboard(command, "command")}
-        />
-      </div>
+        {/* ── Output section ─────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <OutputRow
+            label="Numeric"
+            value={numeric}
+            copied={copiedField === "numeric"}
+            onCopy={() => copyToClipboard(numeric, "numeric")}
+          />
+          <OutputRow
+            label="Symbolic"
+            value={symbolic}
+            copied={copiedField === "symbolic"}
+            onCopy={() => copyToClipboard(symbolic, "symbolic")}
+          />
+          <OutputRow
+            label="Command"
+            value={command}
+            copied={copiedField === "command"}
+            onCopy={() => copyToClipboard(command, "command")}
+          />
+        </div>
 
-      {/* ── Presets section ─────────────────────────────────────────── */}
-      <div className="flex flex-col gap-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-          Common Presets
-        </span>
-        <div className="flex flex-wrap gap-2">
-          {PRESETS.map((preset) => {
-            const active = matricesEqual(matrix, preset.matrix)
-            return (
-              <button
-                key={preset.numeric}
-                onClick={() => applyPreset(preset)}
-                className={cn(
-                  "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
-                  active
-                    ? "border-primary ring-primary bg-primary/10 text-primary"
-                    : "border-border bg-muted text-muted-foreground hover:border-muted-foreground hover:text-foreground",
-                )}
-              >
-                <span className="font-mono">{preset.numeric}</span>
-                <span className="ml-1.5 text-xs opacity-70">
-                  {preset.description}
-                </span>
-              </button>
-            )
-          })}
+        {/* ── Presets section ─────────────────────────────────────────── */}
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            Common Presets
+          </span>
+          <div className="flex flex-wrap gap-2">
+            {CHMOD_PRESETS.map((preset) => {
+              const active = numeric === preset.content
+              return (
+                <button
+                  key={preset.content}
+                  onClick={() => applyNumeric(preset.content)}
+                  className={cn(
+                    "rounded-md border px-3 py-1.5 text-sm font-medium transition-colors",
+                    active
+                      ? "border-primary ring-primary bg-primary/10 text-primary"
+                      : "border-border bg-muted text-muted-foreground hover:border-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <span className="font-mono">{preset.content}</span>
+                  <span className="ml-1.5 text-xs opacity-70">
+                    {preset.description}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
         </div>
       </div>
     </div>

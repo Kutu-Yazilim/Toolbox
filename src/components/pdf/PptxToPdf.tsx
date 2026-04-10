@@ -8,6 +8,8 @@ import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
 
 export function PptxToPdf() {
   const [file, setFile] = useState<File | null>(null)
@@ -18,8 +20,24 @@ export function PptxToPdf() {
     setProcessing(INITIAL_PROCESSING_STATE)
   }, [])
 
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: () => {} },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const toolbarStatus = processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="PPTX to PDF"
+        status={toolbarStatus}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={[
           "application/vnd.openxmlformats-officedocument.presentationml.presentation",

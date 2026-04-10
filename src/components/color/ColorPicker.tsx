@@ -18,6 +18,12 @@ import { ContrastChecker } from "./ContrastChecker"
 import { ColorBlindnessView } from "./ColorBlindnessView"
 import { ColorDetailPanel } from "./ColorDetailPanel"
 import { fetchColorNames } from "@/services/colorApi"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { COLOR_PICKER_PRESETS } from "./presets"
 
 const MAX_COLORS = 30
 const COLORS_PER_ROW = 10
@@ -43,6 +49,7 @@ function getInitialColors(): PaletteColor[] {
 }
 
 export function ColorPicker() {
+  const [savedColors, setSavedColors] = useLocalStorage<string[]>("color-picker-saved", [])
   const [colors, setColors] = useState<PaletteColor[]>(getInitialColors)
   const [harmony, setHarmony] = useState<ColorHarmony>("random")
   const [dragIndex, setDragIndex] = useState<number | null>(null)
@@ -314,8 +321,67 @@ export function ColorPicker() {
     return rows
   }, [colors])
 
+  // Persist color hex values to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSavedColors(colors.map(c => c.hex))
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [colors, setSavedColors])
+
+  // Shareable URL
+  const shareableHexes = useMemo(() => colors.map(c => c.hex), [colors])
+  const { shareUrl } = useShareableUrl("color-picker", shareableHexes, useCallback((hexes: string[]) => {
+    setColors(hexes.map(hex => ({ id: generateId(), hex, locked: false })))
+  }, []))
+
+  // Preset handling
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const hexes = JSON.parse(preset.content) as string[]
+    setColors(hexes.map(hex => ({ id: generateId(), hex, locked: false })))
+  }, [])
+
+  // Copy value: hex values joined
+  const copyValue = useMemo(() => colors.map(c => c.hex).join(", "), [colors])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    {
+      label: "Copy Hex Values",
+      action: () => navigator.clipboard.writeText(colors.map(c => c.hex).join(", ")),
+    },
+    {
+      label: "Copy CSS Variables",
+      action: () => {
+        const css = colors.map((c, i) => `  --color-${i + 1}: ${c.hex};`).join("\n")
+        navigator.clipboard.writeText(`:root {\n${css}\n}`)
+      },
+    },
+    {
+      label: "Copy JSON Array",
+      action: () => navigator.clipboard.writeText(JSON.stringify(colors.map(c => c.hex))),
+    },
+  ], [colors])
+
+  // ToolToolbar shortcuts (separate from existing keyboard handler)
+  const toolbarShortcuts = useMemo(() => [
+    { key: "mod+shift+c", label: "Copy Hex Values", action: () => navigator.clipboard.writeText(copyValue) },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+  ], [copyValue, shareUrl])
+
+  useKeyboardShortcuts(toolbarShortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Color Palette"
+        copyValue={copyValue}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={COLOR_PICKER_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={toolbarShortcuts}
+      />
       <PaletteToolbar
         harmony={harmony}
         onGenerate={generate}

@@ -1,14 +1,19 @@
 "use client"
 
-import { useState, useMemo, useCallback, useRef } from "react"
+import { useState, useMemo, useCallback, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   PlusIcon,
   Trash2Icon,
-  DownloadIcon,
   GripVerticalIcon,
 } from "lucide-react"
 import { toPng } from "html-to-image"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { PRIORITY_TIMELINE_PRESETS } from "./presets"
 import {
   type PriorityEntry,
   type WorkloadUnit,
@@ -61,7 +66,8 @@ const DEFAULT_ENTRIES: PriorityEntry[] = [
 ]
 
 export function PriorityTimeline() {
-  const [entries, setEntries] = useState<PriorityEntry[]>(DEFAULT_ENTRIES)
+  const [savedEntries, setSavedEntries] = useLocalStorage<PriorityEntry[]>("priority-timeline-state", DEFAULT_ENTRIES)
+  const [entries, setEntries] = useState<PriorityEntry[]>(savedEntries)
   const timelineRef = useRef<HTMLDivElement>(null)
 
   const addEntry = useCallback(() => {
@@ -134,20 +140,64 @@ export function PriorityTimeline() {
     a.click()
   }, [])
 
+  // Persist to localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => setSavedEntries(entries), 500)
+    return () => clearTimeout(timer)
+  }, [entries, setSavedEntries])
+
+  // Shareable URL
+  const { shareUrl } = useShareableUrl("priority-timeline", entries, useCallback((state: PriorityEntry[]) => {
+    setEntries(state)
+  }, []))
+
+  // Presets
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content) as Array<Omit<PriorityEntry, "id">>
+    setEntries(data.map(e => ({ ...e, id: nextId() })))
+  }, [])
+
+  // Export options
+  const exportOptions = useMemo(() => [
+    { label: "Export PNG", action: exportPng },
+    {
+      label: "Export JSON",
+      action: () => {
+        const blob = new Blob([JSON.stringify(entries, null, 2)], { type: "application/json" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = "priority-timeline.json"
+        a.click()
+        URL.revokeObjectURL(url)
+      },
+    },
+  ], [exportPng, entries])
+
+  // Keyboard shortcuts
+  const shortcuts = useMemo(() => [
+    { key: "mod+n", label: "Add Task", action: addEntry },
+    { key: "mod+e", label: "Export PNG", action: exportPng },
+    { key: "mod+shift+s", label: "Share URL", action: () => { shareUrl() } },
+  ], [addEntry, exportPng, shareUrl])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="h-full flex flex-col min-h-0">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-border flex-shrink-0">
-        <span className="text-sm font-medium text-muted-foreground mr-auto">
-          Priority &amp; Workload Mode
-        </span>
-        <Button variant="outline" size="sm" onClick={addEntry}>
-          <PlusIcon /> Add Task
-        </Button>
-        <Button variant="outline" size="sm" onClick={exportPng}>
-          <DownloadIcon /> Export PNG
-        </Button>
-      </div>
+      <ToolToolbar
+        title="Priority Timeline"
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={PRIORITY_TIMELINE_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+        actions={
+          <Button variant="outline" size="xs" onClick={addEntry}>
+            <PlusIcon className="h-3 w-3" /> Add Task
+          </Button>
+        }
+      />
 
       <div className="flex-1 min-h-0 overflow-auto p-4 flex flex-col gap-6">
         {/* Entry table */}

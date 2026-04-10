@@ -1,9 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { CopyIcon, CheckIcon, Trash2Icon, RefreshCwIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { UUID_PRESETS } from "./presets"
 
 // ─── Types & constants ──────────────────────────────────────────────────────
 
@@ -24,9 +31,7 @@ function generateUuidV4(): string {
 }
 
 function generateUuidV1(): string {
-  // Approximation of UUID v1 using timestamp and random node
   const now = Date.now()
-  // UUID epoch offset (Oct 15, 1582 to Jan 1, 1970 in 100ns intervals)
   const UUID_EPOCH_OFFSET = 0x01b21dd213814000n
   const timestamp = BigInt(now) * 10000n + UUID_EPOCH_OFFSET
 
@@ -55,12 +60,10 @@ function generateUuidV1(): string {
 }
 
 function generateUuidV7(): string {
-  // UUID v7: unix timestamp ms (48 bits) + version (4 bits) + random
   const now = Date.now()
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
 
-  // Set timestamp (first 48 bits)
   bytes[0] = (now / 2 ** 40) & 0xff
   bytes[1] = (now / 2 ** 32) & 0xff
   bytes[2] = (now / 2 ** 24) & 0xff
@@ -68,9 +71,7 @@ function generateUuidV7(): string {
   bytes[4] = (now / 2 ** 8) & 0xff
   bytes[5] = now & 0xff
 
-  // Set version 7 (bits 48-51)
   bytes[6] = (bytes[6] & 0x0f) | 0x70
-  // Set variant 10xx (bits 64-65)
   bytes[8] = (bytes[8] & 0x3f) | 0x80
 
   const hex = Array.from(bytes)
@@ -106,41 +107,56 @@ function formatUuid(uuid: string, uppercase: boolean, hyphens: boolean): string 
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+interface UuidState {
+  version: UuidVersion
+  count: number
+  uppercase: boolean
+  hyphens: boolean
+}
+
+const DEFAULT_STATE: UuidState = {
+  version: "v4",
+  count: 1,
+  uppercase: false,
+  hyphens: true,
+}
+
 export function UuidGenerator() {
-  const [version, setVersion] = useState<UuidVersion>("v4")
-  const [count, setCount] = useState(1)
-  const [uppercase, setUppercase] = useState(false)
-  const [hyphens, setHyphens] = useState(true)
+  const [settings, setSettings] = useLocalStorage<UuidState>("uuid-generator", DEFAULT_STATE)
   const [uuids, setUuids] = useState<string[]>([])
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null)
   const [copiedAll, setCopiedAll] = useState(false)
 
+  const { shareUrl } = useShareableUrl("uuid-generator", settings, (restored) => {
+    setSettings(restored)
+  })
+
   const generate = useCallback(() => {
     const results: string[] = []
-    for (let i = 0; i < count; i++) {
-      results.push(generateUuid(version))
+    for (let i = 0; i < settings.count; i++) {
+      results.push(generateUuid(settings.version))
     }
     setUuids(results)
     setCopiedIndex(null)
     setCopiedAll(false)
-  }, [version, count])
+  }, [settings.version, settings.count])
 
   const copyOne = useCallback(
     (uuid: string, index: number) => {
-      const formatted = formatUuid(uuid, uppercase, hyphens)
+      const formatted = formatUuid(uuid, settings.uppercase, settings.hyphens)
       navigator.clipboard.writeText(formatted)
       setCopiedIndex(index)
       setTimeout(() => setCopiedIndex(null), 1500)
     },
-    [uppercase, hyphens],
+    [settings.uppercase, settings.hyphens],
   )
 
   const copyAll = useCallback(() => {
-    const formatted = uuids.map((u) => formatUuid(u, uppercase, hyphens)).join("\n")
+    const formatted = uuids.map((u) => formatUuid(u, settings.uppercase, settings.hyphens)).join("\n")
     navigator.clipboard.writeText(formatted)
     setCopiedAll(true)
     setTimeout(() => setCopiedAll(false), 1500)
-  }, [uuids, uppercase, hyphens])
+  }, [uuids, settings.uppercase, settings.hyphens])
 
   const clear = useCallback(() => {
     setUuids([])
@@ -148,8 +164,51 @@ export function UuidGenerator() {
     setCopiedAll(false)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setSettings(prev => ({
+      ...prev,
+      version: data.version as UuidVersion,
+      count: data.count as number,
+    }))
+  }, [setSettings])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+g", label: "Generate", action: generate },
+    { key: "mod+shift+c", label: "Copy all", action: copyAll },
+    { key: "mod+shift+x", label: "Clear", action: clear },
+  ], [generate, copyAll, clear])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const allFormatted = uuids.map((u) => formatUuid(u, settings.uppercase, settings.hyphens)).join("\n")
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download as .txt",
+      action: () => {
+        const blob = new Blob([allFormatted], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "uuids.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [allFormatted])
+
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="UUID Generator"
+        copyValue={allFormatted || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={UUID_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* Header bar */}
       <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
         {/* Version toggle */}
@@ -157,10 +216,10 @@ export function UuidGenerator() {
           {UUID_VERSIONS.map((v) => (
             <button
               key={v.value}
-              onClick={() => setVersion(v.value)}
+              onClick={() => setSettings(prev => ({ ...prev, version: v.value }))}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                version === v.value
+                settings.version === v.value
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -175,10 +234,10 @@ export function UuidGenerator() {
           {BULK_PRESETS.map((n) => (
             <button
               key={n}
-              onClick={() => setCount(n)}
+              onClick={() => setSettings(prev => ({ ...prev, count: n }))}
               className={cn(
                 "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
-                count === n
+                settings.count === n
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -191,10 +250,10 @@ export function UuidGenerator() {
         {/* Format options */}
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setUppercase((p) => !p)}
+            onClick={() => setSettings(prev => ({ ...prev, uppercase: !prev.uppercase }))}
             className={cn(
               "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-              uppercase
+              settings.uppercase
                 ? "border-primary/50 bg-primary/10 text-primary"
                 : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
             )}
@@ -202,10 +261,10 @@ export function UuidGenerator() {
             UPPERCASE
           </button>
           <button
-            onClick={() => setHyphens((p) => !p)}
+            onClick={() => setSettings(prev => ({ ...prev, hyphens: !prev.hyphens }))}
             className={cn(
               "rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
-              hyphens
+              settings.hyphens
                 ? "border-primary/50 bg-primary/10 text-primary"
                 : "border-transparent bg-muted/40 text-muted-foreground hover:text-foreground",
             )}
@@ -247,7 +306,7 @@ export function UuidGenerator() {
         ) : (
           <div className="flex flex-col gap-1.5">
             {uuids.map((uuid, i) => {
-              const formatted = formatUuid(uuid, uppercase, hyphens)
+              const formatted = formatUuid(uuid, settings.uppercase, settings.hyphens)
               return (
                 <div
                   key={i}

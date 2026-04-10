@@ -22,6 +22,14 @@ import {
 import Editor from "@monaco-editor/react"
 import { parseOpenApiSpec, type ParsedOpenApiSpec, type OpenApiEndpoint } from "@/utils/openApiParser"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useTheme } from "@/hooks/useTheme"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { API_REQUEST_PRESETS } from "./apiRequestPresets"
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
 
@@ -381,8 +389,24 @@ function EndpointSidebar({
 // ── Main Component ────────────────────────────────────────────────
 
 export function ApiRequestBuilder() {
-    const [method, setMethod] = useState<HttpMethod>("GET")
-    const [url, setUrl] = useState("https://jsonplaceholder.typicode.com/posts/1")
+    const { isDark } = useTheme()
+
+    interface ApiStoredState {
+        method: HttpMethod
+        url: string
+        headers: KeyValuePair[]
+        body: string
+    }
+
+    const [stored, setStored] = useLocalStorage<ApiStoredState>("api-request-builder", {
+        method: "GET",
+        url: "https://jsonplaceholder.typicode.com/posts/1",
+        headers: [{ key: "Content-Type", value: "application/json", enabled: true }],
+        body: '{\n  "title": "Hello",\n  "body": "World",\n  "userId": 1\n}',
+    })
+
+    const [method, setMethod] = useState<HttpMethod>(stored.method)
+    const [url, setUrl] = useState(stored.url)
 
     const EXAMPLE_URLS: Partial<Record<HttpMethod, string>> = {
         GET: "https://jsonplaceholder.typicode.com/posts/1",
@@ -392,17 +416,22 @@ export function ApiRequestBuilder() {
         DELETE: "https://jsonplaceholder.typicode.com/posts/1",
     }
 
+    const [headers, setHeaders] = useState<KeyValuePair[]>(stored.headers)
+    const [body, setBody] = useState(stored.body)
+
+    const persistState = useCallback((m: HttpMethod, u: string, h: KeyValuePair[], b: string) => {
+        setStored({ method: m, url: u, headers: h, body: b })
+    }, [setStored])
+
     const handleMethodChange = useCallback((m: HttpMethod) => {
         setMethod(m)
         setUrl(prev => {
             const isExample = Object.values(EXAMPLE_URLS).includes(prev)
-            return isExample ? (EXAMPLE_URLS[m] ?? prev) : prev
+            const newUrl = isExample ? (EXAMPLE_URLS[m] ?? prev) : prev
+            persistState(m, newUrl, headers, body)
+            return newUrl
         })
-    }, [])
-    const [headers, setHeaders] = useState<KeyValuePair[]>([
-        { key: "Content-Type", value: "application/json", enabled: true },
-    ])
-    const [body, setBody] = useState('{\n  "title": "Hello",\n  "body": "World",\n  "userId": 1\n}')
+    }, [headers, body, persistState])
 
     const [response, setResponse] = useState<ApiResponse | null>(null)
     const [loading, setLoading] = useState(false)
@@ -417,6 +446,52 @@ export function ApiRequestBuilder() {
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const [sidebarSearch, setSidebarSearch] = useState("")
     const [importModalOpen, setImportModalOpen] = useState(false)
+
+    const { shareUrl } = useShareableUrl("api-request", { method, url, headers, body }, (restored) => {
+        setMethod(restored.method)
+        setUrl(restored.url)
+        setHeaders(restored.headers)
+        setBody(restored.body)
+        setStored(restored)
+    })
+
+    const handlePresetSelect = useCallback((preset: Preset) => {
+        const data = JSON.parse(preset.content)
+        setMethod(data.method)
+        setUrl(data.url)
+        setHeaders(data.headers)
+        setBody(data.body)
+        persistState(data.method, data.url, data.headers, data.body)
+        setResponse(null)
+        setError(null)
+    }, [persistState])
+
+    const exportOptions: ExportOption[] = useMemo(() => [
+        {
+            label: "Copy as cURL",
+            action: () => {
+                const enabledHeaders = headers.filter(h => h.enabled && h.key.trim())
+                const headerFlags = enabledHeaders.map(h => `-H '${h.key}: ${h.value}'`).join(" ")
+                const hasBody = ["POST", "PUT", "PATCH"].includes(method)
+                const bodyFlag = hasBody && body.trim() ? `-d '${body.replace(/'/g, "'\\''")}'` : ""
+                const curl = `curl -X ${method} '${url}' ${headerFlags} ${bodyFlag}`.trim()
+                navigator.clipboard.writeText(curl)
+            },
+        },
+        {
+            label: "Copy response",
+            action: () => {
+                if (response) navigator.clipboard.writeText(response.body)
+            },
+        },
+    ], [method, url, headers, body, response])
+
+    const shortcuts: Shortcut[] = useMemo(() => [
+        { key: "mod+enter", label: "Send request", action: () => handleSend() },
+        { key: "mod+shift+c", label: "Copy response", action: () => { if (response) navigator.clipboard.writeText(response.body) } },
+    ], [response])
+
+    useKeyboardShortcuts(shortcuts)
 
     const handleCopy = async (text: string, which: string) => {
         await navigator.clipboard.writeText(text)
@@ -437,8 +512,10 @@ export function ApiRequestBuilder() {
     }
 
     const handleBodyChange = useCallback((value: string | undefined) => {
-        setBody(value || "")
-    }, [])
+        const v = value || ""
+        setBody(v)
+        persistState(method, url, headers, v)
+    }, [method, url, headers, persistState])
 
     const handleSend = useCallback(async () => {
         setLoading(true)
@@ -560,19 +637,31 @@ export function ApiRequestBuilder() {
 
     return (
         <div className="h-full flex flex-col min-h-0 relative">
-            {/* Top toolbar: OpenAPI + method + URL + send */}
+            {/* Top toolbar */}
+            <ToolToolbar
+                title="API Request"
+                status={response ? { type: response.status < 400 ? "success" : "error", label: `${response.status} ${response.statusText}` } : error ? { type: "error", label: error } : null}
+                copyValue={response?.body}
+                onShare={shareUrl}
+                exportOptions={exportOptions}
+                presets={API_REQUEST_PRESETS}
+                onPresetSelect={handlePresetSelect}
+                shortcuts={shortcuts}
+                actions={
+                    <>
+                        <Button variant="ghost" size="xs" onClick={() => setImportModalOpen(true)} title="Import OpenAPI spec">
+                            <BookOpenIcon className="h-3 w-3" />
+                            <span className="text-[10px]">OpenAPI</span>
+                        </Button>
+                        {spec && !sidebarOpen && (
+                            <Button variant="ghost" size="xs" onClick={() => setSidebarOpen(true)} title="Show endpoints">
+                                <PanelLeftOpenIcon className="h-3 w-3" />
+                            </Button>
+                        )}
+                    </>
+                }
+            />
             <div className="flex flex-wrap items-center gap-1.5 px-3 py-1.5 border-b border-border flex-shrink-0">
-                {/* OpenAPI button */}
-                <Button variant="ghost" size="xs" onClick={() => setImportModalOpen(true)} title="Import OpenAPI spec">
-                    <BookOpenIcon className="h-3 w-3" />
-                    <span className="text-[10px]">OpenAPI</span>
-                </Button>
-                {spec && !sidebarOpen && (
-                    <Button variant="ghost" size="xs" onClick={() => setSidebarOpen(true)} title="Show endpoints">
-                        <PanelLeftOpenIcon className="h-3 w-3" />
-                    </Button>
-                )}
-                <div className="w-px h-4 bg-border mx-0.5" />
                 {/* Method pills */}
                 {METHODS.map(m => (
                     <button
@@ -592,7 +681,7 @@ export function ApiRequestBuilder() {
                 <input
                     type="text"
                     value={url}
-                    onChange={e => setUrl(e.target.value)}
+                    onChange={e => { setUrl(e.target.value); persistState(method, e.target.value, headers, body) }}
                     onKeyDown={e => { if (e.key === "Enter") handleSend() }}
                     placeholder="https://api.example.com/endpoint"
                     className="order-last md:order-none basis-full md:basis-auto flex-1 h-6 px-2 text-xs font-mono bg-muted/30 border border-border rounded outline-none focus:border-ring text-foreground placeholder:text-muted-foreground"
@@ -708,7 +797,7 @@ export function ApiRequestBuilder() {
                                         defaultLanguage="json"
                                         value={body}
                                         onChange={handleBodyChange}
-                                        theme="vs-dark"
+                                        theme={isDark ? "vs-dark" : "light"}
                                         options={MONACO_OPTIONS}
                                     />
                                 </div>

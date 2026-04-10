@@ -3,6 +3,13 @@
 import { useState, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { ImageIcon, CodeIcon } from "lucide-react"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CHART_PRESETS } from "./chartPresets"
 import { toPng } from "html-to-image"
 import {
   ResponsiveContainer,
@@ -114,7 +121,7 @@ function parseInput(text: string): {
 
 export function ChartBuilder() {
   const [inputText, setInputText] = useState("")
-  const [chartType, setChartType] = useState<ChartType>("bar")
+  const [chartType, setChartType] = useLocalStorage<ChartType>("chart-type", "bar")
   const [xColumn, setXColumn] = useState("")
   const [yColumns, setYColumns] = useState<string[]>([])
   const [title, setTitle] = useState("")
@@ -194,6 +201,27 @@ export function ChartBuilder() {
     link.click()
     URL.revokeObjectURL(url)
   }, [title])
+
+  const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+    accept: [".csv", ".json"],
+    onImport: (content) => setInputText(content),
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setInputText(preset.content)
+  }, [])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Export PNG", action: handleExportPng },
+    { label: "Export SVG", action: handleExportSvg },
+  ], [handleExportPng, handleExportSvg])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+o", label: "Open File", action: openFilePicker },
+    { key: "mod+s", label: "Export PNG", action: handleExportPng },
+  ], [openFilePicker, handleExportPng])
+
+  useKeyboardShortcuts(shortcuts)
 
   const chartData = parsedData
 
@@ -318,7 +346,20 @@ export function ChartBuilder() {
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0">
+    <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+      {isDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/5 border-2 border-dashed border-primary rounded-lg">
+          <p className="text-sm text-primary font-medium">Drop data file</p>
+        </div>
+      )}
+      <ToolToolbar
+        title="Chart Builder"
+        status={chartData.length > 0 ? { type: "info", label: `${chartData.length} data points` } : null}
+        exportOptions={chartData.length > 0 && yColumns.length > 0 ? exportOptions : undefined}
+        presets={CHART_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
       <div className="flex-1 flex min-h-0">
         {/* Left panel */}
         <div className="w-[35%] min-w-[300px] border-r border-border flex flex-col min-h-0 overflow-y-auto">

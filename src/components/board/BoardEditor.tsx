@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from "react"
+import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import type {
   BoardElement,
   Camera,
@@ -23,12 +23,18 @@ import {
   getGroupDescendantIds,
 } from "@/utils/boardEngine"
 import { downloadKutud, readKutudFile } from "@/utils/kutudFormat"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useFileImport } from "@/hooks/useFileImport"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { BOARD_PRESETS } from "./presets"
 
 const MAX_HISTORY = 80
 
 export function BoardEditor() {
   // ── State ─────────────────────────────────────────────────────
-  const [elements, setElements] = useState<BoardElement[]>([])
+  const [savedElements, setSavedElements] = useLocalStorage<BoardElement[]>("board-editor-elements", [])
+  const [elements, setElements] = useState<BoardElement[]>(savedElements)
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0, zoom: 1 })
   const [tool, setTool] = useState<Tool>("select")
@@ -924,9 +930,80 @@ export function BoardEditor() {
 
   const selectedElements = elements.filter((el) => selectedIds.includes(el.id))
 
+  // ── Persist to localStorage ────────────────────────────────────
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      // Don't persist image data to avoid localStorage size limits
+      const lightElements = elements.map(el => {
+        if (el.imageData && el.imageData.length > 10000) {
+          return { ...el, imageData: undefined }
+        }
+        return el
+      })
+      setSavedElements(lightElements)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [elements, setSavedElements])
+
+  // ── File import (.kutud) ──────────────────────────────────────
+  const { dropzoneProps: boardDropzone, isDragging: isBoardDragging } = useFileImport({
+    accept: [".kutud", ".json"],
+    onImport: useCallback((content: string, filename: string) => {
+      try {
+        if (filename.endsWith(".kutud") || filename.endsWith(".json")) {
+          const data = JSON.parse(content)
+          if (data.elements) {
+            setElements(data.elements)
+            if (data.camera) setCamera(data.camera)
+            if (data.gridEnabled !== undefined) setGridEnabled(data.gridEnabled)
+            setSelectedIds([])
+          }
+        }
+      } catch {
+        // Invalid file
+      }
+    }, []),
+  })
+
+  // ── Presets ────────────────────────────────────────────────────
+  const handleBoardPresetSelect = useCallback((_preset: Preset) => {
+    // Presets for board are template starters — for now just clear the board
+    // A full implementation would generate template elements
+    setElements([])
+    setSelectedIds([])
+  }, [])
+
+  // ── Export options ─────────────────────────────────────────────
+  const boardExportOptions = useMemo(() => [
+    { label: "Export PNG", action: handleExportPng },
+    { label: "Export SVG", action: handleExportSvg },
+    { label: "Save .kutud", action: handleSaveKutud },
+    { label: "Copy as PNG", action: copyCanvasToClipboard },
+  ], [handleExportPng, handleExportSvg, handleSaveKutud, copyCanvasToClipboard])
+
+  // ── Board toolbar shortcuts ───────────────────────────────────
+  const boardToolbarShortcuts = useMemo(() => [
+    { key: "mod+shift+e", label: "Export PNG", action: handleExportPng },
+    { key: "mod+shift+s", label: "Save .kutud", action: handleSaveKutud },
+  ], [handleExportPng, handleSaveKutud])
+
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden">
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden flex flex-col" {...boardDropzone}>
+      {isBoardDragging && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-primary/10 border-2 border-dashed border-primary rounded-lg">
+          <span className="text-sm font-medium text-primary">Drop .kutud or .json file here</span>
+        </div>
+      )}
+      <ToolToolbar
+        title="Board Editor"
+        exportOptions={boardExportOptions}
+        presets={BOARD_PRESETS}
+        onPresetSelect={handleBoardPresetSelect}
+        shortcuts={boardToolbarShortcuts}
+        status={elements.length > 0 ? { type: "info", label: `${elements.length} elements` } : null}
+      />
       {/* Canvas */}
+      <div className="relative flex-1 min-h-0">
       <BoardCanvas
         elements={elements}
         selectedIds={selectedIds}
@@ -1017,6 +1094,7 @@ export function BoardEditor() {
       {/* Bottom-right hints */}
       <div className="hidden md:block absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
         Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text | Ctrl+G group | Arrows to nudge
+      </div>
       </div>
     </div>
   )

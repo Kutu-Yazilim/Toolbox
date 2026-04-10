@@ -7,8 +7,15 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
-import { formatFileSize, validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
+import { formatFileSize, validatePdf, friendlyPdfError, downloadPdf } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { PDF_COMPRESS_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 const COMPRESSION_LEVELS: { value: CompressionLevel; label: string; description: string }[] = [
   { value: "screen", label: "Maximum", description: "Smallest file, lower quality" },
@@ -17,12 +24,29 @@ const COMPRESSION_LEVELS: { value: CompressionLevel; label: string; description:
   { value: "prepress", label: "Minimal", description: "Highest quality, least compression" },
 ]
 
+interface PdfCompressSettings {
+  level: CompressionLevel
+}
+
+const DEFAULT_SETTINGS: PdfCompressSettings = {
+  level: "ebook",
+}
+
 export function PdfCompress() {
   const [file, setFile] = useState<File | null>(null)
-  const [level, setLevel] = useState<CompressionLevel>("ebook")
+  const [settings, setSettings] = useLocalStorage<PdfCompressSettings>(
+    "pdf-tool-compress-settings",
+    DEFAULT_SETTINGS,
+  )
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Uint8Array | null>(null)
   const [originalSize, setOriginalSize] = useState(0)
+
+  const { shareUrl } = useShareableUrl<PdfCompressSettings>(
+    "pdf-compress",
+    settings,
+    useCallback((restored: PdfCompressSettings) => setSettings(restored), [setSettings]),
+  )
 
   const handleFiles = useCallback((files: File[]) => {
     if (files.length > 0) {
@@ -53,7 +77,6 @@ export function PdfCompress() {
         message: "Loading PDF...",
       }))
 
-      // Re-save with pdf-lib to strip redundancy and optimize structure
       const doc = await PDFDocument.load(buffer)
 
       setProcessing((prev) => ({
@@ -62,8 +85,7 @@ export function PdfCompress() {
         message: "Optimizing structure...",
       }))
 
-      // Remove metadata based on compression level
-      if (level === "screen" || level === "ebook") {
+      if (settings.level === "screen" || settings.level === "ebook") {
         doc.setTitle("")
         doc.setAuthor("")
         doc.setSubject("")
@@ -92,20 +114,58 @@ export function PdfCompress() {
         error: friendlyPdfError(err),
       })
     }
-  }, [file, level])
+  }, [file, settings.level])
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadPdf(result, `compressed-${file?.name ?? "output.pdf"}`)
+    }
+  }, [result, file])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<PdfCompressSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
   const compressedSize = result?.byteLength ?? 0
   const savings = originalSize > 0 && compressedSize > 0
     ? Math.round((1 - compressedSize / originalSize) * 100)
     : 0
 
+  const shortcuts = [
+    { key: "mod+enter", label: "Compress PDF", action: handleCompress },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="Compress PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={PDF_COMPRESS_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={["application/pdf"]}
         acceptedExtensions={[".pdf"]}
@@ -124,10 +184,10 @@ export function PdfCompress() {
               {COMPRESSION_LEVELS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setLevel(opt.value)}
+                  onClick={() => setSettings((prev) => ({ ...prev, level: opt.value }))}
                   className={cn(
                     "p-3 rounded-lg text-left transition-colors border",
-                    level === opt.value
+                    settings.level === opt.value
                       ? "border-primary bg-primary/5"
                       : "border-transparent bg-muted/30 hover:bg-muted/50"
                   )}

@@ -1,9 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { RefreshCwIcon, CopyIcon, CheckIcon } from "lucide-react"
+import { useState, useCallback, useMemo } from "react"
+import { RefreshCwIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { LOREM_PRESETS } from "./presets"
 
 // ─── Types & constants ──────────────────────────────────────────────────────
 
@@ -108,26 +115,71 @@ function generateLorem(mode: LoremMode, count: number, startWithLorem: boolean):
 
 // ─── Component ──────────────────────────────────────────────────────────────
 
+interface LoremState {
+  mode: LoremMode
+  count: number
+  startWithLorem: boolean
+}
+
+const DEFAULT_STATE: LoremState = {
+  mode: "paragraphs",
+  count: 3,
+  startWithLorem: true,
+}
+
 export function LoremIpsumGenerator() {
-  const [mode, setMode] = useState<LoremMode>("paragraphs")
-  const [count, setCount] = useState(3)
-  const [startWithLorem, setStartWithLorem] = useState(true)
+  const [settings, setSettings] = useLocalStorage<LoremState>("lorem-generator", DEFAULT_STATE)
   const [output, setOutput] = useState("")
-  const [copied, setCopied] = useState(false)
+
+  const { shareUrl } = useShareableUrl("lorem-generator", settings, (restored) => {
+    setSettings(restored)
+  })
 
   const generate = useCallback(() => {
-    setOutput(generateLorem(mode, count, startWithLorem))
-    setCopied(false)
-  }, [mode, count, startWithLorem])
+    setOutput(generateLorem(settings.mode, settings.count, settings.startWithLorem))
+  }, [settings.mode, settings.count, settings.startWithLorem])
 
-  const copy = useCallback(() => {
-    navigator.clipboard.writeText(output)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }, [output])
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setSettings(prev => ({
+      ...prev,
+      mode: data.mode as LoremMode,
+      count: data.count as number,
+    }))
+  }, [setSettings])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+g", label: "Generate", action: generate },
+  ], [generate])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download as .txt",
+      action: () => {
+        const blob = new Blob([output], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "lorem-ipsum.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [output])
 
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Lorem Ipsum"
+        copyValue={output || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={LOREM_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 border-b bg-muted/20 px-4 py-3">
         {/* Mode toggle */}
@@ -135,10 +187,10 @@ export function LoremIpsumGenerator() {
           {MODES.map((m) => (
             <button
               key={m.value}
-              onClick={() => setMode(m.value)}
+              onClick={() => setSettings(prev => ({ ...prev, mode: m.value }))}
               className={cn(
                 "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
-                mode === m.value
+                settings.mode === m.value
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
@@ -155,10 +207,10 @@ export function LoremIpsumGenerator() {
             type="number"
             min={MIN_COUNT}
             max={MAX_COUNT}
-            value={count}
+            value={settings.count}
             onChange={(e) => {
               const v = Math.max(MIN_COUNT, Math.min(MAX_COUNT, Number(e.target.value) || MIN_COUNT))
-              setCount(v)
+              setSettings(prev => ({ ...prev, count: v }))
             }}
             className="w-16 rounded-md border bg-muted/40 px-2 py-1.5 text-xs text-center font-medium"
           />
@@ -168,8 +220,8 @@ export function LoremIpsumGenerator() {
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"
-            checked={startWithLorem}
-            onChange={(e) => setStartWithLorem(e.target.checked)}
+            checked={settings.startWithLorem}
+            onChange={(e) => setSettings(prev => ({ ...prev, startWithLorem: e.target.checked }))}
             className="rounded"
           />
           <span className="text-xs text-muted-foreground">Start with &quot;Lorem ipsum...&quot;</span>
@@ -181,16 +233,6 @@ export function LoremIpsumGenerator() {
             <RefreshCwIcon className="size-3.5" />
             Generate
           </Button>
-          {output && (
-            <Button onClick={copy} variant="outline" size="sm">
-              {copied ? (
-                <CheckIcon className="size-3.5" />
-              ) : (
-                <CopyIcon className="size-3.5" />
-              )}
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          )}
         </div>
       </div>
 

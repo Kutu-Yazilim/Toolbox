@@ -1,30 +1,33 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useState, useCallback, useRef, useEffect, useMemo } from "react"
 import { CopyIcon, CheckIcon, FileUpIcon, XIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { HASH_PRESETS } from "./presets"
 
 // ─── MD5 implementation (public domain, RFC 1321) ──────────────────────────
-// MD5("") = "d41d8cd98f00b204e9800998ecf8427e"
 
 function md5(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer)
   const len = bytes.length
 
-  // Pre-processing: adding padding bits
   const bitLen = len * 8
   const padLen = ((56 - ((len + 1) % 64)) + 64) % 64
   const padded = new Uint8Array(len + 1 + padLen + 8)
   padded.set(bytes)
   padded[len] = 0x80
 
-  // Append length in bits as 64-bit little-endian
   const view = new DataView(padded.buffer)
   view.setUint32(padded.length - 8, bitLen >>> 0, true)
   view.setUint32(padded.length - 4, Math.floor(bitLen / 0x100000000) >>> 0, true)
 
-  // Per-round shift amounts
   const S = [
     7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
     5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
@@ -32,7 +35,6 @@ function md5(buffer: ArrayBuffer): string {
     6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21,
   ]
 
-  // Pre-computed T table: floor(2^32 * abs(sin(i + 1)))
   const T = new Uint32Array(64)
   for (let i = 0; i < 64; i++) {
     T[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0
@@ -138,7 +140,7 @@ const EMPTY_HASHES: Record<Algorithm, string> = {
 }
 
 export function HashGenerator() {
-  const [text, setText] = useState("")
+  const [text, setText] = useLocalStorage<string>("hash-generator-text", "")
   const [file, setFile] = useState<File | null>(null)
   const [hashes, setHashes] = useState<Record<Algorithm, string>>(EMPTY_HASHES)
   const [copiedAlgo, setCopiedAlgo] = useState<Algorithm | null>(null)
@@ -148,9 +150,14 @@ export function HashGenerator() {
 
   const hasInput = text.length > 0 || file !== null
 
+  const { shareUrl } = useShareableUrl("hash-generator", { text }, (restored) => {
+    setText((restored as { text: string }).text)
+    setFile(null)
+  })
+
   // Compute hashes when text changes
   useEffect(() => {
-    if (file) return // file takes priority
+    if (file) return
     if (text.length === 0) {
       setHashes(EMPTY_HASHES)
       return
@@ -182,7 +189,7 @@ export function HashGenerator() {
   const handleFileSelect = useCallback((selectedFile: File) => {
     setFile(selectedFile)
     setText("")
-  }, [])
+  }, [setText])
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -217,8 +224,47 @@ export function HashGenerator() {
     if (fileInputRef.current) fileInputRef.current.value = ""
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setText(preset.content)
+    setFile(null)
+  }, [setText])
+
+  const allHashesText = ALGORITHMS.map(a => `${a}: ${hashes[a]}`).join("\n")
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+1", label: "Copy MD5", action: () => handleCopy("MD5", hashes["MD5"]) },
+    { key: "mod+shift+2", label: "Copy SHA-256", action: () => handleCopy("SHA-256", hashes["SHA-256"]) },
+    { key: "mod+shift+x", label: "Clear file", action: clearFile },
+  ], [handleCopy, hashes, clearFile])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = useMemo(() => [
+    {
+      label: "Download all hashes",
+      action: () => {
+        const blob = new Blob([allHashesText], { type: "text/plain" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = "hashes.txt"
+        a.click()
+        URL.revokeObjectURL(a.href)
+      },
+    },
+  ], [allHashesText])
+
   return (
     <div className="h-full flex flex-col min-h-0">
+      <ToolToolbar
+        title="Hash Generator"
+        copyValue={hashes["SHA-256"] || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={HASH_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       {/* ── Top: Input section ─────────────────────────────────────────── */}
       <div className="flex-shrink-0 border-b border-border p-4 space-y-3">
         {/* Text input */}
@@ -302,7 +348,7 @@ export function HashGenerator() {
                   onClick={() => handleCopy(algo, hashes[algo])}
                 >
                   {copiedAlgo === algo ? (
-                    <CheckIcon className="h-4 w-4 text-green-500" />
+                    <CheckIcon className="h-4 w-4 text-emerald-500" />
                   ) : (
                     <CopyIcon className="h-4 w-4" />
                   )}

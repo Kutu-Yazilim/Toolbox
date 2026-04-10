@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   SearchIcon,
@@ -18,6 +18,13 @@ import {
   type DnsRecordType,
   type DnsResult,
 } from "@/utils/dnsUtils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { DNS_PRESETS } from "./dnsPresets"
 
 type ProviderState = {
   loading: boolean
@@ -26,7 +33,7 @@ type ProviderState = {
 
 export function DnsLookup() {
   const [domain, setDomain] = useState("")
-  const [recordType, setRecordType] = useState<DnsRecordType>("A")
+  const [recordType, setRecordType] = useLocalStorage<DnsRecordType>("dns-record-type", "A")
   const [providers, setProviders] = useState<Map<string, ProviderState>>(
     new Map()
   )
@@ -66,8 +73,64 @@ export function DnsLookup() {
     if (e.key === "Enter") handleLookup()
   }
 
+  const resultsText = useMemo(() => {
+    const lines: string[] = []
+    for (const provider of DNS_PROVIDERS) {
+      const state = providers.get(provider.name)
+      if (!state?.result) continue
+      lines.push(`--- ${provider.name} (${state.result.responseTimeMs}ms) ---`)
+      if (state.result.status === "resolved") {
+        for (const a of state.result.answers) {
+          lines.push(`${a.data} (TTL: ${a.TTL})`)
+        }
+      } else {
+        lines.push(state.result.status === "nxdomain" ? "NXDOMAIN" : (state.result.errorMessage ?? "Error"))
+      }
+    }
+    return lines.join("\n")
+  }, [providers])
+
+  const { shareUrl } = useShareableUrl("dns-lookup", { domain, recordType }, (restored) => {
+    const s = restored as { domain: string; recordType: DnsRecordType }
+    setDomain(s.domain)
+    setRecordType(s.recordType)
+  })
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy as Text", action: () => navigator.clipboard.writeText(resultsText) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([resultsText], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = `dns-${domain || "results"}.txt`; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [resultsText, domain])
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    setDomain(preset.content)
+  }, [])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Run Lookup", action: handleLookup },
+    { key: "mod+shift+c", label: "Copy Results", action: () => navigator.clipboard.writeText(resultsText) },
+  ], [handleLookup, resultsText])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <ToolToolbar
+        title="DNS Lookup"
+        status={providers.size > 0 ? { type: "success", label: `${providers.size} providers` } : null}
+        copyValue={resultsText || undefined}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={DNS_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-hidden">
       {/* Mobile panel switcher */}
       <div className="md:hidden flex items-center gap-1 px-3 h-8 border-b border-border bg-muted/10 flex-shrink-0">
         <button
@@ -179,12 +242,6 @@ export function DnsLookup() {
           mobilePanel === "results" ? "flex" : "hidden md:flex"
         )}
       >
-        <div className="flex items-center px-3 h-8 border-b border-border bg-muted/20 flex-shrink-0">
-          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-            Results
-          </span>
-        </div>
-
         {providers.size === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
             <div className="text-center">
@@ -300,6 +357,7 @@ export function DnsLookup() {
             })}
           </div>
         )}
+      </div>
       </div>
     </div>
   )

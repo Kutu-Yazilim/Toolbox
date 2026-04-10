@@ -1,10 +1,16 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import QRCodeStyling from "qr-code-styling"
 import { CopyIcon, CheckIcon, RefreshCwIcon, ShuffleIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { TOTP_PRESETS } from "./totpPresets"
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -132,9 +138,9 @@ export function TotpGenerator() {
   const [secret, setSecret] = useState("JBSWY3DPEHPK3PXP")
   const [account, setAccount] = useState("")
   const [issuer, setIssuer] = useState("")
-  const [period, setPeriod] = useState<Period>(30)
-  const [digits, setDigits] = useState<Digits>(6)
-  const [algorithm, setAlgorithm] = useState<Algorithm>("SHA-1")
+  const [period, setPeriod] = useLocalStorage<Period>("totp-period", 30)
+  const [digits, setDigits] = useLocalStorage<Digits>("totp-digits", 6)
+  const [algorithm, setAlgorithm] = useLocalStorage<Algorithm>("totp-algorithm", "SHA-1")
 
   const [code, setCode] = useState("")
   const [secondsLeft, setSecondsLeft] = useState(0)
@@ -218,13 +224,50 @@ export function TotpGenerator() {
     setSecret(generateRandomSecret())
   }, [])
 
+  const { shareUrl } = useShareableUrl("totp-gen", { secret, period, digits, algorithm, issuer, account }, (restored) => {
+    const s = restored as { secret: string; period: Period; digits: Digits; algorithm: Algorithm; issuer?: string; account?: string }
+    setSecret(s.secret)
+    setPeriod(s.period)
+    setDigits(s.digits)
+    setAlgorithm(s.algorithm)
+    if (s.issuer) setIssuer(s.issuer)
+    if (s.account) setAccount(s.account)
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const config = JSON.parse(preset.content)
+    if (config.secret) setSecret(config.secret)
+    setPeriod(config.period)
+    setDigits(config.digits)
+    setAlgorithm(config.algorithm)
+    if (config.issuer) setIssuer(config.issuer)
+  }, [setPeriod, setDigits, setAlgorithm])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+shift+c", label: "Copy Code", action: handleCopy },
+    { key: "mod+r", label: "Refresh Code", action: refreshCode },
+    { key: "mod+shift+n", label: "New Secret", action: handleGenerateSecret },
+  ], [handleCopy, refreshCode, handleGenerateSecret])
+
+  useKeyboardShortcuts(shortcuts)
+
   // Countdown ring
   const progress = secondsLeft / period
   const circumference = 2 * Math.PI * 40
   const dashOffset = circumference * (1 - progress)
 
   return (
-    <div className="h-full flex flex-col-reverse md:flex-row min-h-0 overflow-hidden">
+    <div className="h-full flex flex-col min-h-0 overflow-hidden">
+      <ToolToolbar
+        title="TOTP Generator"
+        status={code && !code.includes("-") ? { type: "success", label: `${secondsLeft}s remaining` } : error ? { type: "error", label: "Invalid" } : null}
+        copyValue={code && !code.includes("-") ? code : undefined}
+        onShare={shareUrl}
+        presets={TOTP_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className="flex-1 flex flex-col-reverse md:flex-row min-h-0 overflow-hidden">
       {/* ── Left panel: inputs & config ── */}
       <div className="w-full md:w-80 md:flex-shrink-0 flex flex-col border-t md:border-t-0 md:border-r border-border max-h-[50vh] md:max-h-none overflow-y-auto">
         {/* Secret key */}
@@ -439,6 +482,7 @@ export function TotpGenerator() {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

@@ -7,8 +7,11 @@ import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
 import { mergePdfs, getPdfPageCount } from "@/utils/pdfEngine"
-import { formatFileSize, validatePdf, friendlyPdfError } from "@/utils/pdfUtils"
+import { formatFileSize, validatePdf, friendlyPdfError, downloadPdf } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 interface PdfFileInfo {
   file: File
@@ -90,6 +93,12 @@ export function PdfMerge() {
     }
   }, [fileInfos])
 
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadPdf(result, "merged.pdf")
+    }
+  }, [result])
+
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
@@ -97,8 +106,32 @@ export function PdfMerge() {
 
   const totalPages = fileInfos.reduce((sum, f) => sum + f.pageCount, 0)
 
+  const shortcuts = [
+    { key: "mod+enter", label: "Merge PDFs", action: handleMerge },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="Merge PDFs"
+        status={toolbarStatus}
+        exportOptions={exportOptions}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={["application/pdf"]}
         acceptedExtensions={[".pdf"]}

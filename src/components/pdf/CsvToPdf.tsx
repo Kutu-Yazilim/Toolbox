@@ -7,7 +7,15 @@ import { INITIAL_PROCESSING_STATE } from "@/types/pdf"
 import { PdfFileDropZone } from "@/components/pdf/PdfFileDropZone"
 import { PdfProgressBar } from "@/components/pdf/PdfProgressBar"
 import { PdfDownloadButton } from "@/components/pdf/PdfDownloadButton"
+import { downloadBlob } from "@/utils/pdfUtils"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { CSV_TO_PDF_PRESETS } from "@/components/pdf/pdfPresets"
+import type { Preset } from "@/components/shared/PresetsDrawer"
+import type { ExportOption } from "@/components/shared/ExportMenu"
 
 const ACCEPTED_MIME_TYPES = ["text/csv"]
 const ACCEPTED_EXTENSIONS = [".csv"]
@@ -16,6 +24,15 @@ type Delimiter = "," | ";" | "\t"
 type PageSizeOption = "a4" | "letter"
 type OrientationOption = "portrait" | "landscape"
 type FontSizeOption = 4 | 6 | 8 | 10 | 12
+
+interface CsvToPdfSettings {
+  delimiter: Delimiter
+  hasHeader: "yes" | "no"
+  pageSize: PageSizeOption
+  orientation: OrientationOption
+  fontSize: FontSizeOption
+  showRowNumbers: "yes" | "no"
+}
 
 const DELIMITER_OPTIONS: { value: Delimiter; label: string }[] = [
   { value: ",", label: "Comma" },
@@ -392,15 +409,22 @@ function drawTableRow(
   }
 }
 
+const DEFAULT_SETTINGS: CsvToPdfSettings = {
+  delimiter: ",",
+  hasHeader: "yes",
+  pageSize: "a4",
+  orientation: "portrait",
+  fontSize: 10,
+  showRowNumbers: "no",
+}
+
 export function CsvToPdf() {
   const [rawText, setRawText] = useState<string | null>(null)
   const [fileName, setFileName] = useState("")
-  const [delimiter, setDelimiter] = useState<Delimiter>(",")
-  const [hasHeader, setHasHeader] = useState<"yes" | "no">("yes")
-  const [pageSize, setPageSize] = useState<PageSizeOption>("a4")
-  const [orientation, setOrientation] = useState<OrientationOption>("portrait")
-  const [fontSize, setFontSize] = useState<FontSizeOption>(10)
-  const [showRowNumbers, setShowRowNumbers] = useState<"yes" | "no">("no")
+  const [settings, setSettings] = useLocalStorage<CsvToPdfSettings>(
+    "pdf-tool-csv-settings",
+    DEFAULT_SETTINGS,
+  )
   const [title, setTitle] = useState("")
   const [subtitle, setSubtitle] = useState("")
   const [paragraph, setParagraph] = useState("")
@@ -408,9 +432,15 @@ export function CsvToPdf() {
   const [processing, setProcessing] = useState<PdfProcessingState>(INITIAL_PROCESSING_STATE)
   const [result, setResult] = useState<Blob | null>(null)
 
-  const rows = useMemo(() => rawText ? parseCsv(rawText, delimiter) : [], [rawText, delimiter])
-  const headerRow = hasHeader === "yes" && rows.length > 0 ? rows[0] : null
-  const dataRows = useMemo(() => hasHeader === "yes" ? rows.slice(1) : rows, [rows, hasHeader])
+  const { shareUrl } = useShareableUrl<CsvToPdfSettings>(
+    "csv-to-pdf",
+    settings,
+    useCallback((restored: CsvToPdfSettings) => setSettings(restored), [setSettings]),
+  )
+
+  const rows = useMemo(() => rawText ? parseCsv(rawText, settings.delimiter) : [], [rawText, settings.delimiter])
+  const headerRow = settings.hasHeader === "yes" && rows.length > 0 ? rows[0] : null
+  const dataRows = useMemo(() => settings.hasHeader === "yes" ? rows.slice(1) : rows, [rows, settings.hasHeader])
   const previewRows = dataRows.slice(0, PREVIEW_MAX_ROWS)
 
   const handleFiles = useCallback((files: File[]) => {
@@ -428,10 +458,11 @@ export function CsvToPdf() {
       setRawText(text)
 
       const firstLine = text.split(/\r?\n/)[0] ?? ""
-      setDelimiter(detectDelimiter(firstLine))
+      const detected = detectDelimiter(firstLine)
+      setSettings((prev) => ({ ...prev, delimiter: detected }))
     }
     reader.readAsText(file)
-  }, [])
+  }, [setSettings])
 
   const handlePasteText = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const text = e.target.value
@@ -447,8 +478,9 @@ export function CsvToPdf() {
     if (!fileName) setFileName("pasted-csv")
 
     const firstLine = text.split(/\r?\n/)[0] ?? ""
-    setDelimiter(detectDelimiter(firstLine))
-  }, [fileName])
+    const detected = detectDelimiter(firstLine)
+    setSettings((prev) => ({ ...prev, delimiter: detected }))
+  }, [fileName, setSettings])
 
   const handleConvert = useCallback(async () => {
     if (rows.length === 0) return
@@ -461,11 +493,11 @@ export function CsvToPdf() {
     })
 
     try {
-      const dims = PAGE_DIMENSIONS[pageSize][orientation]
+      const dims = PAGE_DIMENSIONS[settings.pageSize][settings.orientation]
       const padding = 24
       const contentWidth = dims.width - padding * 2
-      const cellPadX = fontSize * 0.8
-      const rowHeight = fontSize * 2.2
+      const cellPadX = settings.fontSize * 0.8
+      const rowHeight = settings.fontSize * 2.2
 
       const pdf = new jsPDF({
         unit: "px",
@@ -478,12 +510,12 @@ export function CsvToPdf() {
       // Measure document header height on a scratch pass
       const headerBlockHeight =
         title || subtitle || paragraph
-          ? drawDocumentHeader(pdf, padding, padding, contentWidth, title, subtitle, paragraph, fontSize) - padding
+          ? drawDocumentHeader(pdf, padding, padding, contentWidth, title, subtitle, paragraph, settings.fontSize) - padding
           : 0
       const footerReserved = FOOTER_HEIGHT
 
       // Prepare rows with optional row-number column
-      const addRowNum = showRowNumbers === "yes"
+      const addRowNum = settings.showRowNumbers === "yes"
       const displayHeader = headerRow
         ? addRowNum ? ["#", ...headerRow] : headerRow
         : null
@@ -500,7 +532,7 @@ export function CsvToPdf() {
         colCount,
         contentWidth,
         pdf,
-        fontSize,
+        settings.fontSize,
         cellPadX
       )
 
@@ -522,11 +554,11 @@ export function CsvToPdf() {
 
         // Draw document header only on the first page
         if (page === 0 && (title || subtitle || paragraph)) {
-          y = drawDocumentHeader(pdf, padding, y, contentWidth, title, subtitle, paragraph, fontSize)
+          y = drawDocumentHeader(pdf, padding, y, contentWidth, title, subtitle, paragraph, settings.fontSize)
         }
 
         if (displayHeader) {
-          drawTableRow(pdf, displayHeader, padding, y, colWidths, rowHeight, fontSize, cellPadX, true, false)
+          drawTableRow(pdf, displayHeader, padding, y, colWidths, rowHeight, settings.fontSize, cellPadX, true, false)
           y += rowHeight
         }
 
@@ -535,7 +567,7 @@ export function CsvToPdf() {
         const batch = displayDataRows.slice(startIdx, startIdx + count)
 
         for (let i = 0; i < batch.length; i++) {
-          drawTableRow(pdf, batch[i], padding, y, colWidths, rowHeight, fontSize, cellPadX, false, i % 2 === 1)
+          drawTableRow(pdf, batch[i], padding, y, colWidths, rowHeight, settings.fontSize, cellPadX, false, i % 2 === 1)
           y += rowHeight
         }
 
@@ -568,15 +600,55 @@ export function CsvToPdf() {
         error: err instanceof Error ? err.message : "PDF conversion failed",
       })
     }
-  }, [rows, dataRows, headerRow, pageSize, orientation, fontSize, showRowNumbers, title, subtitle, paragraph])
+  }, [rows, dataRows, headerRow, settings, title, subtitle, paragraph])
+
+  const computedFileName = outputFileName || (title ? title.toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") : "") || fileName || "csv-export"
+
+  const handleDownload = useCallback(() => {
+    if (result) {
+      downloadBlob(result, `${computedFileName}.pdf`)
+    }
+  }, [result, computedFileName])
 
   const handleRetry = useCallback(() => {
     setProcessing(INITIAL_PROCESSING_STATE)
     setResult(null)
   }, [])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const parsed = JSON.parse(preset.content) as Partial<CsvToPdfSettings>
+    setSettings((prev) => ({ ...prev, ...parsed }))
+  }, [setSettings])
+
+  const shortcuts = [
+    { key: "mod+enter", label: "Convert to PDF", action: handleConvert },
+    { key: "mod+s", label: "Download result", action: handleDownload },
+  ]
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions: ExportOption[] = result
+    ? [{ label: "Download as PDF", action: handleDownload }]
+    : []
+
+  const toolbarStatus = processing.status === "done"
+    ? { type: "success" as const, label: processing.message }
+    : processing.status === "error"
+    ? { type: "error" as const, label: processing.error ?? "Error" }
+    : null
+
   return (
     <>
+      <ToolToolbar
+        title="CSV to PDF"
+        status={toolbarStatus}
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={CSV_TO_PDF_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+
       <PdfFileDropZone
         acceptedMimeTypes={ACCEPTED_MIME_TYPES}
         acceptedExtensions={ACCEPTED_EXTENSIONS}
@@ -685,38 +757,38 @@ export function CsvToPdf() {
             <OptionGroup
               label="Delimiter"
               options={DELIMITER_OPTIONS}
-              value={delimiter}
-              onChange={setDelimiter}
+              value={settings.delimiter}
+              onChange={(v) => setSettings((prev) => ({ ...prev, delimiter: v }))}
             />
             <OptionGroup
               label="Header Row"
               options={HAS_HEADER_OPTIONS}
-              value={hasHeader}
-              onChange={setHasHeader}
+              value={settings.hasHeader}
+              onChange={(v) => setSettings((prev) => ({ ...prev, hasHeader: v }))}
             />
             <OptionGroup
               label="Row Numbers"
               options={ROW_NUMBERS_OPTIONS}
-              value={showRowNumbers}
-              onChange={setShowRowNumbers}
+              value={settings.showRowNumbers}
+              onChange={(v) => setSettings((prev) => ({ ...prev, showRowNumbers: v }))}
             />
             <OptionGroup
               label="Page Size"
               options={PAGE_SIZE_OPTIONS}
-              value={pageSize}
-              onChange={setPageSize}
+              value={settings.pageSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, pageSize: v }))}
             />
             <OptionGroup
               label="Orientation"
               options={ORIENTATION_OPTIONS}
-              value={orientation}
-              onChange={setOrientation}
+              value={settings.orientation}
+              onChange={(v) => setSettings((prev) => ({ ...prev, orientation: v }))}
             />
             <OptionGroup
               label="Font Size"
               options={FONT_SIZE_OPTIONS}
-              value={fontSize}
-              onChange={setFontSize}
+              value={settings.fontSize}
+              onChange={(v) => setSettings((prev) => ({ ...prev, fontSize: v }))}
             />
           </div>
 
@@ -792,7 +864,7 @@ export function CsvToPdf() {
       {result && (
         <PdfDownloadButton
           data={result}
-          filename={`${outputFileName || (title ? title.toLowerCase().replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "") : "") || fileName || "csv-export"}.pdf`}
+          filename={`${computedFileName}.pdf`}
         />
       )}
     </>

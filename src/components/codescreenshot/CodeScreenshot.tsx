@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { loader } from "@monaco-editor/react"
 import {
   CopyIcon,
@@ -13,6 +13,15 @@ import { toPng, toSvg, toBlob } from "html-to-image"
 import Editor from "@monaco-editor/react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useTheme } from "@/hooks/useTheme"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
+import { CODE_SCREENSHOT_PRESETS } from "./codeScreenshotPresets"
 
 // ─── Types & Constants ──────────────────────────────────────────────────────
 
@@ -143,19 +152,40 @@ function getBackgroundStyle(preset: BackgroundPreset, customColor: string) {
 
 export function CodeScreenshot() {
   const previewRef = useRef<HTMLDivElement>(null)
+  const { isDark } = useTheme()
+
+  interface ScreenshotState {
+    code: string
+    language: LanguageId
+    selectedBg: BackgroundPresetId
+    padding: number
+    fontSize: number
+    showChrome: boolean
+    windowTitle: string
+  }
+
+  const [stored, setStored] = useLocalStorage<ScreenshotState>("code-screenshot", {
+    code: DEFAULT_CODE,
+    language: "javascript",
+    selectedBg: "sunset",
+    padding: DEFAULT_PADDING,
+    fontSize: DEFAULT_FONT_SIZE,
+    showChrome: true,
+    windowTitle: "untitled",
+  })
 
   // Code state
-  const [code, setCode] = useState(DEFAULT_CODE)
-  const [language, setLanguage] = useState<LanguageId>("javascript")
+  const [code, setCode] = useState(stored.code)
+  const [language, setLanguage] = useState<LanguageId>(stored.language)
 
   // Style state
-  const [selectedBg, setSelectedBg] = useState<BackgroundPresetId>("sunset")
+  const [selectedBg, setSelectedBg] = useState<BackgroundPresetId>(stored.selectedBg)
   const [customColor, setCustomColor] = useState("#667eea")
-  const [padding, setPadding] = useState(DEFAULT_PADDING)
+  const [padding, setPadding] = useState(stored.padding)
   const [borderRadius, setBorderRadius] = useState(DEFAULT_BORDER_RADIUS)
-  const [fontSize, setFontSize] = useState(DEFAULT_FONT_SIZE)
-  const [showChrome, setShowChrome] = useState(true)
-  const [windowTitle, setWindowTitle] = useState("untitled")
+  const [fontSize, setFontSize] = useState(stored.fontSize)
+  const [showChrome, setShowChrome] = useState(stored.showChrome)
+  const [windowTitle, setWindowTitle] = useState(stored.windowTitle)
 
   // Syntax highlighting state
   const [colorizedHtml, setColorizedHtml] = useState("")
@@ -165,6 +195,49 @@ export function CodeScreenshot() {
   const [exporting, setExporting] = useState(false)
 
   const bgPreset = BACKGROUND_PRESETS.find((p) => p.id === selectedBg)!
+
+  const persistState = useCallback((updates: Partial<ScreenshotState>) => {
+    setStored(prev => ({ ...prev, ...updates }))
+  }, [setStored])
+
+  const { shareUrl } = useShareableUrl("code-screenshot", { code, language, selectedBg, padding, fontSize, showChrome, windowTitle }, (restored) => {
+    setCode(restored.code)
+    setLanguage(restored.language)
+    setSelectedBg(restored.selectedBg)
+    setPadding(restored.padding)
+    setFontSize(restored.fontSize)
+    setShowChrome(restored.showChrome)
+    setWindowTitle(restored.windowTitle)
+    setStored(restored)
+  })
+
+  const { dropzoneProps, isDragging } = useFileImport({
+    accept: [".js", ".ts", ".py", ".go", ".rs", ".java", ".cs", ".html", ".css", ".sql", ".json", ".yaml", ".sh", ".md", ".txt"],
+    onImport: (content, filename) => {
+      setCode(content)
+      setWindowTitle(filename)
+      const ext = filename.split(".").pop()?.toLowerCase()
+      const langMap: Record<string, LanguageId> = {
+        js: "javascript", ts: "typescript", py: "python", go: "go", rs: "rust",
+        java: "java", cs: "csharp", html: "html", css: "css", sql: "sql",
+        json: "json", yaml: "yaml", yml: "yaml", sh: "shell", md: "markdown", txt: "plaintext",
+      }
+      if (ext && langMap[ext]) {
+        setLanguage(langMap[ext])
+        persistState({ code: content, language: langMap[ext], windowTitle: filename })
+      } else {
+        persistState({ code: content, windowTitle: filename })
+      }
+    },
+  })
+
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    setCode(data.code)
+    setLanguage(data.language)
+    setWindowTitle("untitled")
+    persistState({ code: data.code, language: data.language, windowTitle: "untitled" })
+  }, [persistState])
 
   // Colorize code using Monaco's tokenizer for syntax highlighting
   useEffect(() => {
@@ -229,15 +302,38 @@ export function CodeScreenshot() {
     [exporting],
   )
 
+  const exportOptions: ExportOption[] = useMemo(() => [
+    { label: "Download PNG", action: () => exportAs("png") },
+    { label: "Download SVG", action: () => exportAs("svg") },
+    { label: "Copy to clipboard", action: () => exportAs("clipboard") },
+  ], [exportAs])
+
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+shift+p", label: "Export PNG", action: () => exportAs("png") },
+    { key: "mod+shift+s", label: "Export SVG", action: () => exportAs("svg") },
+    { key: "mod+shift+c", label: "Copy to clipboard", action: () => exportAs("clipboard") },
+  ], [exportAs])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
-    <div className="flex h-full flex-col gap-0 lg:flex-row">
+    <div className="flex h-full flex-col gap-0" {...dropzoneProps}>
+      <ToolToolbar
+        title="Code Screenshot"
+        onShare={shareUrl}
+        exportOptions={exportOptions}
+        presets={CODE_SCREENSHOT_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
+      />
+      <div className={`flex flex-1 flex-col gap-0 lg:flex-row min-h-0 ${isDragging ? "ring-2 ring-primary ring-inset" : ""}`}>
       {/* ── Left Panel: Code Input & Controls ──────────────────────── */}
       <div className="flex w-full flex-col gap-4 overflow-y-auto border-b border-border p-4 lg:w-[35%] lg:border-b-0 lg:border-r">
         {/* Language selector + paste */}
         <div className="flex items-center gap-2">
           <select
             value={language}
-            onChange={(e) => setLanguage(e.target.value as LanguageId)}
+            onChange={(e) => { setLanguage(e.target.value as LanguageId); persistState({ language: e.target.value as LanguageId }) }}
             className="h-9 flex-1 rounded-md border border-border bg-background px-3 text-sm text-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
           >
             {LANGUAGES.map((lang) => (
@@ -258,8 +354,8 @@ export function CodeScreenshot() {
             height="100%"
             language={language}
             value={code}
-            onChange={(val) => setCode(val ?? "")}
-            theme="vs-dark"
+            onChange={(val) => { setCode(val ?? ""); persistState({ code: val ?? "" }) }}
+            theme={isDark ? "vs-dark" : "light"}
             options={{
               minimap: { enabled: false },
               fontSize: 13,
@@ -513,6 +609,7 @@ export function CodeScreenshot() {
             />
           </div>
         </div>
+      </div>
       </div>
     </div>
   )

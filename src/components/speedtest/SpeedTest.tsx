@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   PlayIcon,
@@ -12,6 +12,9 @@ import { cn } from "@/lib/utils"
 import { SpeedGauge } from "./SpeedGauge"
 import { SpeedChart, type SpeedSample } from "./SpeedChart"
 import { ResultsGrid } from "./ResultsGrid"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { type ExportOption } from "@/components/shared/ExportMenu"
 
 type TestPhase = "idle" | "latency" | "download" | "upload" | "done"
 
@@ -212,18 +215,44 @@ export function SpeedTest() {
 
   const isRunning = phase !== "idle" && phase !== "done"
 
+  const resultText = useMemo(() => {
+    if (!result) return ""
+    return `Download: ${result.download.toFixed(1)} Mbps\nUpload: ${result.upload.toFixed(1)} Mbps\nPing: ${result.ping}ms\nJitter: ${result.jitter}ms`
+  }, [result])
+
+  const exportOptions = useMemo<ExportOption[]>(() => [
+    { label: "Copy Results", action: () => navigator.clipboard.writeText(resultText) },
+    { label: "Download .txt", action: () => {
+      const blob = new Blob([resultText], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = "speed-test-results.txt"; a.click()
+      URL.revokeObjectURL(url)
+    }},
+  ], [resultText])
+
+  const shortcuts = useMemo<Shortcut[]>(() => [
+    { key: "mod+enter", label: "Start / Restart Test", action: runTest },
+    { key: "mod+shift+c", label: "Copy Results", action: () => navigator.clipboard.writeText(resultText) },
+  ], [runTest, resultText])
+
+  useKeyboardShortcuts(shortcuts)
+
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 h-8 border-b border-border bg-muted/20 flex-shrink-0">
-        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-          Internet Speed Test
-        </span>
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          <ServerIcon className="h-3 w-3" />
-          Cloudflare Network
-        </div>
-      </div>
+      <ToolToolbar
+        title="Internet Speed Test"
+        status={phase === "done" && result ? { type: "success", label: `${result.download.toFixed(1)} Mbps down` } : isRunning ? { type: "info", label: phase } : null}
+        copyValue={resultText || undefined}
+        exportOptions={phase === "done" ? exportOptions : undefined}
+        shortcuts={shortcuts}
+        actions={
+          <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+            <ServerIcon className="h-3 w-3" />
+            Cloudflare
+          </div>
+        }
+      />
 
       <div className="flex-1 p-4 flex flex-col items-center justify-center">
         <div className="max-w-lg w-full space-y-6">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback, useEffect } from "react"
+import { useState, useRef, useCallback, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   UploadIcon,
@@ -11,6 +11,13 @@ import {
   ImageIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { IMAGE_CROPPER_PRESETS } from "./presets"
+import { type Preset } from "@/components/shared/PresetsDrawer"
 
 type CropBox = {
   x: number
@@ -87,14 +94,12 @@ function hitTest(
   const { x, y, width, height } = crop
   const hs = HANDLE_SIZE / 2
 
-  // corners
   if (Math.abs(mx - x) <= hs && Math.abs(my - y) <= hs) return "nw"
   if (Math.abs(mx - (x + width)) <= hs && Math.abs(my - y) <= hs) return "ne"
   if (Math.abs(mx - x) <= hs && Math.abs(my - (y + height)) <= hs) return "sw"
   if (Math.abs(mx - (x + width)) <= hs && Math.abs(my - (y + height)) <= hs)
     return "se"
 
-  // edges
   if (Math.abs(my - y) <= hs && mx > x + hs && mx < x + width - hs) return "n"
   if (
     Math.abs(my - (y + height)) <= hs &&
@@ -110,7 +115,6 @@ function hitTest(
   )
     return "e"
 
-  // inside
   if (mx > x && mx < x + width && my > y && my < y + height) return "move"
 
   return "none"
@@ -119,9 +123,8 @@ function hitTest(
 export function ImageCropper() {
   const [image, setImage] = useState<ImageState | null>(null)
   const [crop, setCrop] = useState<CropBox>({ x: 0, y: 0, width: 0, height: 0 })
-  const [selectedRatio, setSelectedRatio] = useState<number>(0)
+  const [selectedRatio, setSelectedRatio] = useLocalStorage<number>("image-cropper-ratio", 0)
   const [croppedUrl, setCroppedUrl] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
   const [displaySize, setDisplaySize] = useState({ width: 0, height: 0 })
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -137,6 +140,32 @@ export function ImageCropper() {
   } | null>(null)
 
   const aspectValue = ASPECT_RATIOS[selectedRatio].value
+
+  const shareState = useMemo(() => ({ ratioIndex: selectedRatio }), [selectedRatio])
+  const { shareUrl } = useShareableUrl("image-cropper", shareState, useCallback((state: typeof shareState) => {
+    if (state.ratioIndex !== undefined) setSelectedRatio(state.ratioIndex)
+  }, [setSelectedRatio]))
+
+  const handleFileImport = useCallback((content: string, filename: string) => {
+    const img = new Image()
+    img.onload = () => {
+      imgRef.current = img
+      setImage({
+        src: content,
+        name: filename,
+        naturalWidth: img.naturalWidth,
+        naturalHeight: img.naturalHeight,
+      })
+      setCroppedUrl(null)
+    }
+    img.src = content
+  }, [])
+
+  const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+    accept: [".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".bmp"],
+    onImport: handleFileImport,
+    readAs: "dataURL",
+  })
 
   const getScale = useCallback(() => {
     if (!image || displaySize.width === 0) return 1
@@ -229,42 +258,17 @@ export function ImageCropper() {
     [loadImage],
   )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      setIsDragging(false)
-      const file = e.dataTransfer.files[0]
-      if (file && file.type.startsWith("image/")) {
-        loadImage(file)
-      }
-    },
-    [loadImage],
-  )
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(true)
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    setIsDragging(false)
-  }, [])
-
   const constrainCrop = useCallback(
     (box: CropBox, anchor?: { x: number; y: number }): CropBox => {
       const dw = displaySize.width
       const dh = displaySize.height
       let { x, y, width, height } = box
 
-      // Enforce minimum size
       width = Math.max(width, MIN_CROP)
       height = Math.max(height, MIN_CROP)
 
-      // Enforce aspect ratio
       if (aspectValue) {
         if (anchor) {
-          // Resize: adjust height to match ratio
           const newH = width / aspectValue
           if (newH <= dh) {
             height = newH
@@ -272,13 +276,10 @@ export function ImageCropper() {
             height = dh
             width = height * aspectValue
           }
-          // Re-anchor
           if (anchor.x === x + box.width) {
-            // dragging left edge, anchor right
             x = anchor.x - width
           }
           if (anchor.y === y + box.height) {
-            // dragging top edge, anchor bottom
             y = anchor.y - height
           }
         } else {
@@ -286,7 +287,6 @@ export function ImageCropper() {
         }
       }
 
-      // Clamp to bounds
       x = clamp(x, 0, dw - width)
       y = clamp(y, 0, dh - height)
       width = Math.min(width, dw - x)
@@ -356,88 +356,49 @@ export function ImageCropper() {
         let nw = sc.width
         let nh = sc.height
 
-        // horizontal
         if (drag.mode.includes("w")) {
           nw = Math.max(MIN_CROP, sc.width - dx)
           nx = sc.x + sc.width - nw
-          if (nx < 0) {
-            nw += nx
-            nx = 0
-          }
+          if (nx < 0) { nw += nx; nx = 0 }
         } else if (drag.mode.includes("e")) {
           nw = Math.max(MIN_CROP, sc.width + dx)
           if (nx + nw > dw) nw = dw - nx
         }
 
-        // vertical
         if (drag.mode.includes("n")) {
           nh = Math.max(MIN_CROP, sc.height - dy)
           ny = sc.y + sc.height - nh
-          if (ny < 0) {
-            nh += ny
-            ny = 0
-          }
+          if (ny < 0) { nh += ny; ny = 0 }
         } else if (drag.mode.includes("s")) {
           nh = Math.max(MIN_CROP, sc.height + dy)
           if (ny + nh > dh) nh = dh - ny
         }
 
-        // For aspect-constrained edge-only drags, derive the other dimension
         if (aspectValue) {
           if (drag.mode === "n" || drag.mode === "s") {
             nw = nh * aspectValue
-            // Keep centered horizontally relative to start
             const cx = sc.x + sc.width / 2
             nx = cx - nw / 2
-            if (nx < 0) {
-              nx = 0
-              nw = Math.min(nw, dw)
-              nh = nw / aspectValue
-            }
-            if (nx + nw > dw) {
-              nw = dw - nx
-              nh = nw / aspectValue
-            }
+            if (nx < 0) { nx = 0; nw = Math.min(nw, dw); nh = nw / aspectValue }
+            if (nx + nw > dw) { nw = dw - nx; nh = nw / aspectValue }
           } else if (drag.mode === "e" || drag.mode === "w") {
             nh = nw / aspectValue
             const cy = sc.y + sc.height / 2
             ny = cy - nh / 2
-            if (ny < 0) {
-              ny = 0
-              nh = Math.min(nh, dh)
-              nw = nh * aspectValue
-            }
-            if (ny + nh > dh) {
-              nh = dh - ny
-              nw = nh * aspectValue
-            }
+            if (ny < 0) { ny = 0; nh = Math.min(nh, dh); nw = nh * aspectValue }
+            if (ny + nh > dh) { nh = dh - ny; nw = nh * aspectValue }
           } else {
-            // corner resize: width leads
             nh = nw / aspectValue
             if (drag.mode.includes("n")) {
               ny = sc.y + sc.height - nh
-              if (ny < 0) {
-                ny = 0
-                nh = sc.y + sc.height
-                nw = nh * aspectValue
-              }
+              if (ny < 0) { ny = 0; nh = sc.y + sc.height; nw = nh * aspectValue }
             }
-            if (ny + nh > dh) {
-              nh = dh - ny
-              nw = nh * aspectValue
-            }
+            if (ny + nh > dh) { nh = dh - ny; nw = nh * aspectValue }
             if (drag.mode.includes("w")) {
               nx = sc.x + sc.width - nw
-              if (nx < 0) {
-                nx = 0
-                nw = sc.x + sc.width
-                nh = nw / aspectValue
-              }
+              if (nx < 0) { nx = 0; nw = sc.x + sc.width; nh = nw / aspectValue }
             }
-            if (nx + nw > dw) {
-              nw = dw - nx
-              nh = nw / aspectValue
-            }
+            if (nx + nw > dw) { nw = dw - nx; nh = nw / aspectValue }
           }
         }
 
@@ -453,7 +414,6 @@ export function ImageCropper() {
     dragRef.current = null
   }, [])
 
-  // Mouse events
   const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
@@ -479,7 +439,6 @@ export function ImageCropper() {
     }
   }, [getMousePos, handlePointerMove, handlePointerUp])
 
-  // Touch events
   const onTouchStart = useCallback(
     (e: React.TouchEvent) => {
       if (e.touches.length !== 1) return
@@ -511,7 +470,6 @@ export function ImageCropper() {
     }
   }, [handlePointerMove, handlePointerUp])
 
-  // Cursor tracking
   const [cursor, setCursor] = useState("crosshair")
   const onMouseMoveOverlay = useCallback(
     (e: React.MouseEvent) => {
@@ -568,18 +526,16 @@ export function ImageCropper() {
     if (fileInputRef.current) {
       fileInputRef.current.value = ""
     }
-  }, [])
+  }, [setSelectedRatio])
 
   const handleRatioChange = useCallback(
     (index: number) => {
       setSelectedRatio(index)
       setCroppedUrl(null)
-      // Re-init crop with new ratio on next render via effect
     },
-    [],
+    [setSelectedRatio],
   )
 
-  // Reinit crop when ratio changes (after selectedRatio state updates)
   useEffect(() => {
     if (displaySize.width > 0 && displaySize.height > 0 && image) {
       initCrop(displaySize.width, displaySize.height)
@@ -587,307 +543,235 @@ export function ImageCropper() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRatio])
 
+  const handlePresetSelect = useCallback((preset: Preset) => {
+    const data = JSON.parse(preset.content)
+    if (data.ratioIndex !== undefined) handleRatioChange(data.ratioIndex)
+  }, [handleRatioChange])
+
   const scale = getScale()
   const cropNaturalW = Math.round(crop.width * scale)
   const cropNaturalH = Math.round(crop.height * scale)
 
+  const shortcuts: Shortcut[] = useMemo(() => [
+    { key: "mod+o", label: "Open image", action: openFilePicker },
+    { key: "mod+enter", label: "Crop", action: handleCrop },
+    { key: "mod+s", label: "Download cropped", action: handleDownload },
+    { key: "mod+shift+r", label: "Reset", action: handleReset },
+  ], [openFilePicker, handleCrop, handleDownload, handleReset])
+
+  useKeyboardShortcuts(shortcuts)
+
+  const exportOptions = useMemo(() => [
+    { label: "Download PNG", action: handleDownload },
+  ], [handleDownload])
+
   return (
-    <div className="flex h-full flex-col gap-6 overflow-y-auto p-4">
-      <canvas ref={canvasRef} className="hidden" />
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
+    <div className="flex h-full flex-col">
+      <ToolToolbar
+        title="Image Cropper"
+        status={image ? { type: "info", label: `${cropNaturalW}x${cropNaturalH}` } : null}
+        onShare={shareUrl}
+        exportOptions={croppedUrl ? exportOptions : undefined}
+        presets={IMAGE_CROPPER_PRESETS}
+        onPresetSelect={handlePresetSelect}
+        shortcuts={shortcuts}
       />
+      <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-4">
+        <canvas ref={canvasRef} className="hidden" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
 
-      {!image ? (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          className={cn(
-            "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed transition-colors",
-            isDragging
-              ? "border-primary bg-primary/5"
-              : "border-border hover:border-primary/50",
-          )}
-        >
-          <UploadIcon className="h-12 w-12 text-muted-foreground" />
-          <div className="text-center">
-            <p className="text-sm font-medium">
-              Drop an image here or click to browse
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Supports PNG, JPEG, WebP, GIF, BMP, SVG
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-6 lg:flex-row">
-          {/* Controls panel */}
-          <div className="flex w-full flex-col gap-4 lg:w-72 lg:shrink-0">
-            {/* Aspect ratio */}
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-                Aspect Ratio
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {ASPECT_RATIOS.map((ratio, i) => (
-                  <button
-                    key={ratio.label}
-                    onClick={() => handleRatioChange(i)}
-                    className={cn(
-                      "rounded-md px-3 py-1.5 text-sm transition-colors",
-                      selectedRatio === i
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted hover:bg-muted/80",
-                    )}
-                  >
-                    {ratio.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Crop dimensions */}
-            <div className="rounded-lg border border-border bg-card p-4">
-              <h3 className="mb-3 text-sm font-medium text-muted-foreground">
-                Crop Dimensions
-              </h3>
-              <div className="space-y-1.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Size</span>
-                  <span className="font-mono text-xs">
-                    {cropNaturalW} x {cropNaturalH} px
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Original</span>
-                  <span className="font-mono text-xs">
-                    {image.naturalWidth} x {image.naturalHeight} px
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex flex-col gap-2">
-              <Button onClick={handleCrop} className="w-full">
-                <ScissorsIcon className="mr-1.5 h-4 w-4" />
-                Crop
-              </Button>
-              {croppedUrl && (
-                <Button onClick={handleDownload} variant="outline" className="w-full">
-                  <DownloadIcon className="mr-1.5 h-4 w-4" />
-                  Download PNG
-                </Button>
-              )}
-              <Button variant="outline" onClick={handleReset} className="w-full">
-                <RotateCcwIcon className="mr-1.5 h-4 w-4" />
-                Reset
-              </Button>
+        {!image ? (
+          <div
+            {...dropzoneProps}
+            onClick={openFilePicker}
+            className={cn(
+              "flex min-h-[300px] cursor-pointer flex-col items-center justify-center gap-4 rounded-lg border-2 border-dashed transition-colors",
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50",
+            )}
+          >
+            <UploadIcon className="h-12 w-12 text-muted-foreground" />
+            <div className="text-center">
+              <p className="text-sm font-medium">
+                Drop an image here or click to browse
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Supports PNG, JPEG, WebP, GIF, BMP, SVG
+              </p>
             </div>
           </div>
-
-          {/* Crop area */}
-          <div className="flex min-h-[400px] flex-1 flex-col gap-4">
-            <div className="flex flex-1 flex-col rounded-lg border border-border bg-card">
-              <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-                <CropIcon className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Crop Area</span>
-                <span className="ml-auto font-mono text-xs text-muted-foreground">
-                  {cropNaturalW} x {cropNaturalH} px
-                </span>
-              </div>
-              <div
-                ref={containerRef}
-                className="relative flex flex-1 items-center justify-center overflow-hidden p-4"
-              >
-                {displaySize.width > 0 && (
-                  <div
-                    className="relative"
-                    style={{
-                      width: displaySize.width,
-                      height: displaySize.height,
-                    }}
-                  >
-                    <img
-                      src={image.src}
-                      alt="Source"
-                      className="pointer-events-none block"
-                      style={{
-                        width: displaySize.width,
-                        height: displaySize.height,
-                      }}
-                      draggable={false}
-                    />
-                    {/* Overlay */}
-                    <div
-                      ref={overlayRef}
-                      className="absolute inset-0"
-                      style={{ cursor }}
-                      onMouseDown={onMouseDown}
-                      onMouseMove={onMouseMoveOverlay}
-                      onTouchStart={onTouchStart}
+        ) : (
+          <div className="flex flex-col gap-6 lg:flex-row">
+            <div className="flex w-full flex-col gap-4 lg:w-72 lg:shrink-0">
+              <div className="rounded-lg border border-border bg-card p-4">
+                <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                  Aspect Ratio
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {ASPECT_RATIOS.map((ratio, i) => (
+                    <button
+                      key={ratio.label}
+                      onClick={() => handleRatioChange(i)}
+                      className={cn(
+                        "rounded-md px-3 py-1.5 text-sm transition-colors",
+                        selectedRatio === i
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted hover:bg-muted/80",
+                      )}
                     >
-                      {/* Dark mask - four rectangles around the crop */}
-                      {/* Top */}
-                      <div
-                        className="absolute bg-black/50"
-                        style={{
-                          left: 0,
-                          top: 0,
-                          width: displaySize.width,
-                          height: crop.y,
-                        }}
-                      />
-                      {/* Bottom */}
-                      <div
-                        className="absolute bg-black/50"
-                        style={{
-                          left: 0,
-                          top: crop.y + crop.height,
-                          width: displaySize.width,
-                          height: displaySize.height - crop.y - crop.height,
-                        }}
-                      />
-                      {/* Left */}
-                      <div
-                        className="absolute bg-black/50"
-                        style={{
-                          left: 0,
-                          top: crop.y,
-                          width: crop.x,
-                          height: crop.height,
-                        }}
-                      />
-                      {/* Right */}
-                      <div
-                        className="absolute bg-black/50"
-                        style={{
-                          left: crop.x + crop.width,
-                          top: crop.y,
-                          width: displaySize.width - crop.x - crop.width,
-                          height: crop.height,
-                        }}
-                      />
-                      {/* Crop border */}
-                      <div
-                        className="absolute border-2 border-white"
-                        style={{
-                          left: crop.x,
-                          top: crop.y,
-                          width: crop.width,
-                          height: crop.height,
-                        }}
-                      >
-                        {/* Rule of thirds grid */}
-                        <div className="absolute inset-0">
-                          <div
-                            className="absolute left-1/3 top-0 h-full w-px bg-white/30"
-                          />
-                          <div
-                            className="absolute left-2/3 top-0 h-full w-px bg-white/30"
-                          />
-                          <div
-                            className="absolute left-0 top-1/3 h-px w-full bg-white/30"
-                          />
-                          <div
-                            className="absolute left-0 top-2/3 h-px w-full bg-white/30"
-                          />
-                        </div>
-                      </div>
-                      {/* Resize handles - corners */}
-                      {(
-                        [
-                          { mode: "nw", x: crop.x, y: crop.y },
-                          { mode: "ne", x: crop.x + crop.width, y: crop.y },
-                          { mode: "sw", x: crop.x, y: crop.y + crop.height },
-                          {
-                            mode: "se",
-                            x: crop.x + crop.width,
-                            y: crop.y + crop.height,
-                          },
-                        ] as const
-                      ).map((h) => (
-                        <div
-                          key={h.mode}
-                          className="absolute h-3 w-3 rounded-sm border-2 border-white bg-primary"
-                          style={{
-                            left: h.x - 6,
-                            top: h.y - 6,
-                            cursor: getCursorForMode(h.mode),
-                          }}
-                        />
-                      ))}
-                      {/* Resize handles - edges */}
-                      {(
-                        [
-                          {
-                            mode: "n" as DragMode,
-                            x: crop.x + crop.width / 2,
-                            y: crop.y,
-                          },
-                          {
-                            mode: "s" as DragMode,
-                            x: crop.x + crop.width / 2,
-                            y: crop.y + crop.height,
-                          },
-                          {
-                            mode: "w" as DragMode,
-                            x: crop.x,
-                            y: crop.y + crop.height / 2,
-                          },
-                          {
-                            mode: "e" as DragMode,
-                            x: crop.x + crop.width,
-                            y: crop.y + crop.height / 2,
-                          },
-                        ]
-                      ).map((h) => (
-                        <div
-                          key={h.mode}
-                          className="absolute h-2.5 w-2.5 rounded-sm border-2 border-white bg-primary"
-                          style={{
-                            left: h.x - 5,
-                            top: h.y - 5,
-                            cursor: getCursorForMode(h.mode),
-                          }}
-                        />
-                      ))}
-                    </div>
+                      {ratio.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border bg-card p-4">
+                <h3 className="mb-3 text-sm font-medium text-muted-foreground">
+                  Crop Dimensions
+                </h3>
+                <div className="space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Size</span>
+                    <span className="font-mono text-xs">
+                      {cropNaturalW} x {cropNaturalH} px
+                    </span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Original</span>
+                    <span className="font-mono text-xs">
+                      {image.naturalWidth} x {image.naturalHeight} px
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button onClick={handleCrop} className="w-full">
+                  <ScissorsIcon className="mr-1.5 h-4 w-4" />
+                  Crop
+                </Button>
+                {croppedUrl && (
+                  <Button onClick={handleDownload} variant="outline" className="w-full">
+                    <DownloadIcon className="mr-1.5 h-4 w-4" />
+                    Download PNG
+                  </Button>
                 )}
+                <Button variant="outline" onClick={handleReset} className="w-full">
+                  <RotateCcwIcon className="mr-1.5 h-4 w-4" />
+                  Reset
+                </Button>
               </div>
             </div>
 
-            {/* Cropped preview */}
-            {croppedUrl && (
-              <div className="rounded-lg border border-border bg-card">
+            <div className="flex min-h-[400px] flex-1 flex-col gap-4">
+              <div className="flex flex-1 flex-col rounded-lg border border-border bg-card">
                 <div className="flex items-center gap-2 border-b border-border px-4 py-2">
-                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    Cropped Result
-                  </span>
+                  <CropIcon className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Crop Area</span>
                   <span className="ml-auto font-mono text-xs text-muted-foreground">
                     {cropNaturalW} x {cropNaturalH} px
                   </span>
                 </div>
-                <div className="flex items-center justify-center p-4">
-                  <img
-                    src={croppedUrl}
-                    alt="Cropped result"
-                    className="max-h-64 max-w-full object-contain"
-                  />
+                <div
+                  ref={containerRef}
+                  className="relative flex flex-1 items-center justify-center overflow-hidden p-4"
+                >
+                  {displaySize.width > 0 && (
+                    <div
+                      className="relative"
+                      style={{
+                        width: displaySize.width,
+                        height: displaySize.height,
+                      }}
+                    >
+                      <img
+                        src={image.src}
+                        alt="Source"
+                        className="pointer-events-none block"
+                        style={{
+                          width: displaySize.width,
+                          height: displaySize.height,
+                        }}
+                        draggable={false}
+                      />
+                      <div
+                        ref={overlayRef}
+                        className="absolute inset-0"
+                        style={{ cursor }}
+                        onMouseDown={onMouseDown}
+                        onMouseMove={onMouseMoveOverlay}
+                        onTouchStart={onTouchStart}
+                      >
+                        <div className="absolute bg-black/50" style={{ left: 0, top: 0, width: displaySize.width, height: crop.y }} />
+                        <div className="absolute bg-black/50" style={{ left: 0, top: crop.y + crop.height, width: displaySize.width, height: displaySize.height - crop.y - crop.height }} />
+                        <div className="absolute bg-black/50" style={{ left: 0, top: crop.y, width: crop.x, height: crop.height }} />
+                        <div className="absolute bg-black/50" style={{ left: crop.x + crop.width, top: crop.y, width: displaySize.width - crop.x - crop.width, height: crop.height }} />
+                        <div
+                          className="absolute border-2 border-white"
+                          style={{ left: crop.x, top: crop.y, width: crop.width, height: crop.height }}
+                        >
+                          <div className="absolute inset-0">
+                            <div className="absolute left-1/3 top-0 h-full w-px bg-white/30" />
+                            <div className="absolute left-2/3 top-0 h-full w-px bg-white/30" />
+                            <div className="absolute left-0 top-1/3 h-px w-full bg-white/30" />
+                            <div className="absolute left-0 top-2/3 h-px w-full bg-white/30" />
+                          </div>
+                        </div>
+                        {([
+                          { mode: "nw" as DragMode, x: crop.x, y: crop.y },
+                          { mode: "ne" as DragMode, x: crop.x + crop.width, y: crop.y },
+                          { mode: "sw" as DragMode, x: crop.x, y: crop.y + crop.height },
+                          { mode: "se" as DragMode, x: crop.x + crop.width, y: crop.y + crop.height },
+                        ]).map((h) => (
+                          <div
+                            key={h.mode}
+                            className="absolute h-3 w-3 rounded-sm border-2 border-white bg-primary"
+                            style={{ left: h.x - 6, top: h.y - 6, cursor: getCursorForMode(h.mode) }}
+                          />
+                        ))}
+                        {([
+                          { mode: "n" as DragMode, x: crop.x + crop.width / 2, y: crop.y },
+                          { mode: "s" as DragMode, x: crop.x + crop.width / 2, y: crop.y + crop.height },
+                          { mode: "w" as DragMode, x: crop.x, y: crop.y + crop.height / 2 },
+                          { mode: "e" as DragMode, x: crop.x + crop.width, y: crop.y + crop.height / 2 },
+                        ]).map((h) => (
+                          <div
+                            key={h.mode}
+                            className="absolute h-2.5 w-2.5 rounded-sm border-2 border-white bg-primary"
+                            style={{ left: h.x - 5, top: h.y - 5, cursor: getCursorForMode(h.mode) }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+
+              {croppedUrl && (
+                <div className="rounded-lg border border-border bg-card">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+                    <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Cropped Result</span>
+                    <span className="ml-auto font-mono text-xs text-muted-foreground">
+                      {cropNaturalW} x {cropNaturalH} px
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-center p-4">
+                    <img src={croppedUrl} alt="Cropped result" className="max-h-64 max-w-full object-contain" />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
