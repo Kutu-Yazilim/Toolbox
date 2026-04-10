@@ -1,18 +1,31 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect } from "react"
+import { useCallback, useMemo, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import {
-    CopyIcon,
-    DownloadIcon,
     WrapTextIcon,
     MinimizeIcon,
-    CheckIcon,
-    AlertCircleIcon,
+    ArrowDownAZIcon,
+    UploadIcon,
 } from "lucide-react"
 import Editor from "@monaco-editor/react"
+import { ToolToolbar } from "@/components/shared/ToolToolbar"
+import { JsonTreeView } from "./JsonTreeView"
+import { JsonStatusBar } from "./JsonStatusBar"
+import { JSON_PRESETS } from "./jsonPresets"
+import { useLocalStorage } from "@/hooks/useLocalStorage"
+import { useShareableUrl } from "@/hooks/useShareableUrl"
+import { useFileImport } from "@/hooks/useFileImport"
+import { useKeyboardShortcuts, type Shortcut } from "@/hooks/useKeyboardShortcuts"
+import { useTheme } from "@/hooks/useTheme"
+import { sortKeys } from "@/utils/jsonTransforms"
+import { type Preset } from "@/components/shared/PresetsDrawer"
+import { type ExportOption } from "@/components/shared/ExportMenu"
 
-const EXAMPLE_JSON = `{
+const STORAGE_KEY = "kutu-json-editor"
+const TOOL_ID = "json-editor"
+
+const DEFAULT_JSON = `{
   "users": [
     {
       "id": 1,
@@ -34,168 +47,264 @@ const EXAMPLE_JSON = `{
   }
 }`
 
-function tryParseJson(value: string): { valid: boolean; error: string | null; parsed?: unknown } {
+interface EditorState {
+    json: string
+    indent: 2 | 4
+}
+
+const DEFAULT_STATE: EditorState = {
+    json: DEFAULT_JSON,
+    indent: 2,
+}
+
+function tryParse(value: string): { valid: boolean; error: string | null; parsed?: unknown } {
     if (!value.trim()) return { valid: true, error: null }
     try {
-        const parsed = JSON.parse(value)
-        return { valid: true, error: null, parsed }
+        return { valid: true, error: null, parsed: JSON.parse(value) }
     } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "Invalid JSON"
-        return { valid: false, error: msg }
+        return { valid: false, error: e instanceof Error ? e.message : "Invalid JSON" }
     }
 }
 
+function downloadBlob(content: string, filename: string, type: string): void {
+    const blob = new Blob([content], { type })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+}
+
 export function JsonEditor() {
-    const [json, setJson] = useState(EXAMPLE_JSON)
-    const [error, setError] = useState<string | null>(null)
-    const [copied, setCopied] = useState(false)
-    const [indent, setIndent] = useState<2 | 4>(2)
+    const { isDark } = useTheme()
+    const [state, setState] = useLocalStorage<EditorState>(STORAGE_KEY, DEFAULT_STATE)
+    const [selectedPath, setSelectedPath] = useLocalStorage<string | null>(`${STORAGE_KEY}-path`, null)
     const editorRef = useRef<unknown>(null)
 
-    const validate = useCallback((value: string) => {
-        const result = tryParseJson(value)
-        setError(result.error)
-        return result
-    }, [])
+    const { json, indent } = state
 
-    const handleEditorChange = useCallback((value: string | undefined) => {
-        const newValue = value || ""
-        setJson(newValue)
-        validate(newValue)
-    }, [validate])
+    const setJson = useCallback(
+        (value: string) => setState((prev) => ({ ...prev, json: value })),
+        [setState],
+    )
 
+    const setIndent = useCallback(
+        (value: 2 | 4) => setState((prev) => ({ ...prev, indent: value })),
+        [setState],
+    )
+
+    const parseResult = useMemo(() => tryParse(json), [json])
+    const isValid = parseResult.valid
+    const error = parseResult.error
+
+    // --- Shareable URL ---
+    const onRestore = useCallback(
+        (restored: EditorState) => setState(restored),
+        [setState],
+    )
+    const { shareUrl } = useShareableUrl<EditorState>(TOOL_ID, state, onRestore)
+
+    // --- File import ---
+    const onImport = useCallback(
+        (content: string) => setJson(content),
+        [setJson],
+    )
+    const { dropzoneProps, openFilePicker, isDragging } = useFileImport({
+        accept: [".json"],
+        onImport,
+    })
+
+    // --- Actions ---
     const handleFormat = useCallback(() => {
-        const result = tryParseJson(json)
+        const result = tryParse(json)
         if (result.valid && result.parsed !== undefined) {
-            const formatted = JSON.stringify(result.parsed, null, indent)
-            setJson(formatted)
-            setError(null)
+            setJson(JSON.stringify(result.parsed, null, indent))
         }
-    }, [json, indent])
+    }, [json, indent, setJson])
 
     const handleMinify = useCallback(() => {
-        const result = tryParseJson(json)
+        const result = tryParse(json)
         if (result.valid && result.parsed !== undefined) {
-            const minified = JSON.stringify(result.parsed)
-            setJson(minified)
-            setError(null)
+            setJson(JSON.stringify(result.parsed))
         }
-    }, [json])
+    }, [json, setJson])
 
-    const handleCopy = async () => {
-        await navigator.clipboard.writeText(json)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-    }
+    const handleSortKeys = useCallback(() => {
+        try {
+            const sorted = sortKeys(json)
+            const parsed = JSON.parse(sorted)
+            setJson(JSON.stringify(parsed, null, indent))
+        } catch {
+            // JSON is invalid, do nothing
+        }
+    }, [json, indent, setJson])
 
-    const handleDownload = () => {
-        const blob = new Blob([json], { type: "application/json" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = "formatted.json"
-        a.click()
-        URL.revokeObjectURL(url)
-    }
+    const cycleIndent = useCallback(() => {
+        setIndent(indent === 2 ? 4 : 2)
+    }, [indent, setIndent])
 
-    const cycleIndent = () => {
-        setIndent(prev => prev === 2 ? 4 : 2)
-    }
+    const handleEditorChange = useCallback(
+        (value: string | undefined) => setJson(value ?? ""),
+        [setJson],
+    )
 
-    // Validate on mount
-    useEffect(() => {
-        validate(json)
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-    // Handle editor mount to store ref
     const handleEditorMount = useCallback((editor: unknown) => {
         editorRef.current = editor
     }, [])
 
+    const handlePresetSelect = useCallback(
+        (preset: Preset) => setJson(preset.content),
+        [setJson],
+    )
+
+    // --- Keyboard shortcuts ---
+    const shortcuts: Shortcut[] = useMemo(
+        () => [
+            { key: "mod+s", label: "Format JSON", action: handleFormat },
+            { key: "mod+shift+m", label: "Minify JSON", action: handleMinify },
+        ],
+        [handleFormat, handleMinify],
+    )
+    useKeyboardShortcuts(shortcuts)
+
+    // --- Export options ---
+    const exportOptions: ExportOption[] = useMemo(
+        () => [
+            {
+                label: "Download formatted (.json)",
+                action: () => {
+                    const result = tryParse(json)
+                    if (result.valid && result.parsed !== undefined) {
+                        downloadBlob(JSON.stringify(result.parsed, null, indent), "formatted.json", "application/json")
+                    }
+                },
+            },
+            {
+                label: "Download minified (.json)",
+                action: () => {
+                    const result = tryParse(json)
+                    if (result.valid && result.parsed !== undefined) {
+                        downloadBlob(JSON.stringify(result.parsed), "minified.json", "application/json")
+                    }
+                },
+            },
+        ],
+        [json, indent],
+    )
+
+    // --- Toolbar status ---
+    const status = useMemo(() => {
+        if (!json.trim()) return null
+        if (isValid) return { type: "success" as const, label: "Valid" }
+        return { type: "error" as const, label: "Invalid" }
+    }, [json, isValid])
+
+    // --- Toolbar actions ---
+    const toolbarActions = useMemo(
+        () => (
+            <>
+                <Button
+                    variant="ghost"
+                    size="xs"
+                    onClick={cycleIndent}
+                    title={`Indent: ${indent} spaces (click to toggle)`}
+                    className="font-mono text-[10px] w-8"
+                >
+                    {indent}sp
+                </Button>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <Button variant="ghost" size="xs" onClick={handleFormat} disabled={!isValid || !json.trim()} title="Format (pretty-print)">
+                    <WrapTextIcon className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="xs" onClick={handleMinify} disabled={!isValid || !json.trim()} title="Minify">
+                    <MinimizeIcon className="h-3 w-3" />
+                </Button>
+                <Button variant="ghost" size="xs" onClick={handleSortKeys} disabled={!isValid || !json.trim()} title="Sort keys alphabetically">
+                    <ArrowDownAZIcon className="h-3 w-3" />
+                </Button>
+                <div className="w-px h-4 bg-border mx-0.5" />
+                <Button variant="ghost" size="xs" onClick={openFilePicker} title="Import .json file">
+                    <UploadIcon className="h-3 w-3" />
+                </Button>
+            </>
+        ),
+        [cycleIndent, indent, handleFormat, handleMinify, handleSortKeys, isValid, json, openFilePicker],
+    )
+
     return (
-        <div className="h-full flex flex-col min-h-0">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between px-3 h-9 border-b border-border flex-shrink-0">
-                <div className="flex items-center gap-2">
-                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">JSON</span>
+        <div className="h-full flex flex-col min-h-0" {...dropzoneProps}>
+            <ToolToolbar
+                title="JSON"
+                status={status}
+                actions={toolbarActions}
+                copyValue={json}
+                onShare={shareUrl}
+                exportOptions={exportOptions}
+                presets={JSON_PRESETS}
+                onPresetSelect={handlePresetSelect}
+                shortcuts={shortcuts}
+            />
+
+            <div className="flex-1 flex min-h-0 relative">
+                {/* Drag overlay */}
+                {isDragging && (
+                    <div className="absolute inset-0 z-50 bg-primary/10 border-2 border-dashed border-primary rounded-md flex items-center justify-center">
+                        <span className="text-sm font-medium text-primary">Drop .json file here</span>
+                    </div>
+                )}
+
+                {/* Editor panel */}
+                <div className="flex-[3] min-w-0 border-r border-border relative">
+                    <Editor
+                        height="100%"
+                        defaultLanguage="json"
+                        value={json}
+                        onChange={handleEditorChange}
+                        onMount={handleEditorMount}
+                        theme={isDark ? "vs-dark" : "light"}
+                        options={{
+                            minimap: { enabled: false },
+                            fontSize: 13,
+                            lineNumbers: "on",
+                            scrollBeyondLastLine: false,
+                            wordWrap: "on",
+                            tabSize: indent,
+                            automaticLayout: true,
+                            padding: { top: 8 },
+                            renderLineHighlight: "none",
+                            overviewRulerLanes: 0,
+                            hideCursorInOverviewRuler: true,
+                            overviewRulerBorder: false,
+                            scrollbar: {
+                                verticalScrollbarSize: 8,
+                                horizontalScrollbarSize: 8,
+                            },
+                            formatOnPaste: true,
+                        }}
+                    />
                     {error && (
-                        <span className="text-destructive text-xs flex items-center gap-1">
-                            <AlertCircleIcon className="h-3 w-3" />
-                            Invalid
-                        </span>
-                    )}
-                    {!error && json.trim() && (
-                        <span className="text-emerald-500 text-xs flex items-center gap-1">
-                            <CheckIcon className="h-3 w-3" />
-                            Valid
-                        </span>
+                        <div className="absolute bottom-0 left-0 right-0 max-h-20 overflow-y-auto bg-destructive/15 backdrop-blur-sm border-t border-destructive/30 px-3 py-2">
+                            <p className="text-xs text-destructive font-mono leading-relaxed break-words">{error}</p>
+                        </div>
                     )}
                 </div>
-                <div className="flex items-center gap-1">
-                    <Button
-                        variant="ghost"
-                        size="xs"
-                        onClick={cycleIndent}
-                        title={`Indent: ${indent} spaces (click to toggle)`}
-                        className="font-mono text-[10px] w-8"
-                    >
-                        {indent}sp
-                    </Button>
-                    <div className="w-px h-4 bg-border mx-0.5" />
-                    <Button variant="ghost" size="xs" onClick={handleFormat} disabled={!!error || !json.trim()} title="Format (pretty-print)">
-                        <WrapTextIcon className="h-3 w-3" />
-                    </Button>
-                    <Button variant="ghost" size="xs" onClick={handleMinify} disabled={!!error || !json.trim()} title="Minify">
-                        <MinimizeIcon className="h-3 w-3" />
-                    </Button>
-                    <div className="w-px h-4 bg-border mx-0.5" />
-                    <Button variant="ghost" size="xs" onClick={handleCopy} title="Copy">
-                        {copied ? <CheckIcon className="h-3 w-3" /> : <CopyIcon className="h-3 w-3" />}
-                    </Button>
-                    <Button variant="ghost" size="xs" onClick={handleDownload} title="Download .json">
-                        <DownloadIcon className="h-3 w-3" />
-                    </Button>
+
+                {/* Tree view panel */}
+                <div className="flex-[2] min-w-0 flex flex-col bg-card">
+                    <div className="px-3 h-7 flex items-center border-b border-border flex-shrink-0">
+                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Tree View</span>
+                    </div>
+                    <JsonTreeView
+                        json={json}
+                        isValid={isValid}
+                        selectedPath={selectedPath}
+                        onSelectPath={setSelectedPath}
+                    />
                 </div>
             </div>
 
-            {/* Editor */}
-            <div className="flex-1 min-h-0 relative">
-                <Editor
-                    height="100%"
-                    defaultLanguage="json"
-                    value={json}
-                    onChange={handleEditorChange}
-                    onMount={handleEditorMount}
-                    theme="vs-dark"
-                    options={{
-                        minimap: { enabled: false },
-                        fontSize: 13,
-                        lineNumbers: "on",
-                        scrollBeyondLastLine: false,
-                        wordWrap: "on",
-                        tabSize: indent,
-                        automaticLayout: true,
-                        padding: { top: 8 },
-                        renderLineHighlight: "none",
-                        overviewRulerLanes: 0,
-                        hideCursorInOverviewRuler: true,
-                        overviewRulerBorder: false,
-                        scrollbar: {
-                            verticalScrollbarSize: 8,
-                            horizontalScrollbarSize: 8,
-                        },
-                        formatOnPaste: true,
-                    }}
-                />
-                {/* Error overlay */}
-                {error && (
-                    <div className="absolute bottom-0 left-0 right-0 max-h-20 overflow-y-auto bg-destructive/15 backdrop-blur-sm border-t border-destructive/30 px-3 py-2">
-                        <p className="text-xs text-destructive font-mono leading-relaxed break-words">
-                            {error}
-                        </p>
-                    </div>
-                )}
-            </div>
+            <JsonStatusBar jsonPath={selectedPath} json={json} isValid={isValid} />
         </div>
     )
 }

@@ -1,6 +1,6 @@
 import type { TreeOptionsType } from "@/components/tree/TreeOptions"
 
-interface TreeNode {
+export interface TreeNode {
   name: string
   children: TreeNode[]
   path: string
@@ -8,9 +8,9 @@ interface TreeNode {
 
 const BRANCH_STYLES = {
   unicode: {
-    branch: "├── ",
-    lastBranch: "└── ",
-    vertical: "│   ",
+    branch: "\u251C\u2500\u2500 ",
+    lastBranch: "\u2514\u2500\u2500 ",
+    vertical: "\u2502   ",
     empty: "    ",
   },
   ascii: {
@@ -27,8 +27,21 @@ const BRANCH_STYLES = {
   },
 }
 
-function parseInput(input: string): TreeNode[] {
-  const lines = input.split("\n").filter((line) => line.trim())
+const COMMENT_PATTERN = /^\s*(\/\/|#)/
+
+const FOLDER_ICON = "\uD83D\uDCC1"
+const FILE_ICON = "\uD83D\uDCC4"
+
+function stripCommentLines(input: string): string {
+  return input
+    .split("\n")
+    .filter((line) => !COMMENT_PATTERN.test(line))
+    .join("\n")
+}
+
+export function parseInput(input: string, options?: Pick<TreeOptionsType, "stripComments">): TreeNode[] {
+  const processedInput = options?.stripComments ? stripCommentLines(input) : input
+  const lines = processedInput.split("\n").filter((line) => line.trim())
   const root: TreeNode = { name: "", children: [], path: "" }
   const stack: { node: TreeNode; indent: number }[] = [{ node: root, indent: -1 }]
 
@@ -54,6 +67,10 @@ function parseInput(input: string): TreeNode[] {
   return root.children
 }
 
+function isDirectory(node: TreeNode): boolean {
+  return node.children.length > 0 || !node.name.includes(".")
+}
+
 function renderTree(
   nodes: TreeNode[],
   options: TreeOptionsType,
@@ -67,12 +84,12 @@ function renderTree(
     const branch = isLast ? style.lastBranch : style.branch
     const childPrefix = prefix + (isLast ? style.empty : style.vertical)
 
-    // Determine if this is a directory (has children or no file extension)
-    const isDirectory = node.children.length > 0 || !node.name.includes(".")
+    const nodeIsDir = isDirectory(node)
     const displayName = options.fullPath ? node.path : node.name
-    const suffix = options.trailingSlash && isDirectory ? "/" : ""
+    const suffix = options.trailingSlash && nodeIsDir ? "/" : ""
+    const icon = options.showIcons ? (nodeIsDir ? `${FOLDER_ICON} ` : `${FILE_ICON} `) : ""
 
-    result += `${prefix}${branch}${displayName}${suffix}\n`
+    result += `${prefix}${branch}${icon}${displayName}${suffix}\n`
 
     if (node.children.length > 0) {
       result += renderTree(node.children, options, childPrefix)
@@ -85,11 +102,18 @@ function renderTree(
 export function generateTree(input: string, options: TreeOptionsType): string {
   if (!input.trim()) return ""
 
-  const nodes = parseInput(input)
+  const nodes = parseInput(input, { stripComments: options.stripComments })
   if (nodes.length === 0) return ""
 
   const rootSymbol = options.rootSymbol || "."
+  const rootIcon = options.showIcons ? `${FOLDER_ICON} ` : ""
   const treeBranches = renderTree(nodes, options)
 
-  return `${rootSymbol}\n${treeBranches}`
+  return `${rootIcon}${rootSymbol}\n${treeBranches}`
+}
+
+export function generateMarkdownTree(input: string, options: TreeOptionsType): string {
+  const tree = generateTree(input, options)
+  if (!tree) return ""
+  return `\`\`\`\n${tree}\`\`\``
 }

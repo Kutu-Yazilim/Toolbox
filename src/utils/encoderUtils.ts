@@ -26,7 +26,52 @@ export function urlDecode(input: string, mode: "component" | "uri"): string {
     }
 }
 
-// JWT decode (header and payload only — no signature verification)
+// HTML entity encode/decode
+const HTML_ENTITY_MAP: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+    "/": "&#x2F;",
+    "`": "&#x60;",
+    "=": "&#x3D;",
+}
+
+const HTML_ENTITY_REVERSE_MAP: Record<string, string> = Object.fromEntries(
+    Object.entries(HTML_ENTITY_MAP).map(([k, v]) => [v, k])
+)
+
+export function htmlEntityEncode(input: string): string {
+    return input.replace(/[&<>"'`=/]/g, ch => HTML_ENTITY_MAP[ch] ?? ch)
+}
+
+export function htmlEntityDecode(input: string): string {
+    // Named and numeric entities
+    return input.replace(/&(?:#x([0-9a-fA-F]+)|#(\d+)|([a-zA-Z]+));/g, (match, hex, dec, named) => {
+        if (hex) return String.fromCodePoint(parseInt(hex, 16))
+        if (dec) return String.fromCodePoint(parseInt(dec, 10))
+        const namedEntity = `&${named};`
+        return HTML_ENTITY_REVERSE_MAP[namedEntity] ?? match
+    })
+}
+
+// Base64 URL-safe variants
+export function base64UrlSafeEncode(input: string): string {
+    return base64Encode(input)
+        .replace(/\+/g, "-")
+        .replace(/\//g, "_")
+        .replace(/=+$/, "")
+}
+
+export function base64UrlSafeDecode(input: string): string {
+    let base64 = input.replace(/-/g, "+").replace(/_/g, "/")
+    const pad = base64.length % 4
+    if (pad) base64 += "=".repeat(4 - pad)
+    return base64Decode(base64)
+}
+
+// JWT decode (header and payload only -- no signature verification)
 function base64UrlDecode(str: string): string {
     // Base64url to Base64
     let base64 = str.replace(/-/g, "+").replace(/_/g, "/")

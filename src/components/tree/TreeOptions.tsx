@@ -5,6 +5,8 @@ export interface TreeOptionsType {
     branchStyle: "ascii" | "unicode" | "minimal"
     trailingSlash: boolean
     fullPath: boolean
+    showIcons: boolean
+    stripComments: boolean
 }
 
 export const defaultTreeOptions: TreeOptionsType = {
@@ -12,6 +14,8 @@ export const defaultTreeOptions: TreeOptionsType = {
     branchStyle: "unicode",
     trailingSlash: false,
     fullPath: false,
+    showIcons: false,
+    stripComments: false,
 }
 
 interface TreeOptionsProps {
@@ -88,6 +92,32 @@ export function TreeOptions({ options, onChange }: TreeOptionsProps) {
                 title="Show full paths"
             >
                 Full Path
+            </button>
+
+            {/* Icons toggle */}
+            <button
+                onClick={() => updateOption("showIcons", !options.showIcons)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    options.showIcons
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                title="Show file/folder icons"
+            >
+                Icons
+            </button>
+
+            {/* Comments toggle */}
+            <button
+                onClick={() => updateOption("stripComments", !options.stripComments)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                    options.stripComments
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                }`}
+                title="Strip comment lines (// or #)"
+            >
+                Strip #
             </button>
         </>
     )
