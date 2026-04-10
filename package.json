@@ -19,6 +19,7 @@
     "cron-parser": "^5.5.0",
     "cronstrue": "^3.13.0",
     "html-to-image": "^1.11.13",
+    "idb": "^8.0.3",
     "jspdf": "^4.1.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
