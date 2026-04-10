@@ -3,9 +3,11 @@
 import { useState } from "react"
 import { DiffEditor } from "@monaco-editor/react"
 import { useIsMobile } from "@/hooks/useIsMobile"
+import { useTheme } from "@/hooks/useTheme"
 
 export function JsonDiff() {
     const isMobile = useIsMobile()
+    const { isDark } = useTheme()
     const [diffOriginal, setDiffOriginal] = useState("")
     const [diffModified, setDiffModified] = useState("")
 
@@ -26,7 +28,7 @@ export function JsonDiff() {
                     language="json"
                     original={diffOriginal}
                     modified={diffModified}
-                    theme="vs-dark"
+                    theme={isDark ? "vs-dark" : "light"}
                     onMount={(_editor) => {
                         const modifiedEditor = _editor.getModifiedEditor()
                         const originalEditor = _editor.getOriginalEditor()

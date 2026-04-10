@@ -23,8 +23,8 @@ const SUB_ROUTE_COMPONENTS: Record<string, Record<string, React.ComponentType>> 
     forge: dynamic(() => import("@/components/jwt/JwtForge").then((m) => ({ default: m.JwtForge })), { ssr: false }),
   },
   encoder: {
-    base64: dynamic(() => import("@/components/encoder/Base64Encoder").then((m) => ({ default: m.Base64Encoder })), { ssr: false }),
-    url: dynamic(() => import("@/components/encoder/UrlEncoder").then((m) => ({ default: m.UrlEncoder })), { ssr: false }),
+    base64: dynamic(() => import("@/components/encoder/EncoderDecoder").then((m) => ({ default: m.EncoderDecoder })), { ssr: false }),
+    url: dynamic(() => import("@/components/encoder/EncoderDecoder").then((m) => ({ default: m.EncoderDecoder })), { ssr: false }),
   },
   timeline: {
     priority: dynamic(() => import("@/components/timeline/PriorityTimeline").then((m) => ({ default: m.PriorityTimeline })), { ssr: false }),
