@@ -383,6 +383,22 @@ function EndpointSidebar({
 export function ApiRequestBuilder() {
     const [method, setMethod] = useState<HttpMethod>("GET")
     const [url, setUrl] = useState("https://jsonplaceholder.typicode.com/posts/1")
+
+    const EXAMPLE_URLS: Partial<Record<HttpMethod, string>> = {
+        GET: "https://jsonplaceholder.typicode.com/posts/1",
+        POST: "https://jsonplaceholder.typicode.com/posts",
+        PUT: "https://jsonplaceholder.typicode.com/posts/1",
+        PATCH: "https://jsonplaceholder.typicode.com/posts/1",
+        DELETE: "https://jsonplaceholder.typicode.com/posts/1",
+    }
+
+    const handleMethodChange = useCallback((m: HttpMethod) => {
+        setMethod(m)
+        setUrl(prev => {
+            const isExample = Object.values(EXAMPLE_URLS).includes(prev)
+            return isExample ? (EXAMPLE_URLS[m] ?? prev) : prev
+        })
+    }, [])
     const [headers, setHeaders] = useState<KeyValuePair[]>([
         { key: "Content-Type", value: "application/json", enabled: true },
     ])
@@ -495,7 +511,7 @@ export function ApiRequestBuilder() {
     const handleSelectEndpoint = useCallback((endpoint: OpenApiEndpoint) => {
         const m = endpoint.method.toUpperCase()
         if (METHODS.includes(m as HttpMethod)) {
-            setMethod(m as HttpMethod)
+            handleMethodChange(m as HttpMethod)
         }
 
         // Build URL with base
@@ -561,7 +577,7 @@ export function ApiRequestBuilder() {
                 {METHODS.map(m => (
                     <button
                         key={m}
-                        onClick={() => setMethod(m)}
+                        onClick={() => handleMethodChange(m)}
                         className={`px-2 py-1 rounded text-[11px] font-medium font-mono transition-colors ${
                             method === m
                                 ? METHOD_COLORS[m]
