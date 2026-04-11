@@ -10,6 +10,9 @@ import {
   PaletteIcon,
   UndoIcon,
   RedoIcon,
+  FolderIcon,
+  ImageIcon,
+  PaintBucketIcon,
 } from "lucide-react"
 
 interface PaletteToolbarProps {
@@ -24,6 +27,10 @@ interface PaletteToolbarProps {
   onRedo: () => void
   canUndo: boolean
   canRedo: boolean
+  onPalettesOpen: () => void
+  onExtractOpen: () => void
+  onGradientToggle: () => void
+  gradientMode: boolean
 }
 
 export function PaletteToolbar({
@@ -38,6 +45,10 @@ export function PaletteToolbar({
   onRedo,
   canUndo,
   canRedo,
+  onPalettesOpen,
+  onExtractOpen,
+  onGradientToggle,
+  gradientMode,
 }: PaletteToolbarProps) {
   const harmonyLabels: Record<ColorHarmony, string> = {
     random: "Random",
@@ -94,6 +105,24 @@ export function PaletteToolbar({
 
       {/* Right: Tools */}
       <div className="flex items-center gap-1">
+        <Button variant="ghost" size="xs" onClick={onPalettesOpen} title="Saved palettes">
+          <FolderIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Palettes</span>
+        </Button>
+        <Button variant="ghost" size="xs" onClick={onExtractOpen} title="Extract from image">
+          <ImageIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Extract</span>
+        </Button>
+        <Button
+          variant={gradientMode ? "secondary" : "ghost"}
+          size="xs"
+          onClick={onGradientToggle}
+          title="Gradient mode"
+        >
+          <PaintBucketIcon className="h-3 w-3" />
+          <span className="hidden sm:inline text-[10px]">Gradient</span>
+        </Button>
+        <div className="w-px h-4 bg-border mx-0.5" />
         <Button variant="ghost" size="xs" onClick={onShowAdjust} title="Adjust colors">
           <SlidersHorizontalIcon className="h-3 w-3" />
           <span className="hidden sm:inline text-[10px]">Adjust</span>

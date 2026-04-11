@@ -17,7 +17,15 @@ import { HarmonySelector } from "./HarmonySelector"
 import { ContrastChecker } from "./ContrastChecker"
 import { ColorBlindnessView } from "./ColorBlindnessView"
 import { ColorDetailPanel } from "./ColorDetailPanel"
-import { fetchColorNames } from "@/services/colorApi"
+import { useColorHistory } from "./useColorHistory"
+import { useColorNames } from "./useColorNames"
+import { usePaletteDrag } from "./usePaletteDrag"
+import { useColorStore } from "./useColorStore"
+import { ColorPickerModal } from "./ColorPickerModal"
+import { PalettesDrawer } from "./PalettesDrawer"
+import { ImageExtractorModal } from "./ImageExtractorModal"
+import { GradientEditor } from "./GradientEditor"
+import type { SavedPalette } from "./colorTypes"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { useShareableUrl } from "@/hooks/useShareableUrl"
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts"
@@ -52,8 +60,12 @@ export function ColorPicker() {
   const [savedColors, setSavedColors] = useLocalStorage<string[]>("color-picker-saved", [])
   const [colors, setColors] = useState<PaletteColor[]>(getInitialColors)
   const [harmony, setHarmony] = useState<ColorHarmony>("random")
-  const [dragIndex, setDragIndex] = useState<number | null>(null)
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
+
+  // Hooks replacing inline logic
+  const { pushState, undo: undoHistory, redo: redoHistory, canUndo, canRedo } = useColorHistory<PaletteColor[]>()
+  const { getName, preloadNames } = useColorNames()
+  const { handleDragStart, handleDragOver, handleDrop, handleDragEnd, dragOverIndex } = usePaletteDrag(colors, setColors)
+  const { palettes, savePalette, deletePalette, updatePalette, loaded } = useColorStore()
 
   // Dialogs
   const [showExport, setShowExport] = useState(false)
@@ -63,72 +75,33 @@ export function ColorPicker() {
   const [showBlindness, setShowBlindness] = useState(false)
   const [detailHex, setDetailHex] = useState<string | null>(null)
 
-  // History (undo/redo)
-  const [history, setHistory] = useState<PaletteColor[][]>([])
-  const [historyIndex, setHistoryIndex] = useState(-1)
-  const skipHistoryRef = useRef(false)
-
-  // API color names (hex -> name)
-  const [colorNames, setColorNames] = useState<Record<string, string>>({})
+  // New dialog/drawer states
+  const [palettesOpen, setPalettesOpen] = useState(false)
+  const [extractOpen, setExtractOpen] = useState(false)
+  const [gradientMode, setGradientMode] = useState(false)
+  const [colorPickerHex, setColorPickerHex] = useState<{ id: string; hex: string } | null>(null)
 
   const paletteRef = useRef<HTMLDivElement>(null)
 
-  // Fetch color names from API when palette colors change
+  // Preload color names when colors change
   useEffect(() => {
-    let cancelled = false
-
-    // Only fetch names for hexes we don't already have cached
-    const hexesToFetch = colors
-      .map(c => c.hex.toUpperCase())
-      .filter(hex => !colorNames[hex])
-
-    if (hexesToFetch.length === 0) return
-
-    // Small debounce to avoid hammering API during rapid generation
-    const timer = setTimeout(() => {
-      fetchColorNames(hexesToFetch).then(names => {
-        if (!cancelled && Object.keys(names).length > 0) {
-          setColorNames(prev => ({ ...prev, ...names }))
-        }
-      })
-    }, 150)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timer)
-    }
-  }, [colors, colorNames])
+    preloadNames(colors.map(c => c.hex))
+  }, [colors, preloadNames])
 
   // Push to history when colors change
   useEffect(() => {
-    if (skipHistoryRef.current) {
-      skipHistoryRef.current = false
-      return
-    }
-    setHistory((prev) => {
-      const newHistory = prev.slice(0, historyIndex + 1)
-      newHistory.push(colors)
-      if (newHistory.length > MAX_HISTORY) newHistory.shift()
-      return newHistory
-    })
-    setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1))
-  }, [colors])
+    pushState(colors)
+  }, [colors, pushState])
 
   const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      skipHistoryRef.current = true
-      setHistoryIndex((prev) => prev - 1)
-      setColors(history[historyIndex - 1])
-    }
-  }, [history, historyIndex])
+    const state = undoHistory()
+    if (state) setColors(state)
+  }, [undoHistory])
 
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      skipHistoryRef.current = true
-      setHistoryIndex((prev) => prev + 1)
-      setColors(history[historyIndex + 1])
-    }
-  }, [history, historyIndex])
+    const state = redoHistory()
+    if (state) setColors(state)
+  }, [redoHistory])
 
   // Generate new palette (respecting locked colors)
   const generate = useCallback(() => {
@@ -280,28 +253,6 @@ export function ColorPicker() {
     })
   }
 
-  // Drag and drop reordering
-  const handleDragStart = (index: number) => {
-    setDragIndex(index)
-  }
-
-  const handleDragOver = (index: number) => {
-    setDragOverIndex(index)
-  }
-
-  const handleDragEnd = () => {
-    if (dragIndex !== null && dragOverIndex !== null && dragIndex !== dragOverIndex) {
-      setColors((prev) => {
-        const next = [...prev]
-        const [removed] = next.splice(dragIndex, 1)
-        next.splice(dragOverIndex, 0, removed)
-        return next
-      })
-    }
-    setDragIndex(null)
-    setDragOverIndex(null)
-  }
-
   // Harmony change
   const handleHarmonyChange = (newHarmony: ColorHarmony) => {
     setHarmony(newHarmony)
@@ -310,6 +261,63 @@ export function ColorPicker() {
   // Apply adjusted colors
   const handleApplyAdjust = (adjusted: PaletteColor[]) => {
     setColors(adjusted)
+  }
+
+  // Palette save/load handlers
+  const handleSavePalette = (name: string) => {
+    savePalette({
+      id: crypto.randomUUID(),
+      name,
+      colors: colors.map(c => c.hex),
+      harmony,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })
+  }
+
+  const handleLoadPalette = (palette: SavedPalette) => {
+    const newColors = palette.colors.map(hex => ({ id: generateId(), hex, locked: false }))
+    setColors(newColors)
+    pushState(newColors)
+    setPalettesOpen(false)
+  }
+
+  const handleRenamePalette = (id: string, name: string) => {
+    const palette = palettes.find(p => p.id === id)
+    if (palette) {
+      updatePalette({ ...palette, name, updatedAt: Date.now() })
+    }
+  }
+
+  // Image extraction handlers
+  const handleUseAsPalette = (hexes: string[]) => {
+    const newColors = hexes.map(hex => ({ id: generateId(), hex, locked: false }))
+    setColors(newColors)
+    pushState(newColors)
+    setExtractOpen(false)
+  }
+
+  const handleAddToPalette = (hexes: string[]) => {
+    const newColors = [...colors, ...hexes.map(hex => ({ id: generateId(), hex, locked: false }))]
+    setColors(newColors.slice(0, MAX_COLORS))
+    pushState(newColors.slice(0, MAX_COLORS))
+    setExtractOpen(false)
+  }
+
+  // Gradient to palette handler
+  const handleGradientToPalette = (gradientColors: string[]) => {
+    const newColors = gradientColors.map(hex => ({ id: generateId(), hex, locked: false }))
+    setColors(newColors)
+    pushState(newColors)
+    setGradientMode(false)
+  }
+
+  // Color picker modal handler
+  const handleColorPickerApply = (hex: string) => {
+    if (colorPickerHex) {
+      updateColor(colorPickerHex.id, hex)
+      setColorPickerHex(null)
+    }
   }
 
   // Chunk colors into rows of COLORS_PER_ROW
@@ -392,38 +400,52 @@ export function ColorPicker() {
         onShowBlindness={() => setShowBlindness(true)}
         onUndo={undo}
         onRedo={redo}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < history.length - 1}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onPalettesOpen={() => setPalettesOpen(true)}
+        onExtractOpen={() => setExtractOpen(true)}
+        onGradientToggle={() => setGradientMode(prev => !prev)}
+        gradientMode={gradientMode}
       />
 
-      {/* Palette rows */}
+      {/* Palette rows or Gradient editor */}
       <div ref={paletteRef} className="flex-1 flex flex-col overflow-hidden">
-        {colorRows.map((row, rowIndex) => (
-          <div key={rowIndex} className="flex-1 flex overflow-hidden min-h-0">
-            {row.map((color, colIndex) => {
-              const globalIndex = rowIndex * COLORS_PER_ROW + colIndex
-              return (
-                <ColorColumn
-                  key={color.id}
-                  color={color}
-                  index={globalIndex}
-                  total={colors.length}
-                  apiColorName={colorNames[color.hex.toUpperCase()]}
-                  onLock={() => toggleLock(color.id)}
-                  onRemove={() => removeColor(color.id)}
-                  onUpdate={(hex) => updateColor(color.id, hex)}
-                  onAddBefore={() => addColorAt(globalIndex)}
-                  onAddAfter={() => addColorAt(globalIndex + 1)}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                  canRemove={colors.length > MIN_COLORS}
-                  onShowDetail={() => setDetailHex(color.hex)}
-                />
-              )
-            })}
+        {gradientMode ? (
+          <div className="flex-1 overflow-y-auto p-4">
+            <GradientEditor
+              initialColors={colors.map(c => c.hex)}
+              onToPalette={handleGradientToPalette}
+            />
           </div>
-        ))}
+        ) : (
+          colorRows.map((row, rowIndex) => (
+            <div key={rowIndex} className="flex-1 flex overflow-hidden min-h-0">
+              {row.map((color, colIndex) => {
+                const globalIndex = rowIndex * COLORS_PER_ROW + colIndex
+                return (
+                  <ColorColumn
+                    key={color.id}
+                    color={color}
+                    index={globalIndex}
+                    total={colors.length}
+                    apiColorName={getName(color.hex) ?? undefined}
+                    onLock={() => toggleLock(color.id)}
+                    onRemove={() => removeColor(color.id)}
+                    onUpdate={(hex) => updateColor(color.id, hex)}
+                    onAddBefore={() => addColorAt(globalIndex)}
+                    onAddAfter={() => addColorAt(globalIndex + 1)}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                    canRemove={colors.length > MIN_COLORS}
+                    onShowDetail={() => setDetailHex(color.hex)}
+                    onOpenColorPicker={() => setColorPickerHex({ id: color.id, hex: color.hex })}
+                  />
+                )
+              })}
+            </div>
+          ))
+        )}
       </div>
 
       {/* Hint bar */}
@@ -475,6 +497,29 @@ export function ColorPicker() {
           onSelectColor={(hex) => {
             setDetailHex(hex)
           }}
+        />
+      )}
+      <PalettesDrawer
+        open={palettesOpen}
+        onClose={() => setPalettesOpen(false)}
+        palettes={palettes}
+        onSave={handleSavePalette}
+        onLoad={handleLoadPalette}
+        onDelete={deletePalette}
+        onRename={handleRenamePalette}
+      />
+      {extractOpen && (
+        <ImageExtractorModal
+          onUseAsPalette={handleUseAsPalette}
+          onAddToPalette={handleAddToPalette}
+          onClose={() => setExtractOpen(false)}
+        />
+      )}
+      {colorPickerHex && (
+        <ColorPickerModal
+          hex={colorPickerHex.hex}
+          onApply={handleColorPickerApply}
+          onClose={() => setColorPickerHex(null)}
         />
       )}
     </div>

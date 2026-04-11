@@ -28,10 +28,11 @@ interface ColorColumnProps {
   onAddBefore: () => void
   onAddAfter: () => void
   onDragStart: (index: number) => void
-  onDragOver: (index: number) => void
+  onDragOver: (e: React.DragEvent, index: number) => void
   onDragEnd: () => void
   canRemove: boolean
   onShowDetail: () => void
+  onOpenColorPicker?: () => void
 }
 
 export function ColorColumn({
@@ -49,6 +50,7 @@ export function ColorColumn({
   onDragEnd,
   canRemove,
   onShowDetail,
+  onOpenColorPicker,
 }: ColorColumnProps) {
   const [isHovered, setIsHovered] = useState(false)
   const [showEditor, setShowEditor] = useState(false)
@@ -106,9 +108,8 @@ export function ColorColumn({
           onDragStart(index)
         }}
         onDragOver={(e) => {
-          e.preventDefault()
           e.dataTransfer.dropEffect = "move"
-          onDragOver(index)
+          onDragOver(e, index)
         }}
         onDrop={(e) => {
           e.preventDefault()
@@ -253,7 +254,7 @@ export function ColorColumn({
 
             {/* Hex value - clickable to edit */}
             <button
-              onClick={() => setShowEditor(!showEditor)}
+              onClick={() => onOpenColorPicker ? onOpenColorPicker() : setShowEditor(!showEditor)}
               className="text-lg font-bold tracking-wider hover:scale-105 transition-transform"
               title="Click to edit color"
             >
