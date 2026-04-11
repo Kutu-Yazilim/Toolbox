@@ -2,8 +2,9 @@
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import type { BoardElement, ElementStyle, FontFamily } from "@/types/board"
-import { STROKE_COLORS, FILL_COLORS, STICKY_COLORS } from "@/types/board"
+import type { BoardElement, ElementStyle, FontFamily, RichTextSegment } from "@/types/board"
+import { STROKE_COLORS, FILL_COLORS, STICKY_COLORS, isTextLike } from "@/types/board"
+import RichTextToolbar from "./RichTextToolbar"
 import {
   Trash2Icon,
   CopyIcon,
@@ -335,6 +336,42 @@ export function BoardProperties({
           className="w-full h-1.5 rounded-full appearance-none cursor-pointer bg-muted [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
         />
       </div>
+
+      {/* Rich Text Toolbar */}
+      {!isMultiple && isTextLike(firstEl) && (() => {
+        const segment: RichTextSegment | undefined = firstEl.richText?.[0]
+        const richBold = segment?.bold ?? false
+        const richItalic = segment?.italic ?? false
+        const richUnderline = segment?.underline ?? false
+        const richStrikethrough = segment?.strikethrough ?? false
+        const richTextColor = segment?.color ?? style.textColor ?? "#1e1e1e"
+        const fullText = firstEl.text ?? ""
+
+        const updateRichText = (updates: Partial<RichTextSegment>) => {
+          const current: RichTextSegment = segment
+            ? { ...segment, ...updates }
+            : { text: fullText, ...updates }
+          onUpdateElements({ richText: [current] })
+        }
+
+        return (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-medium text-muted-foreground uppercase">Rich Text</label>
+            <RichTextToolbar
+              bold={richBold}
+              italic={richItalic}
+              underline={richUnderline}
+              strikethrough={richStrikethrough}
+              textColor={richTextColor}
+              onToggleBold={() => updateRichText({ bold: !richBold })}
+              onToggleItalic={() => updateRichText({ italic: !richItalic })}
+              onToggleUnderline={() => updateRichText({ underline: !richUnderline })}
+              onToggleStrikethrough={() => updateRichText({ strikethrough: !richStrikethrough })}
+              onTextColorChange={(color) => updateRichText({ color })}
+            />
+          </div>
+        )
+      })()}
 
       {/* Text styling */}
       {hasText && (

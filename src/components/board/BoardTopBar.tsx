@@ -15,6 +15,10 @@ import {
   FileIcon,
   FileCodeIcon,
   EyeOffIcon,
+  LayersIcon,
+  MapIcon,
+  FileJsonIcon,
+  KeyboardIcon,
 } from "lucide-react"
 
 interface BoardTopBarProps {
@@ -24,6 +28,8 @@ interface BoardTopBarProps {
   canUndo: boolean
   canRedo: boolean
   transparentBg: boolean
+  layersPanelOpen: boolean
+  minimapOpen: boolean
   onCameraChange: (camera: Camera) => void
   onToggleGrid: () => void
   onGridSizeChange: (size: number) => void
@@ -31,10 +37,13 @@ interface BoardTopBarProps {
   onRedo: () => void
   onExportPng: () => void
   onExportSvg: () => void
+  onExportJson: () => void
   onSaveKutud: () => void
   onLoadKutud: (file: File) => void
   onFitToScreen: () => void
   onToggleTransparentBg: () => void
+  onToggleLayers: () => void
+  onToggleMinimap: () => void
 }
 
 const GRID_SIZES = [10, 20, 40, 80] as const
@@ -46,6 +55,8 @@ export function BoardTopBar({
   canUndo,
   canRedo,
   transparentBg,
+  layersPanelOpen,
+  minimapOpen,
   onCameraChange,
   onToggleGrid,
   onGridSizeChange,
@@ -53,10 +64,13 @@ export function BoardTopBar({
   onRedo,
   onExportPng,
   onExportSvg,
+  onExportJson,
   onSaveKutud,
   onLoadKutud,
   onFitToScreen,
   onToggleTransparentBg,
+  onToggleLayers,
+  onToggleMinimap,
 }: BoardTopBarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -134,6 +148,26 @@ export function BoardTopBar({
         <Button variant="ghost" size="icon-xs" onClick={onFitToScreen} title="Fit to screen">
           <MaximizeIcon className="size-3.5" />
         </Button>
+        <div className="w-px h-5 bg-border" />
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onToggleLayers}
+          title={layersPanelOpen ? "Hide layers" : "Show layers"}
+          className={layersPanelOpen ? "text-primary" : ""}
+        >
+          <LayersIcon className="size-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border" />
+        <Button
+          variant="ghost"
+          size="icon-xs"
+          onClick={onToggleMinimap}
+          title={minimapOpen ? "Hide minimap" : "Show minimap"}
+          className={minimapOpen ? "text-primary" : ""}
+        >
+          <MapIcon className="size-3.5" />
+        </Button>
       </div>
 
       {/* File operations */}
@@ -159,6 +193,10 @@ export function BoardTopBar({
           <FileCodeIcon className="size-3.5" />
         </Button>
         <div className="w-px h-5 bg-border" />
+        <Button variant="ghost" size="icon-xs" onClick={onExportJson} title="Export as JSON">
+          <FileJsonIcon className="size-3.5" />
+        </Button>
+        <div className="w-px h-5 bg-border" />
         <Button
           variant="ghost"
           size="icon-xs"
@@ -167,6 +205,13 @@ export function BoardTopBar({
           className={`rounded-l-none ${transparentBg ? "text-primary" : ""}`}
         >
           <EyeOffIcon className="size-3.5" />
+        </Button>
+      </div>
+
+      {/* Keyboard shortcuts hint */}
+      <div className="flex items-center bg-card border border-border rounded-lg shadow-sm">
+        <Button variant="ghost" size="icon-xs" title="Keyboard shortcuts (?)" className="text-muted-foreground">
+          <KeyboardIcon className="size-3.5" />
         </Button>
       </div>
 

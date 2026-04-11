@@ -13,6 +13,9 @@ import { BoardCanvas } from "./BoardCanvas"
 import { BoardToolbar } from "./BoardToolbar"
 import { BoardTopBar } from "./BoardTopBar"
 import { BoardProperties } from "./BoardProperties"
+import LayersPanel from "./LayersPanel"
+import Minimap from "./Minimap"
+import RulerOverlay from "./RulerOverlay"
 import {
   exportBoardToPng,
   exportBoardToSvg,
@@ -43,6 +46,9 @@ export function BoardEditor() {
   const [gridEnabled, setGridEnabled] = useState(true)
   const [gridSize, setGridSize] = useState(20)
   const [defaultStyle, setDefaultStyle] = useState<ElementStyle>(getThemedDefaultStyle())
+  const [layersPanelOpen, setLayersPanelOpen] = useState(false)
+  const [minimapOpen, setMinimapOpen] = useState(true)
+  const [hoveredElementId, setHoveredElementId] = useState<string | null>(null)
 
   // ── Grouping ────────────────────────────────────────────────────
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
@@ -549,6 +555,63 @@ export function BoardEditor() {
     })
   }, [elements])
 
+  // ── JSON Export ───────────────────────────────────────────────
+
+  const handleExportJson = useCallback(() => {
+    const data = JSON.stringify({ elements, camera, gridEnabled, gridSize }, null, 2)
+    const blob = new Blob([data], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "board.json"
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [elements, camera, gridEnabled, gridSize])
+
+  // ── Layers Panel Handlers ────────────────────────────────────
+
+  const handleLayerReorder = useCallback((elementId: string, newIndex: number) => {
+    setElements((prev) => {
+      const idx = prev.findIndex((el) => el.id === elementId)
+      if (idx === -1 || idx === newIndex) return prev
+      const newArr = [...prev]
+      const [removed] = newArr.splice(idx, 1)
+      newArr.splice(newIndex, 0, removed)
+      return newArr
+    })
+  }, [])
+
+  const handleToggleVisible = useCallback((id: string) => {
+    setElements((prev) =>
+      prev.map((el) => (el.id === id ? { ...el, visible: !el.visible } as BoardElement : el))
+    )
+  }, [])
+
+  const handleToggleLockById = useCallback((id: string) => {
+    setElements((prev) =>
+      prev.map((el) => (el.id === id ? { ...el, locked: !el.locked } as BoardElement : el))
+    )
+  }, [])
+
+  const handleRenameElement = useCallback((id: string, name: string) => {
+    setElements((prev) =>
+      prev.map((el) => (el.id === id ? { ...el, name } as BoardElement : el))
+    )
+  }, [])
+
+  // ── Minimap Handler ──────────────────────────────────────────
+
+  const handleMinimapNavigate = useCallback((worldX: number, worldY: number) => {
+    const container = containerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    setCamera((prev) => ({
+      ...prev,
+      x: rect.width / 2 - worldX * prev.zoom,
+      y: rect.height / 2 - worldY * prev.zoom,
+    }))
+  }, [])
+
   // ── Text Overlay Position ─────────────────────────────────────
 
   const getTextOverlayStyle = useCallback((): React.CSSProperties | null => {
@@ -696,7 +759,22 @@ export function BoardEditor() {
         shortcuts={boardToolbarShortcuts}
         status={elements.length > 0 ? { type: "info", label: `${elements.length} elements` } : null}
       />
-      {/* Canvas */}
+      {/* Canvas + Layers */}
+      <div className="relative flex-1 min-h-0 flex">
+      {/* Layers Panel (left) */}
+      {layersPanelOpen && (
+        <LayersPanel
+          elements={elements}
+          selectedIds={selectedIds}
+          onSelect={(ids) => setSelectedIds(ids)}
+          onReorder={handleLayerReorder}
+          onToggleVisible={handleToggleVisible}
+          onToggleLock={handleToggleLockById}
+          onRename={handleRenameElement}
+        />
+      )}
+
+      {/* Canvas area */}
       <div className="relative flex-1 min-h-0">
       <BoardCanvas
         elements={elements}
@@ -738,6 +816,8 @@ export function BoardEditor() {
         canUndo={boardHistory.canUndo}
         canRedo={boardHistory.canRedo}
         transparentBg={transparentBg}
+        layersPanelOpen={layersPanelOpen}
+        minimapOpen={minimapOpen}
         onCameraChange={setCamera}
         onToggleGrid={() => setGridEnabled(!gridEnabled)}
         onGridSizeChange={setGridSize}
@@ -745,10 +825,13 @@ export function BoardEditor() {
         onRedo={redo}
         onExportPng={handleExportPng}
         onExportSvg={handleExportSvg}
+        onExportJson={handleExportJson}
         onSaveKutud={handleSaveKutud}
         onLoadKutud={handleLoadKutud}
         onFitToScreen={handleFitToScreen}
         onToggleTransparentBg={() => setTransparentBg(!transparentBg)}
+        onToggleLayers={() => setLayersPanelOpen((prev) => !prev)}
+        onToggleMinimap={() => setMinimapOpen((prev) => !prev)}
       />
 
       {/* Properties panel (right) */}
@@ -784,9 +867,30 @@ export function BoardEditor() {
         />
       )}
 
+      {/* Ruler Overlay */}
+      <RulerOverlay
+        elements={elements}
+        selectedIds={selectedIds}
+        hoveredId={hoveredElementId}
+        camera={camera}
+        isInteracting={false}
+      />
+
+      {/* Minimap */}
+      {minimapOpen && containerRef.current && (
+        <Minimap
+          elements={elements}
+          camera={camera}
+          canvasWidth={containerRef.current.getBoundingClientRect().width}
+          canvasHeight={containerRef.current.getBoundingClientRect().height}
+          onNavigate={handleMinimapNavigate}
+        />
+      )}
+
       {/* Bottom-right hints */}
       <div className="hidden md:block absolute bottom-3 right-3 z-10 text-[10px] text-muted-foreground bg-card/80 backdrop-blur-sm rounded px-2 py-1 border border-border">
         Scroll to pan | Ctrl+Scroll to zoom | Space+drag to pan | Double-click to edit text | Ctrl+G group | Arrows to nudge
+      </div>
       </div>
       </div>
     </div>
