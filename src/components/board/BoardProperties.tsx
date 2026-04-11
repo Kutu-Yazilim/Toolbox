@@ -41,7 +41,7 @@ const TEXT_COLORS = [
 
 interface BoardPropertiesProps {
   selectedElements: BoardElement[]
-  onUpdateElements: (updates: Partial<BoardElement>) => void
+  onUpdateElements: (updates: Record<string, unknown>) => void
   onDeleteElements: () => void
   onDuplicateElements: () => void
   onBringToFront: () => void
@@ -72,8 +72,8 @@ export function BoardProperties({
   const hasText = firstEl.type === "text" || firstEl.type === "sticky" || firstEl.type === "rectangle" || firstEl.type === "ellipse" || firstEl.type === "diamond"
   const isSticky = firstEl.type === "sticky"
   const isArrow = firstEl.type === "arrow"
-  const isGroupEl = firstEl.isGroup === true
-  const hasGroupSelection = selectedElements.some((el) => el.isGroup)
+  const isGroupEl = firstEl.type === "group"
+  const hasGroupSelection = selectedElements.some((el) => el.type === "group")
   const hasRotation = firstEl.type !== "line" && firstEl.type !== "arrow" && firstEl.type !== "draw" && firstEl.type !== "group"
 
   const updateStyle = (updates: Partial<ElementStyle>) => {
@@ -136,7 +136,7 @@ export function BoardProperties({
       {/* Group info */}
       {isGroupEl && !isMultiple && (
         <div className="text-[10px] text-muted-foreground">
-          Group ({firstEl.childIds?.length ?? 0} children) - double-click to edit
+          Group ({firstEl.type === "group" ? firstEl.childIds.length : 0} children) - double-click to edit
         </div>
       )}
 
@@ -172,7 +172,7 @@ export function BoardProperties({
       )}
 
       {/* Arrow-specific: Bidirectional toggle */}
-      {isArrow && !isMultiple && (
+      {isArrow && !isMultiple && firstEl.type === "arrow" && (
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-medium text-muted-foreground uppercase">Arrow Style</label>
           <div className="flex gap-1">
@@ -203,7 +203,7 @@ export function BoardProperties({
       )}
 
       {/* Arrow-specific: Reset curve */}
-      {isArrow && !isMultiple && firstEl.controlPointOffset && (firstEl.controlPointOffset.x !== 0 || firstEl.controlPointOffset.y !== 0) && (
+      {isArrow && !isMultiple && firstEl.type === "arrow" && firstEl.controlPointOffset && (firstEl.controlPointOffset.x !== 0 || firstEl.controlPointOffset.y !== 0) && (
         <div className="flex flex-col gap-1.5">
           <Button
             variant="outline"

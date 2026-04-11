@@ -3,6 +3,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import type {
   BoardElement,
+  ImageElement,
+  GroupElement,
   Camera,
   Tool,
   ElementStyle,
@@ -21,7 +23,7 @@ import {
   computeGroupBounds,
   getGroupNestingDepth,
   getGroupDescendantIds,
-} from "@/utils/boardEngine"
+} from "@/utils/board"
 import { downloadKutud, readKutudFile } from "@/utils/kutudFormat"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import { useFileImport } from "@/hooks/useFileImport"
@@ -115,7 +117,7 @@ export function BoardEditor() {
     for (const id of selectedIds) {
       allDeleteIds.add(id)
       const el = elements.find((e) => e.id === id)
-      if (el?.isGroup) {
+      if (el?.type === "group") {
         for (const did of getGroupDescendantIds(id, elements)) {
           allDeleteIds.add(did)
         }
@@ -128,15 +130,26 @@ export function BoardEditor() {
   const duplicateSelected = useCallback(() => {
     const newElements: BoardElement[] = []
     const newIds: string[] = []
+    const offset = 20
     for (const id of selectedIds) {
       const el = elements.find((e) => e.id === id)
       if (el) {
-        const newEl = {
-          ...el,
-          id: generateElementId(),
-          x: el.x + 20,
-          y: el.y + 20,
-          points: el.points.map((p) => ({ x: p.x + 20, y: p.y + 20 })),
+        let newEl: BoardElement
+        if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+          newEl = {
+            ...el,
+            id: generateElementId(),
+            x: el.x + offset,
+            y: el.y + offset,
+            points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })),
+          } as BoardElement
+        } else {
+          newEl = {
+            ...el,
+            id: generateElementId(),
+            x: el.x + offset,
+            y: el.y + offset,
+          }
         }
         newElements.push(newEl)
         newIds.push(newEl.id)
@@ -155,15 +168,42 @@ export function BoardEditor() {
     if (clipboard.length === 0) return
     const newElements: BoardElement[] = []
     const newIds: string[] = []
+    const offset = 20
     for (const el of clipboard) {
-      const newEl = {
-        ...el,
-        id: generateElementId(),
-        x: el.x + 20,
-        y: el.y + 20,
-        points: el.points.map((p) => ({ x: p.x + 20, y: p.y + 20 })),
-        startConnection: undefined,
-        endConnection: undefined,
+      let newEl: BoardElement
+      if (el.type === "arrow") {
+        newEl = {
+          ...el,
+          id: generateElementId(),
+          x: el.x + offset,
+          y: el.y + offset,
+          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })) as [typeof el.points[0], typeof el.points[1]],
+          startConnection: null,
+          endConnection: null,
+        }
+      } else if (el.type === "line") {
+        newEl = {
+          ...el,
+          id: generateElementId(),
+          x: el.x + offset,
+          y: el.y + offset,
+          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })) as [typeof el.points[0], typeof el.points[1]],
+        }
+      } else if (el.type === "draw") {
+        newEl = {
+          ...el,
+          id: generateElementId(),
+          x: el.x + offset,
+          y: el.y + offset,
+          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })),
+        }
+      } else {
+        newEl = {
+          ...el,
+          id: generateElementId(),
+          x: el.x + offset,
+          y: el.y + offset,
+        }
       }
       newElements.push(newEl)
       newIds.push(newEl.id)
@@ -255,14 +295,14 @@ export function BoardEditor() {
     for (const id of selectedIds) {
       const el = elements.find((e) => e.id === id)
       if (!el) continue
-      const b = el.isGroup ? computeGroupBounds(el, elements) : getElementBounds(el)
+      const b = el.type === "group" ? computeGroupBounds(el, elements) : getElementBounds(el)
       minX = Math.min(minX, b.x)
       minY = Math.min(minY, b.y)
       maxX = Math.max(maxX, b.x + b.width)
       maxY = Math.max(maxY, b.y + b.height)
     }
 
-    const groupEl: BoardElement = {
+    const groupEl: GroupElement = {
       id: generateElementId(),
       type: "group",
       x: minX,
@@ -270,17 +310,18 @@ export function BoardEditor() {
       width: maxX - minX,
       height: maxY - minY,
       rotation: 0,
-      points: [],
-      text: "",
       style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
       locked: false,
+      visible: true,
+      name: null,
+      groupId: null,
       isGroup: true,
       childIds: [...selectedIds],
     }
 
     setElements((prev) => {
       const updated = prev.map((el) =>
-        selectedIds.includes(el.id) ? { ...el, groupId: groupEl.id } : el
+        selectedIds.includes(el.id) ? { ...el, groupId: groupEl.id } as BoardElement : el
       )
       return [...updated, groupEl]
     })
@@ -290,7 +331,7 @@ export function BoardEditor() {
   const ungroupSelected = useCallback(() => {
     const groupIds = selectedIds.filter((id) => {
       const el = elements.find((e) => e.id === id)
-      return el?.isGroup
+      return el?.type === "group"
     })
     if (groupIds.length === 0) return
 
@@ -299,12 +340,13 @@ export function BoardEditor() {
       let updated = [...prev]
       for (const gid of groupIds) {
         const group = updated.find((e) => e.id === gid)
-        if (!group?.childIds) continue
+        if (!group || group.type !== "group") continue
+        const childIds = group.childIds
         // Remove groupId from children
         updated = updated.map((el) =>
-          group.childIds!.includes(el.id) ? { ...el, groupId: undefined } : el
+          childIds.includes(el.id) ? { ...el, groupId: null } as BoardElement : el
         )
-        newSelectedIds.push(...group.childIds)
+        newSelectedIds.push(...childIds)
         // Remove the group element
         updated = updated.filter((el) => el.id !== gid)
       }
@@ -322,7 +364,7 @@ export function BoardEditor() {
       for (const id of selectedIds) {
         allMoveIds.add(id)
         const el = elements.find((e) => e.id === id)
-        if (el?.isGroup) {
+        if (el?.type === "group") {
           for (const did of getGroupDescendantIds(id, elements)) {
             allMoveIds.add(did)
           }
@@ -332,8 +374,8 @@ export function BoardEditor() {
         prev.map((el) => {
           if (!allMoveIds.has(el.id)) return el
           if (el.locked) return el
-          if (el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")) {
-            return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) }
+          if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+            return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) } as BoardElement
           }
           return { ...el, x: el.x + dx, y: el.y + dy }
         })
@@ -351,14 +393,14 @@ export function BoardEditor() {
   }, [elements, transparentBg])
 
   const updateSelectedElements = useCallback(
-    (updates: Partial<BoardElement>) => {
+    (updates: Record<string, unknown>) => {
       setElements((prev) =>
         prev.map((el) => {
           if (!selectedIds.includes(el.id)) return el
           if (updates.style) {
-            return { ...el, ...updates, style: { ...el.style, ...updates.style } }
+            return { ...el, ...updates, style: { ...el.style, ...(updates.style as Partial<ElementStyle>) } } as BoardElement
           }
-          return { ...el, ...updates }
+          return { ...el, ...updates } as BoardElement
         })
       )
     },
@@ -373,53 +415,45 @@ export function BoardEditor() {
       const selected = elements.filter((el) => selectedIds.includes(el.id))
       const bounds = selected.map((el) => getElementBounds(el))
 
+      const moveElement = (el: BoardElement, dx: number, dy: number): BoardElement => {
+        if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+          return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y + dy })) } as BoardElement
+        }
+        return { ...el, x: el.x + dx, y: el.y + dy }
+      }
+
       setElements((prev) =>
         prev.map((el) => {
           const idx = selected.findIndex((s) => s.id === el.id)
           if (idx === -1) return el
           const b = bounds[idx]
-          const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
 
           switch (direction) {
             case "left": {
               const minX = Math.min(...bounds.map((bb) => bb.x))
-              const dx = minX - b.x
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
-              return { ...el, x: el.x + dx }
+              return moveElement(el, minX - b.x, 0)
             }
             case "center": {
               const minX = Math.min(...bounds.map((bb) => bb.x))
               const maxX = Math.max(...bounds.map((bb) => bb.x + bb.width))
-              const centerX = (minX + maxX) / 2
-              const dx = centerX - (b.x + b.width / 2)
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
-              return { ...el, x: el.x + dx }
+              return moveElement(el, (minX + maxX) / 2 - (b.x + b.width / 2), 0)
             }
             case "right": {
               const maxX = Math.max(...bounds.map((bb) => bb.x + bb.width))
-              const dx = maxX - (b.x + b.width)
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
-              return { ...el, x: el.x + dx }
+              return moveElement(el, maxX - (b.x + b.width), 0)
             }
             case "top": {
               const minY = Math.min(...bounds.map((bb) => bb.y))
-              const dy = minY - b.y
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
-              return { ...el, y: el.y + dy }
+              return moveElement(el, 0, minY - b.y)
             }
             case "middle": {
               const minY = Math.min(...bounds.map((bb) => bb.y))
               const maxY = Math.max(...bounds.map((bb) => bb.y + bb.height))
-              const centerY = (minY + maxY) / 2
-              const dy = centerY - (b.y + b.height / 2)
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
-              return { ...el, y: el.y + dy }
+              return moveElement(el, 0, (minY + maxY) / 2 - (b.y + b.height / 2))
             }
             case "bottom": {
               const maxY = Math.max(...bounds.map((bb) => bb.y + bb.height))
-              const dy = maxY - (b.y + b.height)
-              if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
-              return { ...el, y: el.y + dy }
+              return moveElement(el, 0, maxY - (b.y + b.height))
             }
           }
         })
@@ -460,8 +494,9 @@ export function BoardEditor() {
           prev.map((el) => {
             const dx = positions.get(el.id)
             if (dx === undefined) return el
-            const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
-            if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) }
+            if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+              return { ...el, points: el.points.map((p) => ({ x: p.x + dx, y: p.y })) } as BoardElement
+            }
             return { ...el, x: el.x + dx }
           })
         )
@@ -482,8 +517,9 @@ export function BoardEditor() {
           prev.map((el) => {
             const dy = positions.get(el.id)
             if (dy === undefined) return el
-            const isPointBased = el.points.length > 0 && (el.type === "line" || el.type === "arrow" || el.type === "draw")
-            if (isPointBased) return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) }
+            if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
+              return { ...el, points: el.points.map((p) => ({ x: p.x, y: p.y + dy })) } as BoardElement
+            }
             return { ...el, y: el.y + dy }
           })
         )
@@ -506,7 +542,7 @@ export function BoardEditor() {
         return
       }
       setEditingId(id)
-      setEditText(el.text)
+      setEditText("text" in el ? el.text : "")
       setTimeout(() => textareaRef.current?.focus(), 50)
     },
     [elements]
@@ -518,11 +554,15 @@ export function BoardEditor() {
       if (el && el.type === "arrow") {
         // Commit arrow label
         setElements((prev) =>
-          prev.map((el) => (el.id === editingId ? { ...el, label: editText } : el))
+          prev.map((el) => (el.id === editingId && el.type === "arrow" ? { ...el, label: editText } : el))
         )
       } else {
         setElements((prev) =>
-          prev.map((el) => (el.id === editingId ? { ...el, text: editText } : el))
+          prev.map((el) => {
+            if (el.id !== editingId) return el
+            if ("text" in el) return { ...el, text: editText }
+            return el
+          })
         )
       }
       setEditingId(null)
@@ -626,7 +666,7 @@ export function BoardEditor() {
                       const cx = rect ? (rect.width / 2 - camera.x) / camera.zoom : 0
                       const cy = rect ? (rect.height / 2 - camera.y) / camera.zoom : 0
 
-                      const newEl: BoardElement = {
+                      const newEl: ImageElement = {
                         id: generateElementId(),
                         type: "image",
                         x: cx - w / 2,
@@ -634,10 +674,11 @@ export function BoardEditor() {
                         width: w,
                         height: h,
                         rotation: 0,
-                        points: [],
-                        text: "",
                         style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
                         locked: false,
+                        visible: true,
+                        name: null,
+                        groupId: null,
                         imageData: dataUrl,
                       }
                       setElements((prev) => [...prev, newEl])
@@ -935,8 +976,8 @@ export function BoardEditor() {
     const timer = setTimeout(() => {
       // Don't persist image data to avoid localStorage size limits
       const lightElements = elements.map(el => {
-        if (el.imageData && el.imageData.length > 10000) {
-          return { ...el, imageData: undefined }
+        if (el.type === "image" && el.imageData && el.imageData.length > 10000) {
+          return { ...el, imageData: "" }
         }
         return el
       })

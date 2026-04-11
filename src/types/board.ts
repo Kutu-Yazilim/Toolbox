@@ -67,31 +67,127 @@ export interface Connection {
   side: ConnectionSide
 }
 
-export interface BoardElement {
+// ── Rich Text ──────────────────────────────────────────────────
+
+export interface RichTextSegment {
+  text: string
+  bold?: boolean
+  italic?: boolean
+  underline?: boolean
+  strikethrough?: boolean
+  color?: string
+  link?: string
+}
+
+// ── Base Element ───────────────────────────────────────────────
+
+interface BaseElement {
   id: string
-  type: ElementType
   x: number
   y: number
   width: number
   height: number
   rotation: number
-  points: Point[] // for line, arrow, draw
-  text: string
-  style: ElementStyle
   locked: boolean
-  // Arrow connections: which element+side the start/end is attached to
-  startConnection?: Connection
-  endConnection?: Connection
-  // Arrow-specific properties
-  controlPointOffset?: Point // for curved arrows (bezier control point offset from midpoint)
-  bidirectional?: boolean // draw arrowhead at both ends
-  label?: string // text label displayed at arrow midpoint
-  // Image-specific properties
-  imageData?: string // base64 data URI for image elements
-  // Group-specific properties
-  groupId?: string // parent group ID this element belongs to
-  isGroup?: boolean // whether this element is a group container
-  childIds?: string[] // IDs of children (for group elements)
+  visible: boolean
+  name: string | null
+  groupId: string | null
+  style: ElementStyle
+}
+
+// ── Discriminated Element Types ────────────────────────────────
+
+export interface RectangleElement extends BaseElement {
+  type: "rectangle"
+  borderRadius: number
+  text: string
+}
+
+export interface EllipseElement extends BaseElement {
+  type: "ellipse"
+  text: string
+}
+
+export interface DiamondElement extends BaseElement {
+  type: "diamond"
+  text: string
+}
+
+export interface TextElement extends BaseElement {
+  type: "text"
+  text: string
+  richText: RichTextSegment[]
+}
+
+export interface StickyElement extends BaseElement {
+  type: "sticky"
+  text: string
+  richText: RichTextSegment[]
+  stickyColor: string
+}
+
+export interface ImageElement extends BaseElement {
+  type: "image"
+  imageData: string
+}
+
+export interface DrawElement extends BaseElement {
+  type: "draw"
+  points: Point[]
+}
+
+export interface LineElement extends BaseElement {
+  type: "line"
+  points: [Point, Point]
+}
+
+export interface ArrowElement extends BaseElement {
+  type: "arrow"
+  points: [Point, Point]
+  startConnection: Connection | null
+  endConnection: Connection | null
+  controlPointOffset: Point | null
+  bidirectional: boolean
+  label: string
+  richLabel: RichTextSegment[]
+}
+
+export interface GroupElement extends BaseElement {
+  type: "group"
+  isGroup: true
+  childIds: string[]
+}
+
+// ── Union Type ─────────────────────────────────────────────────
+
+export type BoardElement =
+  | RectangleElement
+  | EllipseElement
+  | DiamondElement
+  | TextElement
+  | StickyElement
+  | ImageElement
+  | DrawElement
+  | LineElement
+  | ArrowElement
+  | GroupElement
+
+// ── Type Guards ────────────────────────────────────────────────
+
+export function isShapeElement(el: BoardElement): el is RectangleElement | EllipseElement | DiamondElement {
+  return el.type === "rectangle" || el.type === "ellipse" || el.type === "diamond"
+}
+
+export function isTextLike(el: BoardElement): el is TextElement | StickyElement {
+  return el.type === "text" || el.type === "sticky"
+}
+
+export function isLineLike(el: BoardElement): el is LineElement | ArrowElement {
+  return el.type === "line" || el.type === "arrow"
+}
+
+export function hasRichText(el: BoardElement): el is TextElement | StickyElement {
+  return el.type === "text" || el.type === "sticky"
 }
 
 // ── Camera ──────────────────────────────────────────────────────
@@ -119,6 +215,13 @@ export interface BoardState {
   gridEnabled: boolean
   gridSize: number
   defaultStyle: ElementStyle
+}
+
+// ── Grid Settings ──────────────────────────────────────────────
+
+export interface GridSettings {
+  enabled: boolean
+  size: number
 }
 
 // ── Actions ─────────────────────────────────────────────────────
