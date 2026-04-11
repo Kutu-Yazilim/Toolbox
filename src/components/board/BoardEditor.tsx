@@ -3,7 +3,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import type {
   BoardElement,
-  ImageElement,
   GroupElement,
   Camera,
   Tool,
@@ -30,8 +29,9 @@ import { useFileImport } from "@/hooks/useFileImport"
 import { ToolToolbar } from "@/components/shared/ToolToolbar"
 import { type Preset } from "@/components/shared/PresetsDrawer"
 import { BOARD_PRESETS } from "./presets"
-
-const MAX_HISTORY = 80
+import { useBoardHistory } from "./useBoardHistory"
+import { useBoardClipboard } from "./useBoardClipboard"
+import { useBoardKeyboard } from "./useBoardKeyboard"
 
 export function BoardEditor() {
   // ── State ─────────────────────────────────────────────────────
@@ -43,14 +43,6 @@ export function BoardEditor() {
   const [gridEnabled, setGridEnabled] = useState(true)
   const [gridSize, setGridSize] = useState(20)
   const [defaultStyle, setDefaultStyle] = useState<ElementStyle>(getThemedDefaultStyle())
-
-  // ── Clipboard (Copy/Paste) ──────────────────────────────────
-  const [clipboard, setClipboard] = useState<BoardElement[]>([])
-
-  // ── History (Undo / Redo) ─────────────────────────────────────
-  const [history, setHistory] = useState<BoardElement[][]>([[]])
-  const [historyIndex, setHistoryIndex] = useState(0)
-  const skipHistoryRef = useRef(false)
 
   // ── Grouping ────────────────────────────────────────────────────
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
@@ -64,20 +56,8 @@ export function BoardEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // ── Push history when elements change ─────────────────────────
-  useEffect(() => {
-    if (skipHistoryRef.current) {
-      skipHistoryRef.current = false
-      return
-    }
-    setHistory((prev) => {
-      const trimmed = prev.slice(0, historyIndex + 1)
-      trimmed.push(elements)
-      if (trimmed.length > MAX_HISTORY) trimmed.shift()
-      return trimmed
-    })
-    setHistoryIndex((prev) => Math.min(prev + 1, MAX_HISTORY - 1))
-  }, [elements])
+  // ── History Hook ──────────────────────────────────────────────
+  const boardHistory = useBoardHistory(elements)
 
   // ── Update default style when theme changes ─────────────────
   useEffect(() => {
@@ -92,132 +72,14 @@ export function BoardEditor() {
   }, [])
 
   const undo = useCallback(() => {
-    if (historyIndex > 0) {
-      skipHistoryRef.current = true
-      const newIndex = historyIndex - 1
-      setHistoryIndex(newIndex)
-      setElements(history[newIndex])
-    }
-  }, [history, historyIndex])
+    boardHistory.undo(setElements)
+  }, [boardHistory])
 
   const redo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      skipHistoryRef.current = true
-      const newIndex = historyIndex + 1
-      setHistoryIndex(newIndex)
-      setElements(history[newIndex])
-    }
-  }, [history, historyIndex])
+    boardHistory.redo(setElements)
+  }, [boardHistory])
 
   // ── Element Operations ────────────────────────────────────────
-
-  const deleteSelected = useCallback(() => {
-    // Collect all IDs to delete including group descendants
-    const allDeleteIds = new Set<string>()
-    for (const id of selectedIds) {
-      allDeleteIds.add(id)
-      const el = elements.find((e) => e.id === id)
-      if (el?.type === "group") {
-        for (const did of getGroupDescendantIds(id, elements)) {
-          allDeleteIds.add(did)
-        }
-      }
-    }
-    setElements((prev) => prev.filter((el) => !allDeleteIds.has(el.id)))
-    setSelectedIds([])
-  }, [elements, selectedIds])
-
-  const duplicateSelected = useCallback(() => {
-    const newElements: BoardElement[] = []
-    const newIds: string[] = []
-    const offset = 20
-    for (const id of selectedIds) {
-      const el = elements.find((e) => e.id === id)
-      if (el) {
-        let newEl: BoardElement
-        if (el.type === "line" || el.type === "arrow" || el.type === "draw") {
-          newEl = {
-            ...el,
-            id: generateElementId(),
-            x: el.x + offset,
-            y: el.y + offset,
-            points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })),
-          } as BoardElement
-        } else {
-          newEl = {
-            ...el,
-            id: generateElementId(),
-            x: el.x + offset,
-            y: el.y + offset,
-          }
-        }
-        newElements.push(newEl)
-        newIds.push(newEl.id)
-      }
-    }
-    setElements((prev) => [...prev, ...newElements])
-    setSelectedIds(newIds)
-  }, [elements, selectedIds])
-
-  const copySelected = useCallback(() => {
-    const toCopy = elements.filter((el) => selectedIds.includes(el.id))
-    if (toCopy.length > 0) setClipboard(toCopy)
-  }, [elements, selectedIds])
-
-  const pasteClipboard = useCallback(() => {
-    if (clipboard.length === 0) return
-    const newElements: BoardElement[] = []
-    const newIds: string[] = []
-    const offset = 20
-    for (const el of clipboard) {
-      let newEl: BoardElement
-      if (el.type === "arrow") {
-        newEl = {
-          ...el,
-          id: generateElementId(),
-          x: el.x + offset,
-          y: el.y + offset,
-          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })) as [typeof el.points[0], typeof el.points[1]],
-          startConnection: null,
-          endConnection: null,
-        }
-      } else if (el.type === "line") {
-        newEl = {
-          ...el,
-          id: generateElementId(),
-          x: el.x + offset,
-          y: el.y + offset,
-          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })) as [typeof el.points[0], typeof el.points[1]],
-        }
-      } else if (el.type === "draw") {
-        newEl = {
-          ...el,
-          id: generateElementId(),
-          x: el.x + offset,
-          y: el.y + offset,
-          points: el.points.map((p) => ({ x: p.x + offset, y: p.y + offset })),
-        }
-      } else {
-        newEl = {
-          ...el,
-          id: generateElementId(),
-          x: el.x + offset,
-          y: el.y + offset,
-        }
-      }
-      newElements.push(newEl)
-      newIds.push(newEl.id)
-    }
-    setElements((prev) => [...prev, ...newElements])
-    setSelectedIds(newIds)
-    // Update clipboard positions so subsequent pastes cascade
-    setClipboard(newElements)
-  }, [clipboard])
-
-  const cutSelected = useCallback(() => {
-    copySelected()
-    deleteSelected()
-  }, [copySelected, deleteSelected])
 
   const bringToFront = useCallback(() => {
     setElements((prev) => {
@@ -238,7 +100,6 @@ export function BoardEditor() {
   const bringForward = useCallback(() => {
     setElements((prev) => {
       const newArr = [...prev]
-      // Move each selected element one step forward (higher index)
       for (let i = newArr.length - 2; i >= 0; i--) {
         if (selectedIds.includes(newArr[i].id) && !selectedIds.includes(newArr[i + 1].id)) {
           const temp = newArr[i]
@@ -253,7 +114,6 @@ export function BoardEditor() {
   const sendBackward = useCallback(() => {
     setElements((prev) => {
       const newArr = [...prev]
-      // Move each selected element one step backward (lower index)
       for (let i = 1; i < newArr.length; i++) {
         if (selectedIds.includes(newArr[i].id) && !selectedIds.includes(newArr[i - 1].id)) {
           const temp = newArr[i]
@@ -281,16 +141,31 @@ export function BoardEditor() {
     )
   }, [elements, selectedIds])
 
+  // ── Clipboard Hook ────────────────────────────────────────────
+  const {
+    copySelected,
+    cutSelected,
+    pasteClipboard,
+    duplicateSelected,
+    deleteSelected,
+  } = useBoardClipboard({
+    elements,
+    selectedIds,
+    camera,
+    defaultStyle,
+    setElements,
+    setSelectedIds,
+    containerRef,
+  })
+
   // ── Grouping Operations ──────────────────────────────────────
 
   const groupSelected = useCallback(() => {
     if (selectedIds.length < 2) return
-    // Check max nesting depth
     for (const id of selectedIds) {
-      if (getGroupNestingDepth(id, elements) >= 2) return // max 3 levels (0,1,2 → depth 2 means the child is already 2 levels deep)
+      if (getGroupNestingDepth(id, elements) >= 2) return
     }
 
-    // Compute bounding box
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     for (const id of selectedIds) {
       const el = elements.find((e) => e.id === id)
@@ -342,12 +217,10 @@ export function BoardEditor() {
         const group = updated.find((e) => e.id === gid)
         if (!group || group.type !== "group") continue
         const childIds = group.childIds
-        // Remove groupId from children
         updated = updated.map((el) =>
           childIds.includes(el.id) ? { ...el, groupId: null } as BoardElement : el
         )
         newSelectedIds.push(...childIds)
-        // Remove the group element
         updated = updated.filter((el) => el.id !== gid)
       }
       return updated
@@ -359,7 +232,6 @@ export function BoardEditor() {
   const nudgeSelected = useCallback(
     (dx: number, dy: number) => {
       if (selectedIds.length === 0) return
-      // Collect all IDs to move (including group descendants)
       const allMoveIds = new Set<string>()
       for (const id of selectedIds) {
         allMoveIds.add(id)
@@ -534,7 +406,6 @@ export function BoardEditor() {
     (id: string) => {
       const el = elements.find((e) => e.id === id)
       if (!el) return
-      // For arrows, edit the label field
       if (el.type === "arrow") {
         setEditingId(id)
         setEditText(el.label || "")
@@ -552,7 +423,6 @@ export function BoardEditor() {
     if (editingId) {
       const el = elements.find((e) => e.id === editingId)
       if (el && el.type === "arrow") {
-        // Commit arrow label
         setElements((prev) =>
           prev.map((el) => (el.id === editingId && el.type === "arrow" ? { ...el, label: editText } : el))
         )
@@ -569,225 +439,15 @@ export function BoardEditor() {
     }
   }, [editingId, editText, elements])
 
-  // ── Keyboard Shortcuts ────────────────────────────────────────
+  // ── Keyboard Hook ─────────────────────────────────────────────
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") return
-
-      // Tool shortcuts
-      const toolMap: Record<string, Tool> = {
-        v: "select",
-        h: "hand",
-        r: "rectangle",
-        o: "ellipse",
-        d: "diamond",
-        l: "line",
-        a: "arrow",
-        p: "draw",
-        t: "text",
-        s: "sticky",
-      }
-
-      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
-        const newTool = toolMap[e.key.toLowerCase()]
-        if (newTool) {
-          setTool(newTool)
-          return
-        }
-      }
-
-      // Delete
-      if (e.key === "Delete" || e.key === "Backspace") {
-        if (selectedIds.length > 0) {
-          e.preventDefault()
-          deleteSelected()
-        }
-        return
-      }
-
-      // Undo/Redo
-      if ((e.ctrlKey || e.metaKey) && e.key === "z") {
-        e.preventDefault()
-        if (e.shiftKey) {
-          redo()
-        } else {
-          undo()
-        }
-        return
-      }
-      if ((e.ctrlKey || e.metaKey) && e.key === "y") {
-        e.preventDefault()
-        redo()
-        return
-      }
-
-      // Cut
-      if ((e.ctrlKey || e.metaKey) && e.key === "x") {
-        e.preventDefault()
-        cutSelected()
-        return
-      }
-
-      // Copy
-      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
-        e.preventDefault()
-        copySelected()
-        return
-      }
-
-      // Paste
-      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
-        e.preventDefault()
-        // Check clipboard for image data first
-        if (navigator.clipboard && navigator.clipboard.read) {
-          navigator.clipboard.read().then((items) => {
-            for (const item of items) {
-              const imageType = item.types.find((t) => t.startsWith("image/"))
-              if (imageType) {
-                item.getType(imageType).then((blob) => {
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    const dataUrl = reader.result as string
-                    const img = new Image()
-                    img.onload = () => {
-                      let w = img.naturalWidth
-                      let h = img.naturalHeight
-                      const maxDim = 800
-                      if (w > maxDim || h > maxDim) {
-                        const scale = maxDim / Math.max(w, h)
-                        w = Math.round(w * scale)
-                        h = Math.round(h * scale)
-                      }
-                      // Place at canvas center
-                      const container = containerRef.current
-                      const rect = container?.getBoundingClientRect()
-                      const cx = rect ? (rect.width / 2 - camera.x) / camera.zoom : 0
-                      const cy = rect ? (rect.height / 2 - camera.y) / camera.zoom : 0
-
-                      const newEl: ImageElement = {
-                        id: generateElementId(),
-                        type: "image",
-                        x: cx - w / 2,
-                        y: cy - h / 2,
-                        width: w,
-                        height: h,
-                        rotation: 0,
-                        style: { ...defaultStyle, fillColor: "transparent", strokeColor: "transparent" },
-                        locked: false,
-                        visible: true,
-                        name: null,
-                        groupId: null,
-                        imageData: dataUrl,
-                      }
-                      setElements((prev) => [...prev, newEl])
-                      setSelectedIds([newEl.id])
-                    }
-                    img.src = dataUrl
-                  }
-                  reader.readAsDataURL(blob)
-                })
-                return
-              }
-            }
-            // No image found, paste board elements
-            pasteClipboard()
-          }).catch(() => {
-            pasteClipboard()
-          })
-        } else {
-          pasteClipboard()
-        }
-        return
-      }
-
-      // Duplicate
-      if ((e.ctrlKey || e.metaKey) && e.key === "d") {
-        e.preventDefault()
-        duplicateSelected()
-        return
-      }
-
-      // Select All
-      if ((e.ctrlKey || e.metaKey) && e.key === "a") {
-        e.preventDefault()
-        selectAll()
-        return
-      }
-
-      // Copy canvas as PNG to clipboard
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "C") {
-        e.preventDefault()
-        copyCanvasToClipboard()
-        return
-      }
-
-      // Group (Ctrl+G)
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === "g") {
-        e.preventDefault()
-        groupSelected()
-        return
-      }
-
-      // Ungroup (Ctrl+Shift+G)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "G") {
-        e.preventDefault()
-        ungroupSelected()
-        return
-      }
-
-      // Arrow keys: nudge
-      if (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        if (selectedIds.length > 0) {
-          e.preventDefault()
-          const step = e.shiftKey ? 10 : 1
-          const dx = e.key === "ArrowLeft" ? -step : e.key === "ArrowRight" ? step : 0
-          const dy = e.key === "ArrowUp" ? -step : e.key === "ArrowDown" ? step : 0
-          nudgeSelected(dx, dy)
-        }
-        return
-      }
-
-      // Z-order: ] bring forward, [ send backward
-      if (e.key === "]") {
-        e.preventDefault()
-        if (e.ctrlKey || e.metaKey) {
-          bringToFront()
-        } else {
-          bringForward()
-        }
-        return
-      }
-      if (e.key === "[") {
-        e.preventDefault()
-        if (e.ctrlKey || e.metaKey) {
-          sendToBack()
-        } else {
-          sendBackward()
-        }
-        return
-      }
-
-      // Escape
-      if (e.key === "Escape") {
-        if (editingGroupId) {
-          setEditingGroupId(null)
-        } else {
-          setSelectedIds([])
-          setTool("select")
-        }
-        if (editingId) commitText()
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [
+  useBoardKeyboard({
     selectedIds,
-    elements,
     editingId,
     editingGroupId,
+    setTool,
+    setSelectedIds,
+    setEditingGroupId,
     deleteSelected,
     duplicateSelected,
     copySelected,
@@ -797,8 +457,6 @@ export function BoardEditor() {
     undo,
     redo,
     commitText,
-    camera,
-    defaultStyle,
     groupSelected,
     ungroupSelected,
     nudgeSelected,
@@ -807,7 +465,7 @@ export function BoardEditor() {
     bringForward,
     sendBackward,
     copyCanvasToClipboard,
-  ])
+  })
 
   // ── File Operations ───────────────────────────────────────────
 
@@ -842,18 +500,17 @@ export function BoardEditor() {
   const handleLoadKutud = useCallback(async (file: File) => {
     try {
       const data = await readKutudFile(file)
-      skipHistoryRef.current = true
+      boardHistory.skipNextPush()
       setElements(data.elements)
       setCamera(data.camera)
       setGridEnabled(data.gridEnabled)
       setSelectedIds([])
-      setHistory([data.elements])
-      setHistoryIndex(0)
+      boardHistory.resetHistory(data.elements)
     } catch (err) {
       console.error("Failed to load .kutud file:", err)
       alert("Failed to load file. Make sure it's a valid .kutud file.")
     }
-  }, [])
+  }, [boardHistory])
 
   const handleFitToScreen = useCallback(() => {
     if (elements.length === 0) {
@@ -880,7 +537,7 @@ export function BoardEditor() {
 
     const scaleX = (rect.width - padding * 2) / contentWidth
     const scaleY = (rect.height - padding * 2) / contentHeight
-    const zoom = Math.min(scaleX, scaleY, 2) // Cap at 2x
+    const zoom = Math.min(scaleX, scaleY, 2)
 
     const cx = (minX + maxX) / 2
     const cy = (minY + maxY) / 2
@@ -899,7 +556,6 @@ export function BoardEditor() {
     const el = elements.find((e) => e.id === editingId)
     if (!el) return null
 
-    // For arrow labels, position at arrow midpoint
     if (el.type === "arrow" && el.points.length >= 2) {
       const start = el.points[0]
       const end = el.points[el.points.length - 1]
@@ -974,7 +630,6 @@ export function BoardEditor() {
   // ── Persist to localStorage ────────────────────────────────────
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Don't persist image data to avoid localStorage size limits
       const lightElements = elements.map(el => {
         if (el.type === "image" && el.imageData && el.imageData.length > 10000) {
           return { ...el, imageData: "" }
@@ -1008,8 +663,6 @@ export function BoardEditor() {
 
   // ── Presets ────────────────────────────────────────────────────
   const handleBoardPresetSelect = useCallback((_preset: Preset) => {
-    // Presets for board are template starters — for now just clear the board
-    // A full implementation would generate template elements
     setElements([])
     setSelectedIds([])
   }, [])
@@ -1082,8 +735,8 @@ export function BoardEditor() {
         camera={camera}
         gridEnabled={gridEnabled}
         gridSize={gridSize}
-        canUndo={historyIndex > 0}
-        canRedo={historyIndex < history.length - 1}
+        canUndo={boardHistory.canUndo}
+        canRedo={boardHistory.canRedo}
         transparentBg={transparentBg}
         onCameraChange={setCamera}
         onToggleGrid={() => setGridEnabled(!gridEnabled)}
@@ -1123,7 +776,6 @@ export function BoardEditor() {
             if (e.key === "Escape") {
               commitText()
             }
-            // Allow Enter for multiline, Shift+Enter or just Enter
             e.stopPropagation()
           }}
           style={getTextOverlayStyle() || undefined}
