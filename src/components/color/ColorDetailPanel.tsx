@@ -4,16 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils"
 import {
   getContrastTextColor,
-  hexToRgb,
-  rgbToHsl,
-  rgbToCmyk,
-  rgbToLab,
-  rgbToXyz,
-  rgbToLch,
-  rgbToLuv,
-  rgbToHwb,
   getContrastRatio,
-  generateShades,
   getColorPsychology,
 } from "@/utils/colorUtils"
 import { fetchFullColorDetail, type ColorDetailData } from "@/services/colorApi"
@@ -26,6 +17,9 @@ import {
   SparklesIcon,
   MoreHorizontalIcon,
 } from "lucide-react"
+import { ConversionGrid } from "./ConversionGrid"
+import { HarmonyGrid } from "./HarmonyGrid"
+import { ShadeGrid } from "./ShadeGrid"
 
 interface ColorDetailPanelProps {
   hex: string
@@ -43,7 +37,6 @@ function ColorDetailPanelInner({ hex, onClose, onSelectColor }: ColorDetailPanel
   const cleanHex = hex.startsWith("#") ? hex : `#${hex}`
   const textColor = getContrastTextColor(cleanHex)
   const psychology = getColorPsychology(cleanHex)
-  const shades = generateShades(cleanHex, 12)
 
   useEffect(() => {
     let cancelled = false
@@ -217,20 +210,8 @@ function ColorDetailPanelInner({ hex, onClose, onSelectColor }: ColorDetailPanel
             <Section title="Conversion">
               {loading ? (
                 <LoadingBlock />
-              ) : data ? (
-                <div className="grid grid-cols-3 gap-2">
-                  <ConversionCard label="HEX" value={data.conversions.hex} onCopy={() => copyToClipboard(data.conversions.hex, "hex")} copied={copiedField === "hex"} />
-                  <ConversionCard label="RGB" value={data.conversions.rgb} onCopy={() => copyToClipboard(data.conversions.rgb, "rgb")} copied={copiedField === "rgb"} />
-                  <ConversionCard label="HSL" value={data.conversions.hsl} onCopy={() => copyToClipboard(data.conversions.hsl, "hsl")} copied={copiedField === "hsl"} />
-                  <ConversionCard label="CMYK" value={data.conversions.cmyk} onCopy={() => copyToClipboard(data.conversions.cmyk, "cmyk")} copied={copiedField === "cmyk"} />
-                  <ConversionCard label="LAB" value={data.conversions.lab} onCopy={() => copyToClipboard(data.conversions.lab, "lab")} copied={copiedField === "lab"} />
-                  <ConversionCard label="LCH" value={data.conversions.lch} onCopy={() => copyToClipboard(data.conversions.lch, "lch")} copied={copiedField === "lch"} />
-                  <ConversionCard label="XYZ" value={data.conversions.xyz} onCopy={() => copyToClipboard(data.conversions.xyz, "xyz")} copied={copiedField === "xyz"} />
-                  <ConversionCard label="LUV" value={data.conversions.luv} onCopy={() => copyToClipboard(data.conversions.luv, "luv")} copied={copiedField === "luv"} />
-                  <ConversionCard label="HWB" value={data.conversions.hwb} onCopy={() => copyToClipboard(data.conversions.hwb, "hwb")} copied={copiedField === "hwb"} />
-                </div>
               ) : (
-                <FallbackConversions hex={cleanHex} />
+                <ConversionGrid data={data} hex={cleanHex} />
               )}
             </Section>
 
@@ -241,38 +222,10 @@ function ColorDetailPanelInner({ hex, onClose, onSelectColor }: ColorDetailPanel
               {loading ? (
                 <LoadingBlock />
               ) : data ? (
-                <div className="grid grid-cols-2 gap-2.5">
-                  <HarmonyCard
-                    label="Analogous"
-                    colors={data.harmonies.analogous}
-                    onSelect={onSelectColor}
-                  />
-                  <HarmonyCard
-                    label="Complementary"
-                    colors={data.harmonies.complementary}
-                    onSelect={onSelectColor}
-                  />
-                  <HarmonyCard
-                    label="Split Complementary"
-                    colors={data.harmonies.splitComplementary}
-                    onSelect={onSelectColor}
-                  />
-                  <HarmonyCard
-                    label="Triadic"
-                    colors={data.harmonies.triadic}
-                    onSelect={onSelectColor}
-                  />
-                  <HarmonyCard
-                    label="Tetradic"
-                    colors={data.harmonies.tetradic}
-                    onSelect={onSelectColor}
-                  />
-                  <HarmonyCard
-                    label="Square"
-                    colors={data.harmonies.square}
-                    onSelect={onSelectColor}
-                  />
-                </div>
+                <HarmonyGrid
+                  harmonies={data.harmonies}
+                  onSelectColor={onSelectColor}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">Unable to load harmonies</p>
               )}
@@ -282,29 +235,7 @@ function ColorDetailPanelInner({ hex, onClose, onSelectColor }: ColorDetailPanel
 
             {/* Shades */}
             <Section title="Shades">
-              <div className="bg-muted/50 rounded-xl p-3">
-                <div className="flex gap-0.5 h-10 rounded-lg overflow-hidden">
-                  {shades.map((shade, i) => (
-                    <button
-                      key={i}
-                      className="flex-1 transition-all hover:flex-[2] group relative"
-                      style={{ backgroundColor: shade }}
-                      onClick={() => {
-                        copyToClipboard(shade, `shade-${i}`)
-                        onSelectColor?.(shade)
-                      }}
-                      title={shade}
-                    >
-                      <span
-                        className="absolute inset-0 flex items-center justify-center text-[8px] font-mono opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: getContrastTextColor(shade) }}
-                      >
-                        {copiedField === `shade-${i}` ? "✓" : ""}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <ShadeGrid hex={cleanHex} onSelectColor={onSelectColor} />
             </Section>
 
             <Divider />
@@ -450,60 +381,6 @@ function LoadingBlock() {
   )
 }
 
-function ConversionCard({
-  label,
-  value,
-  onCopy,
-  copied,
-}: {
-  label: string
-  value: string
-  onCopy: () => void
-  copied: boolean
-}) {
-  return (
-    <button
-      onClick={onCopy}
-      className="flex flex-col gap-1 p-3 rounded-xl bg-muted/50 hover:bg-muted transition-colors text-left group"
-      title={`Copy ${label}`}
-    >
-      <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-        {label}
-      </span>
-      <span className="text-xs font-bold text-foreground font-mono truncate w-full">
-        {copied ? "Copied!" : value}
-      </span>
-    </button>
-  )
-}
-
-function HarmonyCard({
-  label,
-  colors,
-  onSelect,
-}: {
-  label: string
-  colors: string[]
-  onSelect?: (hex: string) => void
-}) {
-  return (
-    <div className="p-3 rounded-xl bg-muted/50">
-      <span className="text-[11px] font-medium text-foreground mb-2 block">{label}</span>
-      <div className="flex gap-1">
-        {colors.slice(0, 5).map((color, i) => (
-          <button
-            key={i}
-            className="w-8 h-8 rounded-md shadow-sm hover:scale-110 transition-transform border border-black/5"
-            style={{ backgroundColor: color }}
-            onClick={() => onSelect?.(color)}
-            title={color}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function AccessibilityRow({
   label,
   ratio,
@@ -555,31 +432,6 @@ function RatingBadge({ rating, score }: { rating: string; score: string }) {
 }
 
 // Fallback when API fails - use local calculations
-function FallbackConversions({ hex }: { hex: string }) {
-  const rgb = hexToRgb(hex)
-  const hsl = rgbToHsl(rgb)
-  const cmyk = rgbToCmyk(rgb)
-  const lab = rgbToLab(rgb)
-  const xyz = rgbToXyz(rgb)
-  const lch = rgbToLch(rgb)
-  const luv = rgbToLuv(rgb)
-  const hwb = rgbToHwb(rgb)
-
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      <ConversionCard label="HEX" value={hex.replace("#", "").toUpperCase()} onCopy={() => {}} copied={false} />
-      <ConversionCard label="RGB" value={`${rgb.r}, ${rgb.g}, ${rgb.b}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="HSL" value={`${hsl.h}, ${hsl.s}, ${hsl.l}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="CMYK" value={`${cmyk.c}, ${cmyk.m}, ${cmyk.y}, ${cmyk.k}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="LAB" value={`${lab.l}, ${lab.a}, ${lab.b}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="LCH" value={`${lch.l}, ${lch.c}, ${lch.h}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="XYZ" value={`${xyz.x}, ${xyz.y}, ${xyz.z}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="LUV" value={`${luv.l}, ${luv.u}, ${luv.v}`} onCopy={() => {}} copied={false} />
-      <ConversionCard label="HWB" value={`${hwb.h}, ${hwb.w}, ${hwb.b}`} onCopy={() => {}} copied={false} />
-    </div>
-  )
-}
-
 function FallbackAccessibility({ hex }: { hex: string }) {
   const contrastOnWhite = Math.round(getContrastRatio(hex, "#FFFFFF") * 100) / 100
   const contrastOnBlack = Math.round(getContrastRatio(hex, "#000000") * 100) / 100
