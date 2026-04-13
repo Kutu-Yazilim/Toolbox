@@ -16,6 +16,9 @@ import { useFileImport } from "@/hooks/useFileImport"
 import { ToolToolbar } from "@/components/shared/ToolToolbar"
 import { type Preset } from "@/components/shared/PresetsDrawer"
 import { SHAPEMAKER_PRESETS } from "./presets"
+import { PolygonConfig } from "./PolygonConfig"
+import { type PolygonPreset } from "@/utils/shapemakerPolygon"
+import { alignPaths, type AlignDirection } from "./PropertiesPanel"
 import {
   MousePointerIcon,
   PenToolIcon,
@@ -35,6 +38,7 @@ import {
   XIcon,
   SplineIcon,
   WavesIcon,
+  HexagonIcon,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -51,6 +55,7 @@ const TOOL_DEFS: {
   { mode: "line", icon: MinusIcon, label: "Line", shortcut: "L" },
   { mode: "rectangle", icon: SquareIcon, label: "Rectangle", shortcut: "R" },
   { mode: "ellipse", icon: CircleIcon, label: "Ellipse", shortcut: "O" },
+  { mode: "polygon", icon: HexagonIcon, label: "Polygon", shortcut: "N" },
 ]
 
 const CURVE_MODE_DEFS: {
@@ -71,6 +76,24 @@ export function ShapeMaker() {
 
   // Panels
   const [rightPanel, setRightPanel] = useState<RightPanel>("layers")
+
+  const handlePolygonPresetSelect = useCallback((preset: PolygonPreset) => {
+    state.setPolygonPreset(preset)
+  }, [state])
+
+  const handleAlignPaths = useCallback((direction: AlignDirection) => {
+    const results = alignPaths(state.layers, state.selectedPathIds, direction)
+    if (results.length === 0) return
+    state.setLayers((prev) =>
+      prev.map((layer) => ({
+        ...layer,
+        paths: layer.paths.map((p) => {
+          const match = results.find((r) => r.pathId === p.id)
+          return match ? { ...p, segments: match.segments } : p
+        }),
+      })),
+    )
+  }, [state])
 
   // Undo/redo wrappers that apply restored state
   const handleUndo = useCallback(() => {
@@ -136,9 +159,18 @@ export function ShapeMaker() {
   })
 
   // Presets
-  const handleShapePresetSelect = useCallback((_preset: Preset) => {
-    // Template presets -- for now act as a fresh start
-  }, [])
+  const handleShapePresetSelect = useCallback((preset: Preset) => {
+    try {
+      const data = JSON.parse(preset.content)
+      if (Array.isArray(data) && data.length > 0 && data[0].paths !== undefined) {
+        state.setLayers(data as Layer[])
+        state.setActiveLayerId(data[0].id)
+        state.setActivePathId(null)
+      }
+    } catch {
+      // Invalid preset content
+    }
+  }, [state])
 
   // Export options
   const shapeExportOptions = useMemo(() => [
@@ -218,6 +250,22 @@ export function ShapeMaker() {
                 <c.icon className="h-4 w-4" />
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Polygon config (visible when polygon tool active) */}
+        {state.tool === "polygon" && (
+          <div className="relative flex items-center pr-2 border-r border-border">
+            <PolygonConfig
+              sides={state.polygonSides}
+              isStar={state.polygonIsStar}
+              innerRadius={state.polygonInnerRadius}
+              preset={state.polygonPreset}
+              onSidesChange={state.setPolygonSides}
+              onStarToggle={state.setPolygonIsStar}
+              onInnerRadiusChange={state.setPolygonInnerRadius}
+              onPresetSelect={handlePolygonPresetSelect}
+            />
           </div>
         )}
 
@@ -480,15 +528,20 @@ export function ShapeMaker() {
                   onTogglePathLock={state.handleTogglePathLock}
                   onDuplicatePath={state.handleDuplicatePath}
                   onRenameLayer={state.handleRenameLayer}
+                  onReorderLayers={state.reorderLayers}
+                  onReorderPaths={state.reorderPaths}
                 />
               )}
               {rightPanel === "properties" && (
                 <PropertiesPanel
                   path={state.activePath}
                   interactionState={state.interactionState}
+                  selectedPathIds={state.selectedPathIds}
+                  layers={state.layers}
                   onUpdatePaint={state.handleUpdatePaint}
                   onUpdatePath={state.handleUpdatePath}
                   onUpdateTransform={state.handleUpdateTransform}
+                  onAlignPaths={handleAlignPaths}
                 />
               )}
               {rightPanel === "code" && (

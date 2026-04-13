@@ -89,7 +89,7 @@ function processIdle(
       }
     }
 
-    if (ctx.tool === "rectangle" || ctx.tool === "ellipse" || ctx.tool === "line") {
+    if (ctx.tool === "rectangle" || ctx.tool === "ellipse" || ctx.tool === "line" || ctx.tool === "polygon") {
       return {
         newState: { type: "drawing-shape", shapeType: ctx.tool, start: event.point },
         actions: [],

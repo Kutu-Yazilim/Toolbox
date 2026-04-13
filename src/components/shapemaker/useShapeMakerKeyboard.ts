@@ -114,6 +114,8 @@ export function useShapeMakerKeyboard(deps: KeyboardDeps) {
         setTool("rectangle")
       } else if (e.key === "o" || e.key === "O") {
         setTool("ellipse")
+      } else if (e.key === "n" || e.key === "N") {
+        if (!mod) setTool("polygon")
       } else if (e.key === "g" || e.key === "G") {
         setShowGrid((v) => !v)
       } else if (e.key === "s" || e.key === "S") {

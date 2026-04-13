@@ -15,6 +15,7 @@ import type {
 } from "@/types/shapemaker"
 import { DEFAULT_PAINT, DEFAULT_TRANSFORM } from "@/types/shapemaker"
 import { translateSegments, scaleSegments, updateSegmentPoint } from "@/utils/shapemakerTransform"
+import { type PolygonPreset, generateRegularPolygon, generateStar, generatePresetShape } from "@/utils/shapemakerPolygon"
 import { duplicatePath } from "@/utils/shapemakerClipboard"
 import { useLocalStorage } from "@/hooks/useLocalStorage"
 import type { ShapeMakerHistoryAPI } from "./useShapeMakerHistory"
@@ -98,6 +99,16 @@ export interface ShapeMakerStateAPI {
   setTool: (tool: ToolMode) => void
   curveMode: "line" | "quadratic" | "cubic"
   setCurveMode: (mode: "line" | "quadratic" | "cubic") => void
+
+  // Polygon config
+  polygonSides: number
+  setPolygonSides: (sides: number) => void
+  polygonIsStar: boolean
+  setPolygonIsStar: (isStar: boolean) => void
+  polygonInnerRadius: number
+  setPolygonInnerRadius: (radius: number) => void
+  polygonPreset: PolygonPreset | null
+  setPolygonPreset: (preset: PolygonPreset | null) => void
 
   // View state
   zoom: number
@@ -183,6 +194,12 @@ export function useShapeMakerState(
   // Tool
   const [tool, setTool] = useState<ToolMode>("pen")
   const [curveMode, setCurveMode] = useState<"line" | "quadratic" | "cubic">("line")
+
+  // Polygon config
+  const [polygonSides, setPolygonSides] = useState(5)
+  const [polygonIsStar, setPolygonIsStar] = useState(false)
+  const [polygonInnerRadius, setPolygonInnerRadius] = useState(40)
+  const [polygonPreset, setPolygonPreset] = useState<PolygonPreset | null>(null)
 
   // View
   const [zoom, setZoom] = useState(1)
@@ -427,9 +444,22 @@ export function useShapeMakerState(
           ...newPath.paint,
           paintingStyle: "stroke",
         }
+      } else if (tool === "polygon") {
+        const cx = (minX + maxX) / 2
+        const cy = (minY + maxY) / 2
+        const radius = Math.min(w, h) / 2
+
+        if (polygonPreset) {
+          newPath.segments = generatePresetShape(polygonPreset, cx, cy, radius * 2)
+        } else if (polygonIsStar) {
+          const inner = radius * (polygonInnerRadius / 100)
+          newPath.segments = generateStar(polygonSides, cx, cy, radius, inner)
+        } else {
+          newPath.segments = generateRegularPolygon(polygonSides, cx, cy, radius)
+        }
       }
 
-      newPath.closed = tool === "rectangle" || tool === "ellipse"
+      newPath.closed = tool === "rectangle" || tool === "ellipse" || tool === "polygon"
 
       setLayers((prev) =>
         prev.map((layer) => {
@@ -439,7 +469,7 @@ export function useShapeMakerState(
       )
       setActivePathId(newPath.id)
     },
-    [tool, activeLayerId, pushHistory],
+    [tool, activeLayerId, pushHistory, polygonSides, polygonIsStar, polygonInnerRadius, polygonPreset],
   )
 
   const handleClosePath = useCallback(() => {
@@ -929,6 +959,14 @@ export function useShapeMakerState(
     setTool,
     curveMode,
     setCurveMode,
+    polygonSides,
+    setPolygonSides,
+    polygonIsStar,
+    setPolygonIsStar,
+    polygonInnerRadius,
+    setPolygonInnerRadius,
+    polygonPreset,
+    setPolygonPreset,
     zoom,
     setZoom,
     panX,

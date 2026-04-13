@@ -97,7 +97,7 @@ export type InteractionState =
     }
   | { type: "dragging-node"; selectedPoint: SelectedPoint }
   | { type: "drawing-pen" }
-  | { type: "drawing-shape"; shapeType: "rectangle" | "ellipse" | "line"; start: Point }
+  | { type: "drawing-shape"; shapeType: "rectangle" | "ellipse" | "line" | "polygon"; start: Point }
 
 // ─── Canvas events (for state machine input) ───────────────────
 
@@ -136,7 +136,7 @@ export type InteractionAction =
   | { type: "add-segment"; point: Point }
   | { type: "close-path" }
   | { type: "new-path" }
-  | { type: "finish-drawing-shape"; start: Point; end: Point; shapeType: "rectangle" | "ellipse" | "line" }
+  | { type: "finish-drawing-shape"; start: Point; end: Point; shapeType: "rectangle" | "ellipse" | "line" | "polygon" }
   | { type: "push-history" }
   | { type: "set-cursor"; cursor: string }
 
