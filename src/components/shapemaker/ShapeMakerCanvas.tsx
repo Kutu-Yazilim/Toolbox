@@ -25,6 +25,7 @@ type Props = {
   layers: Layer[]
   activeLayerId: string
   activePathId: string | null
+  selectedPathIds: string[]
   tool: ToolMode
   snapEnabled: boolean
   gridSize: number
@@ -53,6 +54,7 @@ export function ShapeMakerCanvas({
   layers,
   activeLayerId,
   activePathId,
+  selectedPathIds,
   tool,
   snapEnabled,
   gridSize,
@@ -174,16 +176,18 @@ export function ShapeMakerCanvas({
 
     ctx.restore()
 
-    // Bounding box for shape-selected mode
+    // Bounding box for shape-selected mode (all selected paths)
     if (
       interactionState.type === "shape-selected" &&
-      interactionState.mode === "shape" &&
-      activePathId
+      interactionState.mode === "shape"
     ) {
-      const activeLayer = layers.find((l) => l.id === activeLayerId)
-      const activePath = activeLayer?.paths.find((p) => p.id === activePathId)
-      if (activePath && activePath.segments.length > 0) {
-        renderBoundingBox(ctx, activePath, zoom, panX, panY)
+      for (const selId of selectedPathIds) {
+        for (const layer of layers) {
+          const selPath = layer.paths.find((p) => p.id === selId)
+          if (selPath && selPath.segments.length > 0) {
+            renderBoundingBox(ctx, selPath, zoom, panX, panY)
+          }
+        }
       }
     }
 
@@ -246,6 +250,7 @@ export function ShapeMakerCanvas({
     layers,
     activeLayerId,
     activePathId,
+    selectedPathIds,
     selectedPoint,
     zoom,
     panX,

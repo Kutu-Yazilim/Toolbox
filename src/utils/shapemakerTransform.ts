@@ -171,3 +171,29 @@ export function unrotatePoint(p: Point, center: Point, angle: number): Point {
 export function snapAngle(angle: number, increment: number): number {
   return Math.round(angle / increment) * increment
 }
+
+// ─── Type-safe segment point update ────────────────────────────
+
+export function updateSegmentPoint(
+  segment: PathSegment,
+  field: string,
+  value: Point,
+): PathSegment {
+  switch (segment.type) {
+    case "moveTo":
+      return { ...segment, point: value }
+    case "lineTo":
+      return { ...segment, point: value }
+    case "quadraticBezierTo":
+      if (field === "controlPoint") return { ...segment, controlPoint: value }
+      return { ...segment, endPoint: value }
+    case "cubicTo":
+      if (field === "controlPoint1") return { ...segment, controlPoint1: value }
+      if (field === "controlPoint2") return { ...segment, controlPoint2: value }
+      return { ...segment, endPoint: value }
+    case "arcToPoint":
+      return { ...segment, endPoint: value }
+    case "close":
+      return segment
+  }
+}
