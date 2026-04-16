@@ -29,6 +29,7 @@ const TOOL_COMPONENTS: Record<string, React.ComponentType> = {
   "env-editor": dynamic(() => import("@/components/enveditor/EnvEditor").then((m) => ({ default: m.EnvEditor })), { ssr: false }),
   "git-builder": dynamic(() => import("@/components/gitbuilder/GitCommandBuilder").then((m) => ({ default: m.GitCommandBuilder })), { ssr: false }),
   "code-screenshot": dynamic(() => import("@/components/codescreenshot/CodeScreenshot").then((m) => ({ default: m.CodeScreenshot })), { ssr: false }),
+  "prompt-forge": dynamic(() => import("@/components/promptforge/PromptForge").then((m) => ({ default: m.PromptForge })), { ssr: false }),
 
   // Converters
   "timestamp": dynamic(() => import("@/components/timestamp/TimestampConverter").then((m) => ({ default: m.TimestampConverter })), { ssr: false }),

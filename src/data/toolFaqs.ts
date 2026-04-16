@@ -149,6 +149,46 @@ export const TOOL_FAQS: ToolFaq[] = [
       { question: "What export format is available?", answer: "Screenshots are exported as high-resolution PNG images." },
     ],
   },
+  {
+    toolId: "prompt-forge",
+    faqs: [
+      {
+        question: "What is Prompt Forge?",
+        answer:
+          "It's a structured editor for writing prompts that agentic coders (Claude Code, Cursor, other SDK-driven agents) act on reliably. You fill in fields like task, context, constraints, success criteria, and files; the tool composes them into an XML-structured prompt and scores how much useful signal it carries.",
+      },
+      {
+        question: "Why XML tags instead of plain prose?",
+        answer:
+          "Large language models parse structured prompts more unambiguously when sections are wrapped in tags like <task>, <context>, <constraints>, and <examples>. Anthropic specifically recommends this format for Claude. It removes guesswork about which sentence is an instruction versus background.",
+      },
+      {
+        question: "What does the score mean?",
+        answer:
+          "The score estimates how much information an agentic coder needs to act without guessing. It weights clear imperative tasks, concrete file paths, success criteria, constraints, examples, and scope. 85+ is excellent; below 40 means the prompt is likely to produce drift or require clarification.",
+      },
+      {
+        question: "Can I paste an existing prompt instead of filling in fields?",
+        answer:
+          "Yes. Switch to Analyze mode, paste any prompt, and you'll get the same scoring with per-signal hints explaining what's missing and why it matters.",
+      },
+      {
+        question: "Is my data private?",
+        answer:
+          "Everything runs in your browser. No prompt content, no edits, and no scores are sent to any server.",
+      },
+      {
+        question: "Can I share a prompt setup with a teammate?",
+        answer:
+          "Yes. The Share button copies a URL that fully restores your form fields (or your pasted prompt) on the other end, so you can co-author prompts without pasting content back and forth.",
+      },
+      {
+        question: "What's the difference between scope levels?",
+        answer:
+          "Minimal tells the agent to make the smallest change that solves the problem — no cleanup or refactor. Standard solves the problem fully without scope creep. Comprehensive asks for a production-ready solution including edge cases and tests.",
+      },
+    ],
+  },
   // ─── Converters ───────────────────────────────────────────────
   {
     toolId: "encoder",
