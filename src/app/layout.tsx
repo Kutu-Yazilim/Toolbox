@@ -1,6 +1,29 @@
 import type { Metadata } from "next"
+import { Newsreader, Geist, Geist_Mono } from "next/font/google"
 import { AppShell } from "@/components/layout/AppShell"
 import "./globals.css"
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  weight: ["300", "400", "500"],
+  variable: "--font-display",
+  display: "swap",
+})
+
+const geist = Geist({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600"],
+  variable: "--font-sans",
+  display: "swap",
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-mono",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://toolbox.kutuyazilim.org"),
@@ -66,7 +89,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${newsreader.variable} ${geist.variable} ${geistMono.variable}`}
+    >
       <head>
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-N19BRM30S9" />
         <script
@@ -76,7 +103,7 @@ export default function RootLayout({
         />
         <link rel="icon" type="image/svg+xml" href="/LogoOnlyCircularSVG.svg" />
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#A88A6F" />
+        <meta name="theme-color" content="#EEF1EC" />
         <link rel="apple-touch-icon" href="/LogoOnlyCircularSVG.svg" />
         <script
           type="application/ld+json"

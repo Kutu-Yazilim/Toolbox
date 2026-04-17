@@ -35,13 +35,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const closePalette = useCallback(() => setPaletteOpen(false), [])
 
+  const isHome = pathname === "/"
+
   return (
     <LocaleProvider>
       <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-        <AppSidebar />
+        {!isHome && <AppSidebar />}
         <main className="flex-1 overflow-auto">
-          <MobileNav />
-          <Breadcrumbs />
+          {!isHome && <MobileNav />}
+          {!isHome && <Breadcrumbs />}
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center">

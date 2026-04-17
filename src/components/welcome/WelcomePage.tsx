@@ -2,198 +2,1119 @@
 
 import { useState, useMemo, useEffect, useRef } from "react"
 import Link from "next/link"
-import { SearchIcon, StarIcon } from "lucide-react"
-import { TOOLS, CATEGORIES, type CategoryId } from "@/config/toolRegistry"
+import { MoonIcon, SunIcon, SearchIcon, StarIcon, ArrowUpRightIcon } from "lucide-react"
+import { TOOLS, CATEGORIES, getToolsByCategory, type CategoryId } from "@/config/toolRegistry"
 import { useFavorites } from "@/hooks/useFavorites"
-import { cn } from "@/lib/utils"
+import { useTheme } from "@/hooks/useTheme"
 import { useLocale } from "@/i18n/LocaleContext"
 import { getToolLabel, getToolDescription } from "@/i18n/toolTranslations"
+import { cn } from "@/lib/utils"
 
 type FilterTab = CategoryId | "all" | "favorites"
+
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+
+const CATEGORY_BLURBS: Record<CategoryId, { en: string; tr: string }> = {
+  "dev-tools": {
+    en: "Everyday companions for people who ship code.",
+    tr: "Kod yazanlar için günlük kutu.",
+  },
+  converters: {
+    en: "From one format into another, and back.",
+    tr: "Biçimden biçime, geri ve ileri.",
+  },
+  generators: {
+    en: "A blank page and dependable randomness.",
+    tr: "Boş bir sayfa ve güvenilir rastlantı.",
+  },
+  design: {
+    en: "A canvas for the eye.",
+    tr: "Göze iyi gelen tuval.",
+  },
+  network: {
+    en: "The internet is still an incredible thing.",
+    tr: "İnternet hâlâ olağanüstü bir şey.",
+  },
+  pdf: {
+    en: "Thirteen small steps for every document.",
+    tr: "Her belge için on üç küçük adım.",
+  },
+  security: {
+    en: "Small doors, sturdy hinges.",
+    tr: "Küçük kapılar, sağlam menteşeler.",
+  },
+  "data-tools": {
+    en: "Rows, columns, and the shapes they hide.",
+    tr: "Satırlar, sütunlar ve sakladıkları şekiller.",
+  },
+  "image-tools": {
+    en: "Pixels, resized gently.",
+    tr: "Piksellere nazik bir dokunuş.",
+  },
+  fun: {
+    en: "For when the decision is the point.",
+    tr: "Karar verme anının kendisi için.",
+  },
+}
+
+const HERO = {
+  en: {
+    eyebrow: "The Kutu Toolbox",
+    meta: "№ 2026 · İstanbul · Est. Kutu Yazılım",
+    line1a: "Eighty-four",
+    line1b: "crafted",
+    line1c: " tools",
+    line1d: "for quiet work.",
+    lead: "A considered collection of small, fast utilities — format, convert, generate, compose. No accounts, no ads, no telemetry; everything runs in your browser.",
+    browseAll: "Browse all",
+    pressSearch: "or press",
+    offlineFirst: "offline-first",
+    noAds: "no ads",
+    openSource: "open source",
+    volume: "Vol. I",
+    tools: "tools",
+    categories: "categories",
+  },
+  tr: {
+    eyebrow: "Kutu Araç Takımı",
+    meta: "№ 2026 · İstanbul · Kutu Yazılım",
+    line1a: "Seksen dört",
+    line1b: "itinalı",
+    line1c: " araç",
+    line1d: "sessiz çalışma için.",
+    lead: "Düşünülmüş küçük ve hızlı araçların bir koleksiyonu — biçimlendir, dönüştür, üret, kur. Hesap yok, reklam yok, telemetri yok; her şey tarayıcında çalışır.",
+    browseAll: "Hepsini gez",
+    pressSearch: "ya da bas",
+    offlineFirst: "çevrimdışı çalışır",
+    noAds: "reklam yok",
+    openSource: "açık kaynak",
+    volume: "Cilt I",
+    tools: "araç",
+    categories: "kategori",
+  },
+}
+
+const PHILOSOPHY = {
+  en: {
+    eyebrow: "Philosophy",
+    title: "A quiet workshop.",
+    principles: [
+      {
+        n: "1",
+        head: "Small, finished things.",
+        body: "Each tool does one honest job. When it is done, it steps aside.",
+      },
+      {
+        n: "2",
+        head: "Runs in your browser.",
+        body: "No uploads, no accounts. Your data never leaves your machine — and we prefer it that way.",
+      },
+      {
+        n: "3",
+        head: "Keyboard-first.",
+        body: "Type / to search. Press Cmd+K for the palette. Your hands never need to leave the keys.",
+      },
+      {
+        n: "4",
+        head: "Designed with care.",
+        body: "Paper tones, considered typography, honest rules. We believe utility and beauty are not opposed.",
+      },
+    ],
+  },
+  tr: {
+    eyebrow: "Felsefe",
+    title: "Sessiz bir atölye.",
+    principles: [
+      {
+        n: "1",
+        head: "Küçük, bitmiş işler.",
+        body: "Her araç tek bir işi dürüstçe yapar. Bittiğinde usulca kenara çekilir.",
+      },
+      {
+        n: "2",
+        head: "Tarayıcında çalışır.",
+        body: "Yükleme yok, hesap yok. Verin cihazından çıkmaz — biz de böyle olmasını tercih ediyoruz.",
+      },
+      {
+        n: "3",
+        head: "Klavye öncelikli.",
+        body: "/ tuşu aramayı açar. Cmd+K komut paletini getirir. Ellerin tuşlardan ayrılmak zorunda değil.",
+      },
+      {
+        n: "4",
+        head: "Özenle tasarlanmış.",
+        body: "Kağıt tonları, düşünülmüş tipografi, dürüst çizgiler. Kullanışlılığın ve güzelliğin karşıt olduğuna inanmıyoruz.",
+      },
+    ],
+  },
+}
+
+const CHANGELOG = {
+  en: [
+    { date: "17 Apr 2026", title: "Porcelain & Ion — a new palette, inside and out.", tag: "v1.5" },
+    { date: "02 Apr 2026", title: "Password generator now shows an entropy readout.", tag: "v1.4" },
+    { date: "21 Mar 2026", title: "Dark mode, like a full moon instead of double ink.", tag: "v1.3" },
+    { date: "08 Mar 2026", title: "Keyboard shortcuts: / for search, ⌘K to open the palette.", tag: "v1.2" },
+    { date: "14 Feb 2026", title: "Kutu's first release — we open with 63 tools.", tag: "v1.0" },
+  ],
+  tr: [
+    { date: "17 Nis 2026", title: "Porcelain & Ion — içten dışa yepyeni bir palet.", tag: "v1.5" },
+    { date: "02 Nis 2026", title: "Şifre üreticisi artık entropi çubuğu gösteriyor.", tag: "v1.4" },
+    { date: "21 Mar 2026", title: "Koyu mod, çift mürekkep yerine bir dolunay gibi.", tag: "v1.3" },
+    { date: "08 Mar 2026", title: "Klavye kısayolları: / aramayı açar, ⌘K paleti açar.", tag: "v1.2" },
+    { date: "14 Şub 2026", title: "Kutu'nun ilk sürümü — 63 araçla başlıyoruz.", tag: "v1.0" },
+  ],
+}
+
+function KutuMark({ size = 22 }: { size?: number }) {
+  const s = size
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden
+    >
+      {/* outer box */}
+      <rect x="3" y="7" width="26" height="22" rx="2" stroke="currentColor" strokeWidth="1.8" />
+      {/* open lid */}
+      <path d="M3 9 L16 2 L29 9" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      {/* inner tick — accent */}
+      <path
+        d="M11 18 L15 22 L22 14"
+        stroke="var(--ion)"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CrateAnim() {
+  const [opened, setOpened] = useState(false)
+  useEffect(() => {
+    const id = window.setTimeout(() => setOpened(true), 280)
+    return () => window.clearTimeout(id)
+  }, [])
+
+  const words = [
+    { label: "JSON", x: 20, y: 40, s: 22, accent: true, bold: true },
+    { label: "UUID", x: 50, y: 20, s: 18 },
+    { label: "QR", x: 70, y: 35, s: 28, bold: true },
+    { label: "chmod 755", x: 72, y: 55, s: 13 },
+    { label: "regex /.+/", x: 8, y: 62, s: 14 },
+    { label: "#B5502E", x: 38, y: 10, s: 14, accent: true },
+    { label: "SHA-256", x: 58, y: 65, s: 12 },
+    { label: "d20", x: 25, y: 22, s: 20 },
+    { label: "SQL·fmt", x: 5, y: 30, s: 13 },
+    { label: "PDF", x: 82, y: 18, s: 22, bold: true },
+  ]
+
+  return (
+    <div
+      className="relative w-full max-w-[520px] ml-auto select-none"
+      style={{ aspectRatio: "1 / 1" }}
+    >
+      {/* Rising tool words */}
+      <div className="absolute inset-0 pointer-events-none">
+        {words.map((w, i) => (
+          <div
+            key={i}
+            className="font-mono-kutu absolute whitespace-nowrap"
+            style={{
+              left: `${w.x}%`,
+              top: `${w.y}%`,
+              fontSize: w.s,
+              color: w.accent ? "var(--ion)" : "var(--ink-2)",
+              opacity: opened ? 1 : 0,
+              transform: opened ? "translateY(0)" : "translateY(40px)",
+              transition: `opacity .8s ease ${0.2 + i * 0.08}s, transform 1s cubic-bezier(.2,.8,.2,1) ${0.2 + i * 0.08}s`,
+              fontWeight: w.bold ? 600 : 400,
+            }}
+          >
+            {w.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Crate SVG */}
+      <svg viewBox="0 0 400 400" className="absolute bottom-0 left-0 w-full">
+        <path
+          d="M80 230 L200 190 L320 230 L320 360 L80 360 Z"
+          fill="var(--paper-3)"
+          stroke="var(--ink)"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M80 250 L320 250 L320 370 L80 370 Z"
+          fill="var(--paper-2)"
+          stroke="var(--ink)"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M80 250 L80 370 L60 360 L60 240 Z"
+          fill="var(--paper-3)"
+          stroke="var(--ink)"
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+        />
+        <line x1="90" y1="290" x2="310" y2="290" stroke="var(--ink)" strokeWidth="0.6" opacity="0.4" />
+        <line x1="90" y1="320" x2="310" y2="320" stroke="var(--ink)" strokeWidth="0.6" opacity="0.4" />
+
+        <g transform="translate(105 300)">
+          <rect x="0" y="0" width="110" height="54" fill="none" stroke="var(--ion)" strokeWidth="1.5" />
+          <text
+            x="55"
+            y="22"
+            textAnchor="middle"
+            fontFamily="var(--font-display), Georgia, serif"
+            fontStyle="italic"
+            fontSize="16"
+            fill="var(--ion)"
+          >
+            Kutu
+          </text>
+          <text
+            x="55"
+            y="40"
+            textAnchor="middle"
+            fontFamily="var(--font-mono), monospace"
+            fontSize="8"
+            letterSpacing="2"
+            fill="var(--ion)"
+          >
+            TOOLBOX · 84
+          </text>
+        </g>
+
+        <circle cx="275" cy="325" r="14" fill="var(--ion)" opacity="0.9" />
+        <text
+          x="275"
+          y="330"
+          textAnchor="middle"
+          fontFamily="var(--font-display), Georgia, serif"
+          fontStyle="italic"
+          fontSize="14"
+          fill="var(--paper)"
+        >
+          K
+        </text>
+
+        {/* Lid — rotates open */}
+        <g
+          style={{
+            transformOrigin: "200px 230px",
+            transform: opened
+              ? "perspective(800px) rotateX(105deg)"
+              : "rotateX(0deg)",
+            transition: "transform 1.4s cubic-bezier(.2,.9,.2,1)",
+          }}
+        >
+          <path
+            d="M80 230 L200 190 L320 230 L200 250 Z"
+            fill="var(--paper)"
+            stroke="var(--ink)"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <line x1="140" y1="220" x2="260" y2="220" stroke="var(--ink)" strokeWidth="0.6" opacity="0.3" />
+        </g>
+      </svg>
+    </div>
+  )
+}
 
 export function WelcomePage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [activeCategory, setActiveCategory] = useState<FilterTab>("all")
   const searchRef = useRef<HTMLInputElement>(null)
   const [favoriteIds, toggleFavorite, isFavorite] = useFavorites()
-  const { locale, t } = useLocale()
+  const { locale, setLocale } = useLocale()
+  const { isDark, toggleTheme } = useTheme()
 
+  const t = HERO[locale]
+  const phil = PHILOSOPHY[locale]
+  const changelog = CHANGELOG[locale]
+
+  // Global "/" shortcut
   useEffect(() => {
-    searchRef.current?.focus()
-  }, [])
-
-  const toolCountByCategory = useMemo(() => {
-    const counts: Record<string, number> = { all: TOOLS.length }
-    for (const cat of CATEGORIES) {
-      counts[cat.id] = TOOLS.filter((t) => t.categoryId === cat.id).length
+    const handler = (e: KeyboardEvent) => {
+      if (
+        e.key === "/" &&
+        !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)
+      ) {
+        e.preventDefault()
+        searchRef.current?.focus()
+      }
     }
-    return counts
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
   }, [])
 
   const filteredTools = useMemo(() => {
-    const query = searchQuery.toLowerCase()
+    const q = searchQuery.toLowerCase().trim()
     return TOOLS.filter((tool) => {
-      const matchesCategory =
+      const matchesCat =
         activeCategory === "all" ||
         (activeCategory === "favorites"
           ? favoriteIds.includes(tool.id)
           : tool.categoryId === activeCategory)
       const matchesSearch =
-        !query ||
-        tool.label.toLowerCase().includes(query) ||
-        tool.description.toLowerCase().includes(query)
-      return matchesCategory && matchesSearch
+        !q ||
+        tool.label.toLowerCase().includes(q) ||
+        tool.description.toLowerCase().includes(q) ||
+        getToolLabel(tool, locale).toLowerCase().includes(q)
+      return matchesCat && matchesSearch
     })
-  }, [searchQuery, activeCategory, favoriteIds])
+  }, [searchQuery, activeCategory, favoriteIds, locale])
+
+  const isFiltering = searchQuery.trim() !== "" || activeCategory !== "all"
+
+  const jumpToIndex = () =>
+    document.getElementById("index")?.scrollIntoView({ behavior: "smooth", block: "start" })
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="max-w-6xl mx-auto px-4 py-6 md:px-8">
-        {/* Hero */}
-        <div className="flex flex-col items-center text-center gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <img
-              src="/LogoOnlyCircularSVG.svg"
-              alt="ToolBox logo"
-              className="size-16 rounded-full"
-            />
-            <div className="text-left">
-              <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">
-                ToolBox
-              </h1>
-              <p className="text-sm text-muted-foreground">by Kutu Yazılım</p>
+    <div className="min-h-full w-full overflow-y-auto">
+      {/* ─── Top nav ─── */}
+      <header
+        className="sticky top-0 z-50 border-b border-rule"
+        style={{
+          background: "color-mix(in oklab, var(--paper) 92%, transparent)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <div className="mx-auto max-w-[1360px] px-6 md:px-10 h-14 flex items-center gap-6">
+          <a href="#top" className="flex items-center gap-2.5 text-ink no-underline">
+            <KutuMark size={22} />
+            <span className="font-display text-xl" style={{ letterSpacing: "-0.02em" }}>
+              Kutu
+            </span>
+            <span
+              className="font-mono-kutu text-[10.5px] -ml-0.5"
+              style={{ color: "var(--ink-4)" }}
+            >
+              / TOOLBOX
+            </span>
+          </a>
+
+          <nav className="hidden md:flex gap-5 ml-2">
+            <a
+              href="#index"
+              className="font-mono-kutu text-[12px] no-underline"
+              style={{ color: "var(--ink-2)" }}
+            >
+              Index
+            </a>
+            <a
+              href="#philosophy"
+              className="font-mono-kutu text-[12px] no-underline"
+              style={{ color: "var(--ink-2)" }}
+            >
+              Philosophy
+            </a>
+            <a
+              href="#changelog"
+              className="font-mono-kutu text-[12px] no-underline"
+              style={{ color: "var(--ink-2)" }}
+            >
+              Changelog
+            </a>
+          </nav>
+
+          <div className="flex-1" />
+
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex rounded-full p-0.5 border"
+              style={{ borderColor: "var(--rule)" }}
+            >
+              {(["en", "tr"] as const).map((l) => (
+                <button
+                  key={l}
+                  onClick={() => setLocale(l)}
+                  className="font-mono-kutu px-2.5 py-1 rounded-full text-[10.5px] transition-colors"
+                  style={{
+                    background: locale === l ? "var(--ink)" : "transparent",
+                    color: locale === l ? "var(--paper)" : "var(--ink-2)",
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    border: "none",
+                    cursor: "pointer",
+                  }}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={toggleTheme}
+              className="w-8 h-8 rounded-full grid place-items-center transition-colors"
+              style={{
+                border: "1px solid var(--rule)",
+                background: "transparent",
+                color: "var(--ink-2)",
+                cursor: "pointer",
+              }}
+              aria-label="Toggle theme"
+            >
+              {isDark ? <SunIcon className="size-4" /> : <MoonIcon className="size-4" />}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main id="top">
+        {/* ─── Hero ─── */}
+        <section className="relative overflow-hidden">
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10 pt-14">
+            <div className="flex flex-wrap justify-between items-end gap-6">
+              <div className="space-y-1">
+                <div className="eyebrow">{t.eyebrow}</div>
+                <div className="font-mono-kutu text-[11px]" style={{ color: "var(--ink-4)" }}>
+                  {t.meta}
+                </div>
+              </div>
+              <div
+                className="font-mono-kutu text-[11px] text-right"
+                style={{ color: "var(--ink-4)" }}
+              >
+                {t.volume} · {TOOLS.length} {t.tools} · {CATEGORIES.length} {t.categories}
+              </div>
+            </div>
+
+            <hr className="kutu-rule-double mt-5" />
+          </div>
+
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10 pt-12 pb-9">
+            <div
+              className="grid gap-12 items-center"
+              style={{
+                gridTemplateColumns: "minmax(0, 1.2fr) minmax(380px, 1fr)",
+              }}
+            >
+              <div className="min-w-0">
+                <h1
+                  className="font-display m-0"
+                  style={{
+                    fontSize: "clamp(48px, 7.5vw, 108px)",
+                    lineHeight: 0.92,
+                    letterSpacing: "-0.035em",
+                    overflowWrap: "break-word",
+                  }}
+                >
+                  {t.line1a}
+                  <br />
+                  <span className="font-display-italic" style={{ color: "var(--ion)" }}>
+                    {t.line1b}
+                  </span>
+                  {t.line1c}
+                  <br />
+                  {t.line1d}
+                </h1>
+                <p
+                  className="mt-7 max-w-[520px]"
+                  style={{ fontSize: 17, lineHeight: 1.55, color: "var(--ink-2)" }}
+                >
+                  {t.lead}
+                </p>
+              </div>
+              <div className="min-w-[380px] hidden md:block">
+                <CrateAnim />
+              </div>
             </div>
           </div>
-          <p className="text-lg text-muted-foreground">
-            {TOOLS.length}+ {t.landing.tagline}
-          </p>
-          <div className="relative w-full max-w-md">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <input
-              ref={searchRef}
-              type="text"
-              placeholder={t.landing.searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={cn(
-                "w-full rounded-lg border border-border bg-background pl-10 pr-4 py-2.5",
-                "text-sm text-foreground placeholder:text-muted-foreground",
-                "focus:outline-none focus:ring-2 focus:ring-ring"
-              )}
-            />
-          </div>
-        </div>
 
-        {/* Category tabs */}
-        <div className="flex flex-wrap justify-center gap-2 mb-4">
-          {favoriteIds.length > 0 && (
-            <button
-              onClick={() => setActiveCategory("favorites")}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-medium transition-colors flex items-center gap-1.5",
-                activeCategory === "favorites"
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <StarIcon className="size-3.5 fill-current" />
-              {t.common.favorites} ({favoriteIds.length})
-            </button>
-          )}
-          <button
-            onClick={() => setActiveCategory("all")}
-            className={cn(
-              "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-              activeCategory === "all"
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:text-foreground"
-            )}
-          >
-            {t.landing.all} ({toolCountByCategory.all})
-          </button>
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setActiveCategory(cat.id)}
-              className={cn(
-                "rounded-lg px-4 py-2 text-sm font-medium transition-colors",
-                activeCategory === cat.id
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {t.categories[cat.id as keyof typeof t.categories] ?? cat.label} ({toolCountByCategory[cat.id]})
-            </button>
-          ))}
-        </div>
-
-        {/* Tool grid */}
-        {filteredTools.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            {t.common.noResults}
+          {/* Action rule */}
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10 flex flex-wrap items-center justify-between gap-4 pt-3 pb-9">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={jumpToIndex}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-[4px] transition-all font-mono-kutu"
+                style={{
+                  background: "var(--ink)",
+                  color: "var(--paper)",
+                  border: "1px solid var(--ink)",
+                  fontSize: 12,
+                  letterSpacing: "0.04em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "var(--ion)"
+                  e.currentTarget.style.borderColor = "var(--ion)"
+                  e.currentTarget.style.transform = "translateY(-1px)"
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "var(--ink)"
+                  e.currentTarget.style.borderColor = "var(--ink)"
+                  e.currentTarget.style.transform = "translateY(0)"
+                }}
+              >
+                {t.browseAll}
+                <ArrowUpRightIcon className="size-4" />
+              </button>
+              <span className="font-mono-kutu text-[11px]" style={{ color: "var(--ink-3)" }}>
+                {t.pressSearch} <span className="kbd">/</span>
+              </span>
+            </div>
+            <div className="font-mono-kutu text-[11px]" style={{ color: "var(--ink-4)" }}>
+              {t.offlineFirst} · {t.noAds} · {t.openSource}
+            </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {filteredTools.map((tool) => (
-              <div key={tool.id} className="relative group/card">
-                <Link
-                  href={tool.path}
-                  className={cn(
-                    "rounded-lg border border-border p-3",
-                    "flex items-start gap-3",
-                    "hover:border-primary/50 transition-colors",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  )}
+          <hr className="kutu-rule" />
+        </section>
+
+        {/* ─── Index — search + category chips ─── */}
+        <section
+          id="index"
+          className="border-b"
+          style={{ borderColor: "var(--rule)", background: "var(--paper)" }}
+        >
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10 py-10">
+            <div className="flex flex-wrap items-end justify-between gap-6 mb-6">
+              <div>
+                <div className="eyebrow">{locale === "tr" ? "Dizin" : "Index"}</div>
+                <h2
+                  className="font-display m-0 mt-2"
+                  style={{
+                    fontSize: "clamp(36px, 4.5vw, 56px)",
+                    lineHeight: 1.05,
+                    letterSpacing: "-0.025em",
+                  }}
                 >
-                  <tool.icon className="size-5 text-muted-foreground shrink-0 mt-0.5" />
-                  <div className="min-w-0 pr-5">
-                    <div className="text-sm font-medium text-foreground">
-                      {getToolLabel(tool, locale)}
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {getToolDescription(tool, locale)}
-                    </p>
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => toggleFavorite(tool.id)}
-                  className={cn(
-                    "absolute top-2.5 right-2.5 p-1 rounded transition-opacity",
-                    isFavorite(tool.id)
-                      ? "opacity-100"
-                      : "opacity-0 group-hover/card:opacity-100"
+                  {locale === "tr" ? (
+                    <>
+                      Tüm araçlar, <span className="font-display-italic">eksiksiz.</span>
+                    </>
+                  ) : (
+                    <>
+                      Every tool, <span className="font-display-italic">accounted for.</span>
+                    </>
                   )}
-                >
-                  <StarIcon
-                    className={cn(
-                      "size-4",
-                      isFavorite(tool.id)
-                        ? "fill-yellow-500 text-yellow-500"
-                        : "text-muted-foreground hover:text-yellow-500"
-                    )}
-                  />
-                </button>
+                </h2>
               </div>
-            ))}
+
+              <div className="relative w-full md:w-[380px]">
+                <SearchIcon
+                  className="absolute left-3 top-1/2 -translate-y-1/2 size-4"
+                  style={{ color: "var(--ink-4)" }}
+                />
+                <input
+                  ref={searchRef}
+                  type="text"
+                  placeholder={
+                    locale === "tr"
+                      ? "Araç ara — örn. JSON, QR, regex"
+                      : "Search tools — e.g. JSON, QR, regex"
+                  }
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-14 py-2.5 text-sm rounded-[4px] outline-none transition-colors"
+                  style={{
+                    background: "var(--paper-2)",
+                    border: "1px solid var(--rule)",
+                    color: "var(--ink)",
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = "var(--ink)"
+                    e.currentTarget.style.background = "var(--paper)"
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = "var(--rule)"
+                    e.currentTarget.style.background = "var(--paper-2)"
+                  }}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <span className="kbd">/</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                className="kutu-chip"
+                data-active={activeCategory === "all"}
+                onClick={() => setActiveCategory("all")}
+              >
+                {locale === "tr" ? "Tümü" : "All"}
+                <span style={{ color: "inherit", opacity: 0.6 }}>· {TOOLS.length}</span>
+              </button>
+              {favoriteIds.length > 0 && (
+                <button
+                  className="kutu-chip"
+                  data-active={activeCategory === "favorites"}
+                  onClick={() => setActiveCategory("favorites")}
+                >
+                  <StarIcon className="size-3 fill-current" />
+                  {locale === "tr" ? "Favoriler" : "Favorites"}
+                  <span style={{ opacity: 0.6 }}>· {favoriteIds.length}</span>
+                </button>
+              )}
+              {CATEGORIES.map((cat) => {
+                const count = getToolsByCategory(cat.id as CategoryId).length
+                return (
+                  <button
+                    key={cat.id}
+                    className="kutu-chip"
+                    data-active={activeCategory === cat.id}
+                    onClick={() => setActiveCategory(cat.id)}
+                  >
+                    {cat.label}
+                    <span style={{ opacity: 0.6 }}>· {count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Categorized sections OR filtered grid ─── */}
+        {isFiltering ? (
+          <FilteredGrid
+            tools={filteredTools}
+            locale={locale}
+            isFavorite={isFavorite}
+            toggleFavorite={toggleFavorite}
+          />
+        ) : (
+          <div>
+            {CATEGORIES.map((cat, i) => {
+              const tools = getToolsByCategory(cat.id as CategoryId)
+              if (tools.length === 0) return null
+              return (
+                <CategorySection
+                  key={cat.id}
+                  roman={ROMAN[i]}
+                  title={cat.label}
+                  blurb={CATEGORY_BLURBS[cat.id as CategoryId]?.[locale] ?? ""}
+                  tools={tools}
+                  count={tools.length}
+                  locale={locale}
+                  isFavorite={isFavorite}
+                  toggleFavorite={toggleFavorite}
+                />
+              )
+            })}
           </div>
         )}
 
-        {/* Footer */}
-        <div className="text-center py-8 space-y-2">
-          <p className="text-xs text-muted-foreground">
-            {t.landing.footer}{" "}
-            <a href="https://kutuyazilim.org" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors underline underline-offset-2">
-              Kutu Yazılım
-            </a>
-          </p>
-          <p className="text-xs text-muted-foreground/60">
-            <a href="https://utkuaturen.com" target="_blank" rel="noopener noreferrer" className="hover:text-muted-foreground transition-colors">
-              Utku A. Türen
-            </a>
-          </p>
+        {/* ─── Philosophy ─── */}
+        <section
+          id="philosophy"
+          style={{
+            padding: "120px 0 88px",
+            background: "var(--paper-2)",
+            borderTop: "1px solid var(--rule)",
+            borderBottom: "1px solid var(--rule)",
+          }}
+        >
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10">
+            <div
+              className="grid gap-12"
+              style={{ gridTemplateColumns: "minmax(220px, 320px) 1fr" }}
+            >
+              <div>
+                <div className="eyebrow">{phil.eyebrow}</div>
+                <h2
+                  className="font-display mt-3"
+                  style={{
+                    fontSize: "clamp(44px, 6vw, 84px)",
+                    margin: 0,
+                    lineHeight: 1,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  {phil.title}
+                </h2>
+              </div>
+              <div>
+                {phil.principles.map((p, i) => (
+                  <div
+                    key={i}
+                    className="grid gap-4 py-6"
+                    style={{
+                      gridTemplateColumns: "80px 1fr",
+                      borderBottom:
+                        i < phil.principles.length - 1 ? "1px solid var(--rule)" : "none",
+                    }}
+                  >
+                    <div
+                      className="font-display-italic"
+                      style={{ fontSize: 44, color: "var(--ion)", lineHeight: 0.9 }}
+                    >
+                      {p.n}.
+                    </div>
+                    <div>
+                      <h4
+                        className="font-display"
+                        style={{
+                          fontSize: 26,
+                          margin: 0,
+                          letterSpacing: "-0.01em",
+                          lineHeight: 1.15,
+                        }}
+                      >
+                        {p.head}
+                      </h4>
+                      <p
+                        style={{
+                          color: "var(--ink-2)",
+                          margin: "8px 0 0",
+                          fontSize: 16,
+                          lineHeight: 1.55,
+                          maxWidth: 560,
+                        }}
+                      >
+                        {p.body}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Changelog ─── */}
+        <section id="changelog" className="py-[88px]">
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10">
+            <div className="eyebrow">{locale === "tr" ? "Değişiklik günlüğü" : "Changelog"}</div>
+            <h2
+              className="font-display m-0 mt-3 mb-10"
+              style={{
+                fontSize: "clamp(40px, 5vw, 64px)",
+                lineHeight: 1.05,
+                letterSpacing: "-0.025em",
+              }}
+            >
+              {locale === "tr"
+                ? "Kutu büyüyor, zarif bir ritimle."
+                : "The toolbox grows, at an elegant pace."}
+            </h2>
+            <div>
+              {changelog.map((e, i) => (
+                <div
+                  key={i}
+                  className="toc-line py-[18px]"
+                  style={{
+                    borderBottom: "1px solid var(--rule)",
+                    fontSize: 18,
+                  }}
+                >
+                  <span
+                    className="font-mono-kutu"
+                    style={{ fontSize: 11, color: "var(--ink-4)", minWidth: 100 }}
+                  >
+                    {e.date}
+                  </span>
+                  <span
+                    className="font-display"
+                    style={{ fontSize: 20, letterSpacing: "-0.01em" }}
+                  >
+                    {e.title}
+                  </span>
+                  <span className="dots" />
+                  <span className="kutu-chip" style={{ cursor: "default" }}>
+                    {e.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ─── Footer ─── */}
+        <footer
+          className="pt-[72px] pb-9"
+          style={{
+            borderTop: "2px solid var(--ink)",
+            background: "var(--paper-2)",
+          }}
+        >
+          <div className="mx-auto max-w-[1360px] px-6 md:px-10">
+            <div className="grid md:grid-cols-2 gap-10 items-end mb-10">
+              <div>
+                <div className="flex items-center gap-3">
+                  <KutuMark size={40} />
+                  <div
+                    className="font-display"
+                    style={{ fontSize: 52, letterSpacing: "-0.03em", lineHeight: 1 }}
+                  >
+                    Kutu
+                  </div>
+                </div>
+                <p
+                  className="font-display-italic mt-3.5 max-w-[420px]"
+                  style={{ fontSize: 20, color: "var(--ink-2)", lineHeight: 1.3, margin: "14px 0 0" }}
+                >
+                  {locale === "tr"
+                    ? "Küçük, itinalı aletlerden oluşan sessiz bir atölye."
+                    : "A quiet workshop of small, crafted instruments."}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-7 md:justify-self-end w-full md:max-w-[420px]">
+                <div>
+                  <div className="eyebrow mb-2.5">{locale === "tr" ? "Keşfet" : "Explore"}</div>
+                  <ul className="list-none p-0 m-0 grid gap-1.5 text-sm">
+                    <li>
+                      <a href="#index" className="kutu-link">
+                        {locale === "tr" ? "Dizin" : "Index"}
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#philosophy" className="kutu-link">
+                        {locale === "tr" ? "Felsefe" : "Philosophy"}
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#changelog" className="kutu-link">
+                        {locale === "tr" ? "Değişiklikler" : "Changelog"}
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+                <div>
+                  <div className="eyebrow mb-2.5">{locale === "tr" ? "İletişim" : "Contact"}</div>
+                  <ul className="list-none p-0 m-0 grid gap-1.5 text-sm">
+                    <li>
+                      <a
+                        href="https://kutuyazilim.org"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="kutu-link"
+                      >
+                        kutuyazilim.org
+                      </a>
+                    </li>
+                    <li>
+                      <a href="mailto:info@kutuyazilim.org" className="kutu-link">
+                        info@kutuyazilim.org
+                      </a>
+                    </li>
+                    <li>
+                      <span style={{ color: "var(--ink-2)" }}>İstanbul, TR</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+            <hr className="kutu-rule" />
+            <div className="flex flex-wrap justify-between items-center gap-3 mt-5">
+              <span className="font-mono-kutu text-[11px]" style={{ color: "var(--ink-4)" }}>
+                © {new Date().getFullYear()} Kutu Yazılım ·{" "}
+                {locale === "tr" ? "Tüm hakları saklıdır." : "All rights reserved."}
+              </span>
+              <span className="font-mono-kutu text-[11px]" style={{ color: "var(--ink-4)" }}>
+                {TOOLS.length} {locale === "tr" ? "araç" : "tools"} · {CATEGORIES.length}{" "}
+                {locale === "tr" ? "kategori" : "categories"} · Vol. I №04
+              </span>
+            </div>
+          </div>
+        </footer>
+      </main>
+
+      <style jsx>{`
+        .kutu-link {
+          color: var(--ink);
+          text-decoration: none;
+          border-bottom: 1px solid var(--rule);
+          padding-bottom: 1px;
+          transition: border-color 0.15s ease;
+        }
+        .kutu-link:hover {
+          border-color: var(--ion);
+        }
+      `}</style>
+    </div>
+  )
+}
+
+type ToolRowProps = {
+  tools: typeof TOOLS
+  locale: "en" | "tr"
+  isFavorite: (id: string) => boolean
+  toggleFavorite: (id: string) => void
+}
+
+function CategorySection({
+  roman,
+  title,
+  blurb,
+  tools,
+  count,
+  locale,
+  isFavorite,
+  toggleFavorite,
+}: ToolRowProps & {
+  roman: string
+  title: string
+  blurb: string
+  count: number
+}) {
+  return (
+    <section
+      className="py-16"
+      style={{ borderBottom: "1px solid var(--rule)" }}
+    >
+      <div className="mx-auto max-w-[1360px] px-6 md:px-10">
+        <div className="flex flex-wrap items-end justify-between gap-6 mb-8">
+          <div className="flex items-start gap-5">
+            <div
+              className="num-roman"
+              style={{
+                fontSize: 64,
+                lineHeight: 0.8,
+                color: "var(--ion)",
+              }}
+            >
+              {roman}.
+            </div>
+            <div>
+              <div className="eyebrow mb-2">
+                {locale === "tr" ? "Bölüm" : "Section"} · {count}{" "}
+                {locale === "tr" ? "araç" : "tools"}
+              </div>
+              <h3
+                className="font-display m-0"
+                style={{
+                  fontSize: "clamp(32px, 3.5vw, 48px)",
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.05,
+                }}
+              >
+                {title}
+              </h3>
+              <p
+                className="font-display-italic mt-2 max-w-[560px]"
+                style={{ fontSize: 18, color: "var(--ink-2)", lineHeight: 1.4 }}
+              >
+                {blurb}
+              </p>
+            </div>
+          </div>
         </div>
+
+        <ToolGrid
+          tools={tools}
+          locale={locale}
+          isFavorite={isFavorite}
+          toggleFavorite={toggleFavorite}
+        />
       </div>
+    </section>
+  )
+}
+
+function FilteredGrid({
+  tools,
+  locale,
+  isFavorite,
+  toggleFavorite,
+}: ToolRowProps) {
+  return (
+    <section className="py-12">
+      <div className="mx-auto max-w-[1360px] px-6 md:px-10">
+        <div className="eyebrow mb-3">
+          {locale === "tr" ? "Sonuçlar" : "Results"} · {tools.length}
+        </div>
+        {tools.length === 0 ? (
+          <div className="py-20 text-center">
+            <p
+              className="font-display-italic"
+              style={{ fontSize: 28, color: "var(--ink-3)" }}
+            >
+              {locale === "tr"
+                ? "Hiç araç bulunamadı."
+                : "No tools found."}
+            </p>
+          </div>
+        ) : (
+          <ToolGrid
+            tools={tools}
+            locale={locale}
+            isFavorite={isFavorite}
+            toggleFavorite={toggleFavorite}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ToolGrid({ tools, locale, isFavorite, toggleFavorite }: ToolRowProps) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      {tools.map((tool, i) => (
+        <div key={tool.id} className="relative group/card">
+          <Link href={tool.path} className="kutu-tile">
+            <div
+              className="font-mono-kutu"
+              style={{
+                fontSize: 10.5,
+                color: "var(--ink-4)",
+                letterSpacing: "0.08em",
+              }}
+            >
+              № {String(i + 1).padStart(2, "0")}
+            </div>
+            <div
+              className="font-display mt-1"
+              style={{
+                fontSize: 19,
+                letterSpacing: "-0.01em",
+                lineHeight: 1.15,
+              }}
+            >
+              {getToolLabel(tool, locale)}
+            </div>
+            <p
+              className="mt-auto pt-2.5"
+              style={{ fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.45 }}
+            >
+              {getToolDescription(tool, locale)}
+            </p>
+
+            <ArrowUpRightIcon
+              className="absolute top-4 right-4 size-4 transition-all"
+              style={{ color: "var(--ink-4)" }}
+            />
+          </Link>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              toggleFavorite(tool.id)
+            }}
+            className={cn(
+              "absolute bottom-3 right-3 p-1 rounded transition-opacity z-10",
+              isFavorite(tool.id)
+                ? "opacity-100"
+                : "opacity-0 group-hover/card:opacity-100"
+            )}
+          >
+            <StarIcon
+              className={cn(
+                "size-4",
+                isFavorite(tool.id)
+                  ? "fill-[var(--ion)] text-[var(--ion)]"
+                  : "text-[var(--ink-4)] hover:text-[var(--ion)]"
+              )}
+            />
+          </button>
+        </div>
+      ))}
+      <style jsx>{`
+        .group\\/card:hover .absolute.top-4.right-4 {
+          color: var(--ion);
+          transform: translate(3px, -3px);
+        }
+      `}</style>
     </div>
   )
 }
