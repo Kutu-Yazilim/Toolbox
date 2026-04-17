@@ -167,57 +167,57 @@ const CHANGELOG = {
 }
 
 function KutuMark({ size = 22 }: { size?: number }) {
-  const s = size
   return (
-    <svg
-      width={s}
-      height={s}
-      viewBox="0 0 32 32"
-      fill="none"
-      aria-hidden
-    >
-      {/* outer box */}
-      <rect x="3" y="7" width="26" height="22" rx="2" stroke="currentColor" strokeWidth="1.8" />
-      {/* open lid */}
-      <path d="M3 9 L16 2 L29 9" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
-      {/* inner tick — accent */}
-      <path
-        d="M11 18 L15 22 L22 14"
-        stroke="var(--ion)"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
+    <img
+      src="/LogoOnlyCircularSVG.svg"
+      alt="Kutu Yazılım"
+      width={size}
+      height={size}
+      className="rounded-full"
+      style={{ width: size, height: size }}
+    />
   )
 }
 
 function CrateAnim() {
   const [opened, setOpened] = useState(false)
   useEffect(() => {
-    const id = window.setTimeout(() => setOpened(true), 280)
+    const id = window.setTimeout(() => setOpened(true), 380)
     return () => window.clearTimeout(id)
   }, [])
 
+  // Isometric box geometry (viewBox 0 0 400 400)
+  //   Front face : (80,200) · (300,200) · (300,360) · (80,360)
+  //   Depth offset: dx = +36, dy = -32 (up-right)
+  //   Back top-left  BTL = (116, 168)   Back top-right  BTR = (336, 168)
+  //   Back bottom-right BBR = (336, 328)
+  const FBL = [80, 360]
+  const FBR = [300, 360]
+  const FTL = [80, 200]
+  const FTR = [300, 200]
+  const BBR = [336, 328]
+  const BTL = [116, 168]
+  const BTR = [336, 168]
+
   const words = [
-    { label: "JSON", x: 20, y: 40, s: 22, accent: true, bold: true },
-    { label: "UUID", x: 50, y: 20, s: 18 },
-    { label: "QR", x: 70, y: 35, s: 28, bold: true },
-    { label: "chmod 755", x: 72, y: 55, s: 13 },
-    { label: "regex /.+/", x: 8, y: 62, s: 14 },
-    { label: "#B5502E", x: 38, y: 10, s: 14, accent: true },
-    { label: "SHA-256", x: 58, y: 65, s: 12 },
-    { label: "d20", x: 25, y: 22, s: 20 },
-    { label: "SQL·fmt", x: 5, y: 30, s: 13 },
-    { label: "PDF", x: 82, y: 18, s: 22, bold: true },
+    { label: "JSON", x: 8, y: 6, s: 26, accent: true, bold: true },
+    { label: "UUID", x: 44, y: 2, s: 22 },
+    { label: "QR", x: 72, y: 7, s: 32, bold: true },
+    { label: "chmod 755", x: 64, y: 24, s: 14 },
+    { label: "regex /.+/", x: 2, y: 32, s: 14 },
+    { label: "#B5502E", x: 30, y: 16, s: 15, accent: true },
+    { label: "SHA-256", x: 50, y: 36, s: 13 },
+    { label: "d20", x: 18, y: 20, s: 22 },
+    { label: "SQL·fmt", x: 78, y: 30, s: 13 },
+    { label: "PDF", x: 86, y: 14, s: 22, bold: true },
   ]
 
   return (
     <div
-      className="relative w-full max-w-[520px] ml-auto select-none"
-      style={{ aspectRatio: "1 / 1" }}
+      className="relative w-full max-w-[560px] ml-auto select-none"
+      style={{ aspectRatio: "1 / 1", perspective: "1200px" }}
     >
-      {/* Rising tool words */}
+      {/* Rising tool words — positioned above the box */}
       <div className="absolute inset-0 pointer-events-none">
         {words.map((w, i) => (
           <div
@@ -230,8 +230,9 @@ function CrateAnim() {
               color: w.accent ? "var(--ion)" : "var(--ink-2)",
               opacity: opened ? 1 : 0,
               transform: opened ? "translateY(0)" : "translateY(40px)",
-              transition: `opacity .8s ease ${0.2 + i * 0.08}s, transform 1s cubic-bezier(.2,.8,.2,1) ${0.2 + i * 0.08}s`,
+              transition: `opacity .8s ease ${0.25 + i * 0.08}s, transform 1s cubic-bezier(.2,.8,.2,1) ${0.25 + i * 0.08}s`,
               fontWeight: w.bold ? 600 : 400,
+              letterSpacing: w.accent ? "0.02em" : "0",
             }}
           >
             {w.label}
@@ -240,88 +241,192 @@ function CrateAnim() {
       </div>
 
       {/* Crate SVG */}
-      <svg viewBox="0 0 400 400" className="absolute bottom-0 left-0 w-full">
-        <path
-          d="M80 230 L200 190 L320 230 L320 360 L80 360 Z"
-          fill="var(--paper-3)"
-          stroke="var(--ink)"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M80 250 L320 250 L320 370 L80 370 Z"
-          fill="var(--paper-2)"
-          stroke="var(--ink)"
-          strokeWidth="1.8"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M80 250 L80 370 L60 360 L60 240 Z"
-          fill="var(--paper-3)"
-          stroke="var(--ink)"
-          strokeWidth="1.6"
-          strokeLinejoin="round"
-        />
-        <line x1="90" y1="290" x2="310" y2="290" stroke="var(--ink)" strokeWidth="0.6" opacity="0.4" />
-        <line x1="90" y1="320" x2="310" y2="320" stroke="var(--ink)" strokeWidth="0.6" opacity="0.4" />
+      <svg
+        viewBox="0 0 400 400"
+        className="absolute bottom-0 left-0 w-full h-full"
+        style={{ overflow: "visible" }}
+      >
+        <defs>
+          <linearGradient id="frontShade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--paper)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--paper-2)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="sideShade" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="var(--paper-2)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--paper-3)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="insideShade" x1="0.5" y1="0" x2="0.5" y2="1">
+            <stop offset="0" stopColor="var(--paper-3)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--paper-2)" stopOpacity="1" />
+          </linearGradient>
+          <linearGradient id="lidShade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="var(--paper)" stopOpacity="1" />
+            <stop offset="1" stopColor="var(--paper-2)" stopOpacity="1" />
+          </linearGradient>
+          <filter id="boxShadow" x="-10%" y="-10%" width="120%" height="120%">
+            <feDropShadow dx="0" dy="14" stdDeviation="10" floodColor="var(--ink)" floodOpacity="0.22" />
+          </filter>
+        </defs>
 
-        <g transform="translate(105 300)">
-          <rect x="0" y="0" width="110" height="54" fill="none" stroke="var(--ion)" strokeWidth="1.5" />
-          <text
-            x="55"
-            y="22"
-            textAnchor="middle"
-            fontFamily="var(--font-display), Georgia, serif"
-            fontStyle="italic"
-            fontSize="16"
-            fill="var(--ion)"
-          >
-            Kutu
-          </text>
-          <text
-            x="55"
-            y="40"
-            textAnchor="middle"
-            fontFamily="var(--font-mono), monospace"
-            fontSize="8"
-            letterSpacing="2"
-            fill="var(--ion)"
-          >
-            TOOLBOX · 84
-          </text>
-        </g>
+        {/* Soft ground shadow */}
+        <ellipse
+          cx="200"
+          cy="372"
+          rx="140"
+          ry="10"
+          fill="var(--ink)"
+          opacity="0.18"
+        />
 
-        <circle cx="275" cy="325" r="14" fill="var(--ion)" opacity="0.9" />
-        <text
-          x="275"
-          y="330"
-          textAnchor="middle"
-          fontFamily="var(--font-display), Georgia, serif"
-          fontStyle="italic"
-          fontSize="14"
-          fill="var(--paper)"
-        >
-          K
-        </text>
+        <g filter="url(#boxShadow)">
+          {/* Inside back wall + floor — a single shaded parallelogram seen through the opening */}
+          <polygon
+            points={`${FTL[0]},${FTL[1]} ${FTR[0]},${FTR[1]} ${BTR[0]},${BTR[1]} ${BTL[0]},${BTL[1]}`}
+            fill="url(#insideShade)"
+            stroke="var(--ink)"
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
 
-        {/* Lid — rotates open */}
-        <g
-          style={{
-            transformOrigin: "200px 230px",
-            transform: opened
-              ? "perspective(800px) rotateX(105deg)"
-              : "rotateX(0deg)",
-            transition: "transform 1.4s cubic-bezier(.2,.9,.2,1)",
-          }}
-        >
-          <path
-            d="M80 230 L200 190 L320 230 L200 250 Z"
-            fill="var(--paper)"
+          {/* Inner shadow gradient along the back edge to suggest depth */}
+          <polygon
+            points={`${BTL[0] + 6},${BTL[1] + 4} ${BTR[0] - 6},${BTR[1] + 4} ${FTR[0] - 12},${FTR[1] - 10} ${FTL[0] + 12},${FTL[1] - 10}`}
+            fill="var(--ink)"
+            opacity="0.18"
+          />
+
+          {/* Right side face (in shadow) */}
+          <polygon
+            points={`${FTR[0]},${FTR[1]} ${BTR[0]},${BTR[1]} ${BBR[0]},${BBR[1]} ${FBR[0]},${FBR[1]}`}
+            fill="url(#sideShade)"
             stroke="var(--ink)"
             strokeWidth="1.8"
             strokeLinejoin="round"
           />
-          <line x1="140" y1="220" x2="260" y2="220" stroke="var(--ink)" strokeWidth="0.6" opacity="0.3" />
+
+          {/* Front face (main plank) */}
+          <polygon
+            points={`${FBL[0]},${FBL[1]} ${FBR[0]},${FBR[1]} ${FTR[0]},${FTR[1]} ${FTL[0]},${FTL[1]}`}
+            fill="url(#frontShade)"
+            stroke="var(--ink)"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+
+          {/* Horizontal plank seams on the front */}
+          <line x1={FBL[0] + 10} y1={FBL[1] - 48} x2={FBR[0] - 10} y2={FBR[1] - 48} stroke="var(--ink)" strokeWidth="0.6" opacity="0.25" />
+          <line x1={FBL[0] + 10} y1={FBL[1] - 100} x2={FBR[0] - 10} y2={FBR[1] - 100} stroke="var(--ink)" strokeWidth="0.6" opacity="0.25" />
+
+          {/* Plank seam on the side */}
+          <line
+            x1={FBR[0] + 14}
+            y1={FBR[1] - 54}
+            x2={BBR[0] - 2}
+            y2={BBR[1] - 54 + 2}
+            stroke="var(--ink)"
+            strokeWidth="0.5"
+            opacity="0.22"
+          />
+
+          {/* Iron corner brackets at the front corners */}
+          <path
+            d={`M${FBL[0] - 1},${FBL[1] - 18} L${FBL[0] - 1},${FBL[1] + 1} L${FBL[0] + 16},${FBL[1] + 1}`}
+            stroke="var(--ink-2)"
+            strokeWidth="1.6"
+            fill="none"
+          />
+          <path
+            d={`M${FBR[0] + 1},${FBR[1] - 18} L${FBR[0] + 1},${FBR[1] + 1} L${FBR[0] - 16},${FBR[1] + 1}`}
+            stroke="var(--ink-2)"
+            strokeWidth="1.6"
+            fill="none"
+          />
+
+          {/* Stamp on front face */}
+          <g transform={`translate(${FTL[0] + 28}, ${FTL[1] + 36})`}>
+            <rect
+              width="124"
+              height="58"
+              fill="none"
+              stroke="var(--ion)"
+              strokeWidth="1.6"
+            />
+            <text
+              x="62"
+              y="26"
+              textAnchor="middle"
+              fontFamily="var(--font-display), Georgia, serif"
+              fontStyle="italic"
+              fontSize="20"
+              fill="var(--ion)"
+            >
+              Kutu
+            </text>
+            <text
+              x="62"
+              y="46"
+              textAnchor="middle"
+              fontFamily="var(--font-mono), monospace"
+              fontSize="9"
+              letterSpacing="3"
+              fill="var(--ion)"
+            >
+              TOOLBOX · 84
+            </text>
+          </g>
+
+          {/* Wax seal */}
+          <circle cx={FBR[0] - 36} cy={FBR[1] - 32} r="16" fill="var(--ion)" />
+          <circle
+            cx={FBR[0] - 36}
+            cy={FBR[1] - 32}
+            r="12.5"
+            fill="none"
+            stroke="var(--ink)"
+            strokeWidth="0.8"
+            opacity="0.55"
+          />
+          <text
+            x={FBR[0] - 36}
+            y={FBR[1] - 26}
+            textAnchor="middle"
+            fontFamily="var(--font-display), Georgia, serif"
+            fontStyle="italic"
+            fontSize="17"
+            fill="var(--ink)"
+          >
+            K
+          </text>
+
+          {/* LID — parallelogram that hinges from the back edge */}
+          <g
+            style={{
+              transformOrigin: `${(BTL[0] + BTR[0]) / 2}px ${BTL[1]}px`,
+              transform: opened
+                ? "perspective(1000px) rotateX(112deg)"
+                : "rotateX(0deg)",
+              transition: "transform 1.6s cubic-bezier(.2,.9,.2,1)",
+            }}
+          >
+            <polygon
+              points={`${FTL[0]},${FTL[1]} ${FTR[0]},${FTR[1]} ${BTR[0]},${BTR[1]} ${BTL[0]},${BTL[1]}`}
+              fill="url(#lidShade)"
+              stroke="var(--ink)"
+              strokeWidth="1.8"
+              strokeLinejoin="round"
+            />
+            {/* Lid underside bevel */}
+            <polygon
+              points={`${FTL[0] + 10},${FTL[1] - 4} ${FTR[0] - 10},${FTR[1] - 4} ${BTR[0] - 10},${BTR[1] + 6} ${BTL[0] + 10},${BTL[1] + 6}`}
+              fill="none"
+              stroke="var(--ink)"
+              strokeWidth="0.6"
+              opacity="0.3"
+            />
+            {/* Hinge dots at the back edge */}
+            <circle cx={BTL[0] + 30} cy={BTL[1] + 1} r="2.2" fill="var(--ink-2)" />
+            <circle cx={BTR[0] - 30} cy={BTR[1] + 1} r="2.2" fill="var(--ink-2)" />
+          </g>
         </g>
       </svg>
     </div>
