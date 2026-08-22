@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"main": ".open-next/worker.js",
+	// Must match the Worker name in the Cloudflare dashboard, and the
+	// WORKER_SELF_REFERENCE service below. A mismatch fails the deploy
+	// with "references Worker '<name>' which was not found" [code: 10143].
+	"name": "toolbox",
+	"compatibility_date": "2026-08-20",
+	"compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+	"assets": {
+		"directory": ".open-next/assets",
+		"binding": "ASSETS"
+	},
+	"services": [
+		{
+			// Self-reference service binding: service name must match "name" above.
+			// see https://opennext.js.org/cloudflare/caching
+			"binding": "WORKER_SELF_REFERENCE",
+			"service": "toolbox"
+		}
+	],
+	"observability": {
+		"enabled": true
+	}
+}
