@@ -596,10 +596,7 @@ export function WelcomePage() {
 
           <div className="mx-auto max-w-[1360px] px-6 md:px-10 pt-12 pb-9">
             <div
-              className="grid gap-12 items-center"
-              style={{
-                gridTemplateColumns: "minmax(0, 1.2fr) minmax(380px, 1fr)",
-              }}
+              className="grid gap-12 items-center grid-cols-1 md:grid-cols-[minmax(0,_1.2fr)_minmax(380px,_1fr)]"
             >
               <div className="min-w-0">
                 <h1
@@ -819,8 +816,7 @@ export function WelcomePage() {
         >
           <div className="mx-auto max-w-[1360px] px-6 md:px-10">
             <div
-              className="grid gap-12"
-              style={{ gridTemplateColumns: "minmax(220px, 320px) 1fr" }}
+              className="grid gap-12 grid-cols-1 md:grid-cols-[minmax(220px,_320px)_1fr]"
             >
               <div>
                 <div className="eyebrow">{phil.eyebrow}</div>
@@ -840,9 +836,8 @@ export function WelcomePage() {
                 {phil.principles.map((p, i) => (
                   <div
                     key={i}
-                    className="grid gap-4 py-6"
+                    className="grid gap-4 py-6 grid-cols-[40px_1fr] md:grid-cols-[80px_1fr]"
                     style={{
-                      gridTemplateColumns: "80px 1fr",
                       borderBottom:
                         i < phil.principles.length - 1 ? "1px solid var(--rule)" : "none",
                     }}
