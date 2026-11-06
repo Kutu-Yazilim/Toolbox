@@ -265,4 +265,4 @@ The exceptions are the tools that fundamentally require a network round trip. Th
 
 ## License
 
-© Kutu Yazılım. See [kutuyazilim.org](https://kutuyazilim.org).
+Open source under the [MIT License](LICENSE). © 2026 Kutu Yazılım, see [kutuyazilim.org](https://kutuyazilim.org).
